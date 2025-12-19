@@ -1,0 +1,212 @@
+.app {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 240px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-header h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sidebar-header p {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.palette {
+  padding: 16px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.palette h2 {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  cursor: grab;
+  transition: all 0.15s ease;
+}
+
+.palette-item:hover {
+  border-color: var(--accent);
+  transform: translateX(2px);
+}
+
+.palette-item:active {
+  cursor: grabbing;
+}
+
+.palette-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.palette-icon.agent { background: var(--node-agent); }
+.palette-icon.shell { background: var(--node-shell); }
+.palette-icon.trigger { background: var(--node-trigger); }
+.palette-icon.workdir { background: var(--node-workdir); }
+
+.palette-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* Canvas area */
+.canvas-container {
+  flex: 1;
+  position: relative;
+}
+
+/* React Flow overrides */
+.react-flow__background {
+  background-color: var(--bg-primary) !important;
+}
+
+.react-flow__controls {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.react-flow__controls-button {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  fill: var(--text-primary);
+}
+
+.react-flow__controls-button:hover {
+  background: var(--bg-tertiary);
+}
+
+/* Config Panel */
+.config-panel {
+  width: 300px;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.config-panel-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.config-panel-header h2 {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.config-panel-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 4px;
+}
+
+.config-panel-close:hover {
+  color: var(--text-primary);
+}
+
+.config-panel-content {
+  padding: 16px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.config-field {
+  margin-bottom: 16px;
+}
+
+.config-field label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.config-field input,
+.config-field select,
+.config-field textarea {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.config-field input:focus,
+.config-field select:focus,
+.config-field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.config-field textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.config-field textarea.code-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 0.8rem;
+  min-height: 100px;
+}
+
+.no-selection {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 20px;
+}

@@ -1,0 +1,95 @@
+.custom-node {
+  min-width: 150px;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.15s ease;
+}
+
+.custom-node.selected {
+  box-shadow: 0 0 0 2px var(--accent), 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.custom-node.agent { border-color: var(--node-agent); }
+.custom-node.shell { border-color: var(--node-shell); }
+.custom-node.trigger { border-color: var(--node-trigger); }
+.custom-node.workdir { border-color: var(--node-workdir); }
+
+.custom-node.agent .node-header { background: var(--node-agent); }
+.custom-node.shell .node-header { background: var(--node-shell); }
+.custom-node.trigger .node-header { background: var(--node-trigger); }
+.custom-node.workdir .node-header { background: var(--node-workdir); }
+
+.node-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px 6px 0 0;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.node-icon {
+  font-size: 12px;
+}
+
+.node-body {
+  padding: 10px 12px;
+}
+
+.node-label {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.node-details {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  font-family: ui-monospace, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.node-schema {
+  font-size: 0.65rem;
+  color: var(--node-agent);
+  margin-top: 4px;
+  font-family: ui-monospace, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+  opacity: 0.8;
+}
+
+.schema-icon {
+  opacity: 0.7;
+}
+
+.handle {
+  width: 12px !important;
+  height: 12px !important;
+  background: var(--bg-tertiary) !important;
+  border: 2px solid var(--text-secondary) !important;
+  transition: all 0.15s ease;
+}
+
+.handle:hover {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  transform: scale(1.2);
+}
+
+.custom-node.agent .handle { border-color: var(--node-agent) !important; }
+.custom-node.shell .handle { border-color: var(--node-shell) !important; }
+.custom-node.trigger .handle { border-color: var(--node-trigger) !important; }
+.custom-node.workdir .handle { border-color: var(--node-workdir) !important; }
