@@ -15,20 +15,28 @@
 }
 
 .sidebar-header {
-  padding: 16px;
+  padding: 20px 16px;
   border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
 }
 
 .sidebar-header h1 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(90deg, #05d9e8, #ff2a6d, #d300c5);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .sidebar-header p {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-secondary);
   margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
 .sidebar-section {
@@ -152,10 +160,22 @@
   flex-shrink: 0;
 }
 
-.palette-icon.agent { background: var(--node-agent); }
-.palette-icon.shell { background: var(--node-shell); }
-.palette-icon.trigger { background: var(--node-trigger); }
-.palette-icon.workdir { background: var(--node-workdir); }
+.palette-icon.agent {
+  background: var(--node-agent);
+  box-shadow: 0 0 8px var(--node-agent);
+}
+.palette-icon.shell {
+  background: var(--node-shell);
+  box-shadow: 0 0 8px var(--node-shell);
+}
+.palette-icon.trigger {
+  background: var(--node-trigger);
+  box-shadow: 0 0 8px var(--node-trigger);
+}
+.palette-icon.workdir {
+  background: var(--node-workdir);
+  box-shadow: 0 0 8px var(--node-workdir);
+}
 
 .palette-label {
   font-size: 0.85rem;
@@ -317,6 +337,7 @@
   background: var(--accent);
   border-color: var(--accent);
   color: white;
+  box-shadow: 0 0 12px var(--accent);
 }
 
 .action-buttons {
@@ -494,14 +515,14 @@
 
 .file-picker {
   background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  border: 1px solid var(--node-agent);
   border-radius: 8px;
   width: 500px;
   max-width: 90vw;
   max-height: 70vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(5, 217, 232, 0.3);
 }
 
 .file-picker-header {
@@ -676,4 +697,47 @@
 .file-picker-entry.file .file-name {
   font-family: ui-monospace, monospace;
   font-size: 0.8rem;
+}
+
+/* React Flow Edge Styling */
+.react-flow__edge-path {
+  stroke: var(--text-secondary) !important;
+  stroke-width: 2px !important;
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--accent) !important;
+  filter: drop-shadow(0 0 6px var(--accent));
+}
+
+.react-flow__connection-path {
+  stroke: var(--accent) !important;
+  stroke-width: 2px !important;
+  filter: drop-shadow(0 0 8px var(--accent));
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--bg-primary);
 }

@@ -198,7 +198,7 @@ function Flow() {
           deleteKeyCode={['Backspace', 'Delete']}
           proOptions={{ hideAttribution: true }}
         >
-          <Background color="#2a2a4a" gap={20} />
+          <Background color="#2d1b4e" gap={24} />
           <Controls />
         </ReactFlow>
       </div>

@@ -9,18 +9,27 @@
   font-size: 14px;
   line-height: 1.5;
 
-  --bg-primary: #1a1a2e;
-  --bg-secondary: #16213e;
-  --bg-tertiary: #0f3460;
-  --text-primary: #eaeaea;
-  --text-secondary: #a0a0a0;
-  --accent: #e94560;
-  --accent-hover: #ff6b6b;
-  --border: #2a2a4a;
-  --node-agent: #6366f1;
-  --node-shell: #10b981;
-  --node-trigger: #f59e0b;
-  --node-workdir: #8b5cf6;
+  /* Synthwave color palette */
+  --bg-primary: #0d0221;
+  --bg-secondary: #150734;
+  --bg-tertiary: #1a0a3e;
+  --text-primary: #f0e6ff;
+  --text-secondary: #8b7aa8;
+  --accent: #ff2a6d;
+  --accent-hover: #ff6b9d;
+  --border: #2d1b4e;
+
+  /* Neon node colors */
+  --node-agent: #05d9e8;
+  --node-shell: #01ffc3;
+  --node-trigger: #ff2a6d;
+  --node-workdir: #d300c5;
+
+  /* Glow effects */
+  --glow-cyan: 0 0 10px #05d9e8, 0 0 20px #05d9e844;
+  --glow-pink: 0 0 10px #ff2a6d, 0 0 20px #ff2a6d44;
+  --glow-green: 0 0 10px #01ffc3, 0 0 20px #01ffc344;
+  --glow-purple: 0 0 10px #d300c5, 0 0 20px #d300c544;
 }
 
 html, body, #root {
