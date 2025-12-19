@@ -7,12 +7,21 @@ export type NodeType = 'agent' | 'shell' | 'trigger' | 'workdir';
 export interface BaseNodeData extends Record<string, unknown> {
   label: string;
   nodeType: NodeType;
+  // Agent fields
   runner?: string;
   model?: string;
-  command?: string;
-  triggerType?: string;
-  path?: string;
+  prompt?: string;
+  promptFiles?: string[];
   outputSchema?: string;
+  // Shell fields
+  commands?: string[];
+  scriptFiles?: string[];
+  outputVar?: string;
+  // Trigger fields
+  triggerType?: string;
+  cron?: string;
+  // Working directory fields
+  path?: string;
 }
 
 const nodeIcons: Record<NodeType, string> = {
@@ -59,8 +68,14 @@ export function BaseNode({ data, selected }: NodeProps) {
           return runnerLabels[nodeData.runner] || nodeData.runner;
         }
         return null;
-      case 'shell':
-        return nodeData.command || null;
+      case 'shell': {
+        const cmdCount = nodeData.commands?.length || 0;
+        const fileCount = nodeData.scriptFiles?.length || 0;
+        const parts = [];
+        if (cmdCount > 0) parts.push(`${cmdCount} cmd${cmdCount > 1 ? 's' : ''}`);
+        if (fileCount > 0) parts.push(`${fileCount} file${fileCount > 1 ? 's' : ''}`);
+        return parts.length > 0 ? parts.join(', ') : null;
+      }
       case 'trigger':
         return nodeData.triggerType ? triggerLabels[nodeData.triggerType] || nodeData.triggerType : null;
       case 'workdir':
@@ -69,6 +84,16 @@ export function BaseNode({ data, selected }: NodeProps) {
         return null;
     }
   };
+
+  const getFilesPreview = () => {
+    if (nodeType === 'agent' && nodeData.promptFiles?.length) {
+      const count = nodeData.promptFiles.length;
+      return `${count} file${count > 1 ? 's' : ''}`;
+    }
+    return null;
+  };
+
+  const filesPreview = getFilesPreview();
 
   const getOutputSchemaPreview = () => {
     if (nodeType !== 'agent' || !nodeData.outputSchema) return null;
@@ -101,6 +126,11 @@ export function BaseNode({ data, selected }: NodeProps) {
       <div className="node-body">
         <div className="node-label">{nodeData.label || 'Untitled'}</div>
         {details && <div className="node-details">{details}</div>}
+        {filesPreview && (
+          <div className="node-files">
+            <span className="files-icon">📄</span> {filesPreview}
+          </div>
+        )}
         {schemaPreview && (
           <div className="node-schema">
             <span className="schema-icon">{ }</span> {schemaPreview}

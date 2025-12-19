@@ -59,6 +59,20 @@
   max-width: 140px;
 }
 
+.node-files {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.files-icon {
+  font-size: 0.6rem;
+}
+
 .node-schema {
   font-size: 0.65rem;
   color: var(--node-agent);

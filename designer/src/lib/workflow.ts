@@ -8,6 +8,7 @@ export const WORKFLOW_SCHEMA_VERSION = 1;
 export interface WorkflowMetadata {
   name: string;
   description?: string;
+  rootDirectory?: string;
   createdAt: string;
   updatedAt: string;
 }

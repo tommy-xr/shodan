@@ -43,6 +43,7 @@ function Flow() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node<BaseNodeData> | null>(null);
   const [workflowName, setWorkflowName] = useState('Untitled Workflow');
+  const [rootDirectory, setRootDirectory] = useState('');
   const { screenToFlowPosition, fitView } = useReactFlow();
 
   const onConnect = useCallback(
@@ -115,11 +116,12 @@ function Flow() {
   );
 
   const onImport = useCallback(
-    (importedNodes: Node<BaseNodeData>[], importedEdges: Edge[], name: string) => {
+    (importedNodes: Node<BaseNodeData>[], importedEdges: Edge[], name: string, rootDir?: string) => {
       updateNodeIdCounter(importedNodes);
       setNodes(importedNodes);
       setEdges(importedEdges);
       setWorkflowName(name);
+      setRootDirectory(rootDir || '');
       setSelectedNode(null);
       // Fit view after import with a small delay to let React render
       setTimeout(() => fitView({ padding: 0.2 }), 50);
@@ -133,8 +135,10 @@ function Flow() {
         nodes={nodes}
         edges={edges}
         workflowName={workflowName}
+        rootDirectory={rootDirectory}
         onImport={onImport}
         onWorkflowNameChange={setWorkflowName}
+        onRootDirectoryChange={setRootDirectory}
       />
       <div className="canvas-container" ref={reactFlowWrapper}>
         <ReactFlow

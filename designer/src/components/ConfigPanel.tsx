@@ -1,5 +1,6 @@
 import type { Node } from '@xyflow/react';
 import type { BaseNodeData, NodeType } from '../nodes';
+import { ListEditor } from './ListEditor';
 
 interface ConfigPanelProps {
   node: Node<BaseNodeData> | null;
@@ -132,6 +133,17 @@ function AgentConfig({ node, onUpdate }: NodeConfigProps) {
         />
       </div>
       <div className="config-field">
+        <label>Prompt Files (relative to root)</label>
+        <ListEditor
+          items={(node.data.promptFiles as string[]) || []}
+          onChange={(files) => onUpdate(node.id, { promptFiles: files })}
+          placeholder="e.g., prompts/review.md"
+          addButtonText="+ Add"
+          emptyText="No files added"
+          inputType="file"
+        />
+      </div>
+      <div className="config-field">
         <label>Output Schema (JSON)</label>
         <textarea
           value={(node.data.outputSchema as string) || ''}
@@ -148,12 +160,24 @@ function ShellConfig({ node, onUpdate }: NodeConfigProps) {
   return (
     <>
       <div className="config-field">
-        <label>Command</label>
-        <input
-          type="text"
-          value={(node.data.command as string) || ''}
-          onChange={(e) => onUpdate(node.id, { command: e.target.value })}
+        <label>Commands</label>
+        <ListEditor
+          items={(node.data.commands as string[]) || []}
+          onChange={(cmds) => onUpdate(node.id, { commands: cmds })}
           placeholder="e.g., npm run build"
+          addButtonText="+ Add"
+          emptyText="No commands added"
+        />
+      </div>
+      <div className="config-field">
+        <label>Script Files (relative to root)</label>
+        <ListEditor
+          items={(node.data.scriptFiles as string[]) || []}
+          onChange={(files) => onUpdate(node.id, { scriptFiles: files })}
+          placeholder="e.g., scripts/deploy.sh"
+          addButtonText="+ Add"
+          emptyText="No files added"
+          inputType="file"
         />
       </div>
       <div className="config-field">

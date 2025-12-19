@@ -27,16 +27,20 @@ interface SidebarProps {
   nodes: Node<BaseNodeData>[];
   edges: Edge[];
   workflowName: string;
-  onImport: (nodes: Node<BaseNodeData>[], edges: Edge[], name: string) => void;
+  rootDirectory: string;
+  onImport: (nodes: Node<BaseNodeData>[], edges: Edge[], name: string, rootDir?: string) => void;
   onWorkflowNameChange: (name: string) => void;
+  onRootDirectoryChange: (dir: string) => void;
 }
 
 export function Sidebar({
   nodes,
   edges,
   workflowName,
+  rootDirectory,
   onImport,
   onWorkflowNameChange,
+  onRootDirectoryChange,
 }: SidebarProps) {
   const [exportFormat, setExportFormat] = useState<'yaml' | 'json'>('yaml');
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +53,7 @@ export function Sidebar({
   const handleExport = () => {
     setError(null);
     try {
-      const metadata = { name: workflowName };
+      const metadata = { name: workflowName, rootDirectory };
       if (exportFormat === 'json') {
         const content = exportToJSON(nodes, edges, metadata);
         downloadFile(content, `${workflowName || 'workflow'}.json`, 'application/json');
@@ -67,7 +71,7 @@ export function Sidebar({
     try {
       const content = await openFilePicker('.json,.yaml,.yml');
       const { nodes: importedNodes, edges: importedEdges, metadata } = importWorkflow(content);
-      onImport(importedNodes, importedEdges, metadata.name);
+      onImport(importedNodes, importedEdges, metadata.name, metadata.rootDirectory);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Import failed');
     }
@@ -82,12 +86,23 @@ export function Sidebar({
 
       <div className="sidebar-section">
         <h2>Workflow</h2>
-        <div className="workflow-name-field">
+        <div className="workflow-field">
+          <label>Name</label>
           <input
             type="text"
             value={workflowName}
             onChange={(e) => onWorkflowNameChange(e.target.value)}
             placeholder="Workflow name..."
+          />
+        </div>
+        <div className="workflow-field">
+          <label>Root Directory</label>
+          <input
+            type="text"
+            value={rootDirectory}
+            onChange={(e) => onRootDirectoryChange(e.target.value)}
+            placeholder="e.g., /path/to/project"
+            className="monospace"
           />
         </div>
       </div>
