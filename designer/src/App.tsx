@@ -25,12 +25,25 @@ const initialEdges: Edge[] = [];
 let nodeId = 0;
 const getNodeId = () => `node_${nodeId++}`;
 
+// Reset node ID counter based on existing nodes
+const updateNodeIdCounter = (nodes: Node[]) => {
+  const maxId = nodes.reduce((max, node) => {
+    const match = node.id.match(/^node_(\d+)$/);
+    if (match) {
+      return Math.max(max, parseInt(match[1], 10));
+    }
+    return max;
+  }, -1);
+  nodeId = maxId + 1;
+};
+
 function Flow() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node<BaseNodeData> | null>(null);
-  const { screenToFlowPosition } = useReactFlow();
+  const [workflowName, setWorkflowName] = useState('Untitled Workflow');
+  const { screenToFlowPosition, fitView } = useReactFlow();
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -101,9 +114,28 @@ function Flow() {
     [setNodes]
   );
 
+  const onImport = useCallback(
+    (importedNodes: Node<BaseNodeData>[], importedEdges: Edge[], name: string) => {
+      updateNodeIdCounter(importedNodes);
+      setNodes(importedNodes);
+      setEdges(importedEdges);
+      setWorkflowName(name);
+      setSelectedNode(null);
+      // Fit view after import with a small delay to let React render
+      setTimeout(() => fitView({ padding: 0.2 }), 50);
+    },
+    [setNodes, setEdges, fitView]
+  );
+
   return (
     <div className="app">
-      <Sidebar />
+      <Sidebar
+        nodes={nodes}
+        edges={edges}
+        workflowName={workflowName}
+        onImport={onImport}
+        onWorkflowNameChange={setWorkflowName}
+      />
       <div className="canvas-container" ref={reactFlowWrapper}>
         <ReactFlow
           nodes={nodes}

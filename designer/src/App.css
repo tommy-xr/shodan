@@ -31,10 +31,39 @@
   margin-top: 4px;
 }
 
+.sidebar-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-section h2 {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.workflow-name-field input {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.workflow-name-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .palette {
   padding: 16px;
   flex: 1;
   overflow-y: auto;
+  border-bottom: 1px solid var(--border);
 }
 
 .palette h2 {
@@ -209,4 +238,82 @@
   font-size: 0.85rem;
   text-align: center;
   padding: 20px;
+}
+
+/* Import/Export Section */
+.import-export {
+  margin-top: auto;
+}
+
+.format-toggle {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.format-toggle button {
+  flex: 1;
+  padding: 6px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.format-toggle button:hover {
+  border-color: var(--text-secondary);
+}
+
+.format-toggle button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.action-btn.export {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.action-btn.export:hover {
+  border-color: var(--accent);
+}
+
+.action-btn.import {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.action-btn.import:hover {
+  border-color: var(--accent);
+}
+
+.error-message {
+  margin-top: 12px;
+  padding: 8px;
+  background: rgba(233, 69, 96, 0.15);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 0.75rem;
 }

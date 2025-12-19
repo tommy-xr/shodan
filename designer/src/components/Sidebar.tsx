@@ -1,5 +1,14 @@
+import { useState } from 'react';
 import type { DragEvent } from 'react';
-import type { NodeType } from '../nodes';
+import type { Node, Edge } from '@xyflow/react';
+import type { NodeType, BaseNodeData } from '../nodes';
+import {
+  exportToJSON,
+  exportToYAML,
+  importWorkflow,
+  downloadFile,
+  openFilePicker,
+} from '../lib/workflow';
 
 interface PaletteItem {
   type: NodeType;
@@ -14,10 +23,54 @@ const paletteItems: PaletteItem[] = [
   { type: 'workdir', label: 'Working Dir', icon: '📁' },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  nodes: Node<BaseNodeData>[];
+  edges: Edge[];
+  workflowName: string;
+  onImport: (nodes: Node<BaseNodeData>[], edges: Edge[], name: string) => void;
+  onWorkflowNameChange: (name: string) => void;
+}
+
+export function Sidebar({
+  nodes,
+  edges,
+  workflowName,
+  onImport,
+  onWorkflowNameChange,
+}: SidebarProps) {
+  const [exportFormat, setExportFormat] = useState<'yaml' | 'json'>('yaml');
+  const [error, setError] = useState<string | null>(null);
+
   const onDragStart = (event: DragEvent, nodeType: NodeType) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
     event.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleExport = () => {
+    setError(null);
+    try {
+      const metadata = { name: workflowName };
+      if (exportFormat === 'json') {
+        const content = exportToJSON(nodes, edges, metadata);
+        downloadFile(content, `${workflowName || 'workflow'}.json`, 'application/json');
+      } else {
+        const content = exportToYAML(nodes, edges, metadata);
+        downloadFile(content, `${workflowName || 'workflow'}.yaml`, 'text/yaml');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Export failed');
+    }
+  };
+
+  const handleImport = async () => {
+    setError(null);
+    try {
+      const content = await openFilePicker('.json,.yaml,.yml');
+      const { nodes: importedNodes, edges: importedEdges, metadata } = importWorkflow(content);
+      onImport(importedNodes, importedEdges, metadata.name);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Import failed');
+    }
   };
 
   return (
@@ -26,6 +79,19 @@ export function Sidebar() {
         <h1>Shodan</h1>
         <p>Workflow Designer</p>
       </div>
+
+      <div className="sidebar-section">
+        <h2>Workflow</h2>
+        <div className="workflow-name-field">
+          <input
+            type="text"
+            value={workflowName}
+            onChange={(e) => onWorkflowNameChange(e.target.value)}
+            placeholder="Workflow name..."
+          />
+        </div>
+      </div>
+
       <div className="palette">
         <h2>Nodes</h2>
         {paletteItems.map((item) => (
@@ -39,6 +105,36 @@ export function Sidebar() {
             <span className="palette-label">{item.label}</span>
           </div>
         ))}
+      </div>
+
+      <div className="sidebar-section import-export">
+        <h2>Import / Export</h2>
+
+        <div className="format-toggle">
+          <button
+            className={exportFormat === 'yaml' ? 'active' : ''}
+            onClick={() => setExportFormat('yaml')}
+          >
+            YAML
+          </button>
+          <button
+            className={exportFormat === 'json' ? 'active' : ''}
+            onClick={() => setExportFormat('json')}
+          >
+            JSON
+          </button>
+        </div>
+
+        <div className="action-buttons">
+          <button className="action-btn export" onClick={handleExport}>
+            Export
+          </button>
+          <button className="action-btn import" onClick={handleImport}>
+            Import
+          </button>
+        </div>
+
+        {error && <div className="error-message">{error}</div>}
       </div>
     </aside>
   );
