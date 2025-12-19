@@ -150,6 +150,7 @@ function Flow() {
           nodeTypes={nodeTypes}
           fitView
           deleteKeyCode={['Backspace', 'Delete']}
+          proOptions={{ hideAttribution: true }}
         >
           <Background color="#2a2a4a" gap={20} />
           <Controls />
