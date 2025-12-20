@@ -1,0 +1,60 @@
+version: 1
+metadata:
+  name: Agent Demo
+  description: Tests agent runners with a simple greeting prompt
+  rootDirectory: .
+
+nodes:
+  - id: trigger_1
+    type: trigger
+    position: { x: 100, y: 150 }
+    data:
+      label: Start
+      nodeType: trigger
+      triggerType: manual
+
+  - id: claude_agent
+    type: agent
+    position: { x: 350, y: 100 }
+    data:
+      label: Claude Greeting
+      nodeType: agent
+      runner: claude-code
+      model: sonnet
+      prompt: "Say hello in exactly 5 words. Nothing else."
+
+  - id: codex_agent
+    type: agent
+    position: { x: 350, y: 200 }
+    data:
+      label: Codex Greeting
+      nodeType: agent
+      runner: codex
+      model: gpt-5.2-codex
+      prompt: "Say hello in exactly 5 words. Nothing else."
+
+  - id: combine_results
+    type: shell
+    position: { x: 600, y: 150 }
+    data:
+      label: Combine Results
+      nodeType: shell
+      script: |
+        echo "=== Agent Greetings ==="
+        echo ""
+        echo "Claude: {{ claude_greeting.output }}"
+        echo "Codex:  {{ codex_greeting.output }}"
+
+edges:
+  - id: e1
+    source: trigger_1
+    target: claude_agent
+  - id: e2
+    source: trigger_1
+    target: codex_agent
+  - id: e3
+    source: claude_agent
+    target: combine_results
+  - id: e4
+    source: codex_agent
+    target: combine_results

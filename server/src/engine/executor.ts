@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import { executeAgent, type RunnerType } from './agents/index.js';
 
 export type NodeStatus = 'pending' | 'running' | 'completed' | 'failed';
 
@@ -284,6 +285,56 @@ async function executeNode(
       nodeId: node.id,
       status: 'completed',
       output: `Working directory: ${node.data.path || '(not set)'}`,
+      startTime,
+      endTime: new Date().toISOString(),
+    };
+  }
+
+  if (nodeType === 'agent') {
+    const runner = node.data.runner as RunnerType | undefined;
+    const model = node.data.model as string | undefined;
+    const prompt = node.data.prompt as string | undefined;
+    const promptFiles = node.data.promptFiles as string[] | undefined;
+    const outputSchema = node.data.outputSchema as string | undefined;
+
+    if (!runner) {
+      return {
+        nodeId: node.id,
+        status: 'failed',
+        output: '',
+        error: 'Agent node requires a runner to be specified',
+        startTime,
+        endTime: new Date().toISOString(),
+      };
+    }
+
+
+    if (!prompt) {
+      return {
+        nodeId: node.id,
+        status: 'failed',
+        output: '',
+        error: 'Agent node requires a prompt to be specified',
+        startTime,
+        endTime: new Date().toISOString(),
+      };
+    }
+
+    const result = await executeAgent({
+      runner,
+      model,
+      prompt,
+      promptFiles,
+      outputSchema,
+      cwd,
+    });
+
+    return {
+      nodeId: node.id,
+      status: result.success ? 'completed' : 'failed',
+      output: result.output,
+      rawOutput: result.output,
+      error: result.error,
       startTime,
       endTime: new Date().toISOString(),
     };

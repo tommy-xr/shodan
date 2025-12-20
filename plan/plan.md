@@ -1,10 +1,5 @@
-- Add multi-line scripts
-
 - Workflow: JS / Bash nodes (Take .js and .sh respectively)
-- Workflow: Simple execution with just bash nodes -> incrementally wire up other nodes
-
-- Fix agent models
-- Create template syntax {{ }} when an input is available
-- Initial CLI command
+- Fix agent models - we might want to make an API request and query each tool respectively?
+- Add clearly defined input/output for the agent blocks - the inputs can be used as template variabels, and the output can be added to the prompt we send the agent. We can then wire the output directly elsewhere
 - Add a container component (a "microchip") that has input and outputs, but an interior workflow. Double-clicking on the container component allows for editing internals. Can be recursive and copy-pasted or created as a template
-- Validate an end-to-end flow with only scripts (ie, echo)
+- How to use / re-use session id?

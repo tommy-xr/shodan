@@ -79,7 +79,7 @@ interface NodeConfigProps {
   rootDirectory?: string;
 }
 
-type Runner = 'claude-code' | 'codex' | 'gemini-cli' | 'aider';
+type Runner = 'openai' | 'claude-code' | 'codex' | 'gemini-cli';
 
 interface ModelOption {
   value: string;
@@ -87,26 +87,25 @@ interface ModelOption {
 }
 
 const modelsByRunner: Record<Runner, ModelOption[]> = {
+  'openai': [
+    { value: 'gpt-4o', label: 'GPT-4o' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+    { value: 'gpt-4.1', label: 'GPT-4.1' },
+    { value: 'o3', label: 'o3' },
+    { value: 'o4-mini', label: 'o4-mini' },
+  ],
   'claude-code': [
     { value: 'opus', label: 'Claude Opus' },
     { value: 'sonnet', label: 'Claude Sonnet' },
     { value: 'haiku', label: 'Claude Haiku' },
   ],
   'codex': [
-    { value: 'gpt-4.1', label: 'GPT-4.1' },
-    { value: 'o3', label: 'o3' },
-    { value: 'o4-mini', label: 'o4-mini' },
+    { value: 'gpt-5.2-codex', label: 'GPT-5.2 Codex' },
+    { value: 'gpt-5.1-codex-max', label: 'GPT-5.1 Codex Max' },
   ],
   'gemini-cli': [
     { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
     { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-  ],
-  'aider': [
-    { value: 'opus', label: 'Claude Opus' },
-    { value: 'sonnet', label: 'Claude Sonnet' },
-    { value: 'gpt-4.1', label: 'GPT-4.1' },
-    { value: 'o3', label: 'o3' },
-    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
   ],
 };
 
@@ -128,10 +127,10 @@ function AgentConfig({ node, rootDirectory, onUpdate }: NodeConfigProps) {
           onChange={(e) => handleRunnerChange(e.target.value)}
         >
           <option value="">Select runner...</option>
+          <option value="openai">OpenAI API</option>
           <option value="claude-code">Claude Code</option>
           <option value="codex">Codex CLI</option>
           <option value="gemini-cli">Gemini CLI</option>
-          <option value="aider">Aider</option>
         </select>
       </div>
       <div className="config-field">
