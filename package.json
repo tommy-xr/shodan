@@ -7,11 +7,11 @@
     "shodan": "server/dist/cli.js"
   },
   "scripts": {
-    "dev": "concurrently -n server,designer -c blue,magenta \"npm run dev -w server\" \"npm run dev -w designer\"",
-    "build": "npm run build -w server && npm run build -w designer",
-    "start": "npm run start -w server",
-    "shodan": "npm run shodan -w server --",
-    "test:workflows": "npm run test:workflows -w server"
+    "dev": "concurrently -n server,designer -c blue,magenta \"pnpm run -F server dev\" \"pnpm run -F designer dev\"",
+    "build": "pnpm run -F server build && pnpm run -F designer build",
+    "start": "pnpm run -F server start",
+    "shodan": "pnpm run -F server shodan --",
+    "test:workflows": "pnpm run -F server test:workflows"
   },
   "workspaces": [
     "server",

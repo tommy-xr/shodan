@@ -13,25 +13,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          # Disable npm cache due to platform-specific optional deps issue
-          # See: https://github.com/npm/cli/issues/4828
+          cache: 'pnpm'
 
       - name: Install dependencies
-        # Clean install to resolve platform-specific optional deps
-        # See: https://github.com/npm/cli/issues/4828
-        run: |
-          rm -rf node_modules designer/node_modules server/node_modules
-          npm install
+        run: pnpm install
 
       - name: Build
-        run: npm run build
+        run: pnpm run build
 
       - name: Validate workflows
-        run: npm run shodan -- validate workflows/*.yaml
+        run: pnpm run shodan -- validate workflows/*.yaml
 
       - name: Test workflow execution
-        run: npm run test:workflows
+        run: pnpm run test:workflows
