@@ -1,0 +1,40 @@
+version: 1
+metadata:
+  name: Git Branch Info
+  description: Demonstrates template syntax by passing git branch to downstream nodes
+  rootDirectory: .
+
+nodes:
+  - id: trigger_1
+    type: trigger
+    position: { x: 100, y: 100 }
+    data:
+      label: Start
+      nodeType: trigger
+      triggerType: manual
+
+  - id: shell_1
+    type: shell
+    position: { x: 300, y: 100 }
+    data:
+      label: Get Branch
+      nodeType: shell
+      commands:
+        - git branch --show-current
+
+  - id: shell_2
+    type: shell
+    position: { x: 500, y: 100 }
+    data:
+      label: Echo Branch
+      nodeType: shell
+      commands:
+        - "echo \"Currently on branch: {{ get_branch.output }}\""
+
+edges:
+  - id: e1
+    source: trigger_1
+    target: shell_1
+  - id: e2
+    source: shell_1
+    target: shell_2

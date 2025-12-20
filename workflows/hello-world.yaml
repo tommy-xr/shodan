@@ -1,0 +1,27 @@
+version: 1
+metadata:
+  name: Hello World
+  description: A simple test workflow that echoes a greeting
+
+nodes:
+  - id: trigger_1
+    type: trigger
+    position: { x: 100, y: 100 }
+    data:
+      label: Start
+      nodeType: trigger
+      triggerType: manual
+
+  - id: shell_1
+    type: shell
+    position: { x: 300, y: 100 }
+    data:
+      label: Say Hello
+      nodeType: shell
+      commands:
+        - echo "Hello from Shodan!"
+
+edges:
+  - id: e1
+    source: trigger_1
+    target: shell_1

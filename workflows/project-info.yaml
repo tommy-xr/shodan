@@ -1,0 +1,74 @@
+version: 1
+metadata:
+  name: Project Info
+  description: Gathers information about the current project
+  rootDirectory: .
+
+nodes:
+  - id: trigger_1
+    type: trigger
+    position: { x: 100, y: 150 }
+    data:
+      label: Start
+      nodeType: trigger
+      triggerType: manual
+
+  - id: shell_branch
+    type: shell
+    position: { x: 300, y: 50 }
+    data:
+      label: Get Branch
+      nodeType: shell
+      commands:
+        - git branch --show-current
+
+  - id: shell_commit
+    type: shell
+    position: { x: 300, y: 150 }
+    data:
+      label: Get Commit
+      nodeType: shell
+      commands:
+        - git rev-parse --short HEAD
+
+  - id: shell_files
+    type: shell
+    position: { x: 300, y: 250 }
+    data:
+      label: Count Files
+      nodeType: shell
+      commands:
+        - find . -name "*.ts" -o -name "*.tsx" | wc -l | tr -d ' '
+
+  - id: shell_summary
+    type: shell
+    position: { x: 550, y: 150 }
+    data:
+      label: Print Summary
+      nodeType: shell
+      commands:
+        - "echo '=== Project Summary ==='"
+        - "echo 'Branch: {{ get_branch.output }}'"
+        - "echo 'Commit: {{ get_commit.output }}'"
+        - "echo 'TypeScript files: {{ count_files.output }}'"
+        - "echo '======================='"
+
+edges:
+  - id: e1
+    source: trigger_1
+    target: shell_branch
+  - id: e2
+    source: trigger_1
+    target: shell_commit
+  - id: e3
+    source: trigger_1
+    target: shell_files
+  - id: e4
+    source: shell_branch
+    target: shell_summary
+  - id: e5
+    source: shell_commit
+    target: shell_summary
+  - id: e6
+    source: shell_files
+    target: shell_summary
