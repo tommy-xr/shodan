@@ -45,6 +45,29 @@ export function ConfigPanel({ node, rootDirectory, onClose, onUpdate }: ConfigPa
         {nodeType === 'shell' && <ShellConfig node={node} rootDirectory={rootDirectory} onUpdate={onUpdate} />}
         {nodeType === 'trigger' && <TriggerConfig node={node} onUpdate={onUpdate} />}
         {nodeType === 'workdir' && <WorkdirConfig node={node} onUpdate={onUpdate} />}
+
+        {/* Execution Output */}
+        {node.data.executionStatus && node.data.executionStatus !== 'idle' && (
+          <div className="execution-output">
+            <div className={`execution-status-badge ${node.data.executionStatus}`}>
+              {node.data.executionStatus === 'pending' && '⏳ Pending'}
+              {node.data.executionStatus === 'running' && '▶ Running'}
+              {node.data.executionStatus === 'completed' && '✓ Completed'}
+              {node.data.executionStatus === 'failed' && '✗ Failed'}
+            </div>
+            {node.data.executionError && (
+              <div className="execution-error">
+                {node.data.executionError as string}
+              </div>
+            )}
+            {node.data.executionOutput && (
+              <div className="execution-output-content">
+                <label>Output</label>
+                <pre>{node.data.executionOutput as string}</pre>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </aside>
   );

@@ -28,10 +28,13 @@ interface SidebarProps {
   edges: Edge[];
   workflowName: string;
   rootDirectory: string;
+  isExecuting: boolean;
   onImport: (nodes: Node<BaseNodeData>[], edges: Edge[], name: string, rootDir?: string) => void;
   onNewWorkflow: () => void;
   onWorkflowNameChange: (name: string) => void;
   onRootDirectoryChange: (dir: string) => void;
+  onExecute: () => void;
+  onResetExecution: () => void;
 }
 
 export function Sidebar({
@@ -39,10 +42,13 @@ export function Sidebar({
   edges,
   workflowName,
   rootDirectory,
+  isExecuting,
   onImport,
   onNewWorkflow,
   onWorkflowNameChange,
   onRootDirectoryChange,
+  onExecute,
+  onResetExecution,
 }: SidebarProps) {
   const [exportFormat, setExportFormat] = useState<'yaml' | 'json'>('yaml');
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +117,26 @@ export function Sidebar({
             placeholder="e.g., /path/to/project"
             className="monospace"
           />
+        </div>
+      </div>
+
+      <div className="sidebar-section execution">
+        <h2>Execution</h2>
+        <div className="execution-buttons">
+          <button
+            className={`action-btn run ${isExecuting ? 'running' : ''}`}
+            onClick={onExecute}
+            disabled={isExecuting || nodes.length === 0}
+          >
+            {isExecuting ? 'Running...' : 'Run Workflow'}
+          </button>
+          <button
+            className="action-btn reset"
+            onClick={onResetExecution}
+            disabled={isExecuting}
+          >
+            Reset
+          </button>
         </div>
       </div>
 

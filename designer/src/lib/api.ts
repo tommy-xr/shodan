@@ -47,3 +47,53 @@ export async function searchFiles(rootDir: string, pattern: string): Promise<Sea
 
   return response.json();
 }
+
+// Execution types
+export type NodeStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+export interface NodeResult {
+  nodeId: string;
+  status: NodeStatus;
+  output?: string;
+  error?: string;
+  exitCode?: number;
+  startTime?: string;
+  endTime?: string;
+}
+
+export interface ExecuteResponse {
+  success: boolean;
+  results: NodeResult[];
+  executionOrder: string[];
+}
+
+export interface ExecuteRequest {
+  nodes: Array<{
+    id: string;
+    type: string;
+    data: Record<string, unknown>;
+  }>;
+  edges: Array<{
+    id: string;
+    source: string;
+    target: string;
+  }>;
+  rootDirectory?: string;
+}
+
+export async function executeWorkflow(request: ExecuteRequest): Promise<ExecuteResponse> {
+  const response = await fetch(`${API_BASE}/execute`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to execute workflow');
+  }
+
+  return response.json();
+}

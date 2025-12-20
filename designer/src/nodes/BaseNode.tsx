@@ -3,6 +3,7 @@ import type { NodeProps } from '@xyflow/react';
 import './nodes.css';
 
 export type NodeType = 'agent' | 'shell' | 'trigger' | 'workdir';
+export type ExecutionStatus = 'idle' | 'pending' | 'running' | 'completed' | 'failed';
 
 export interface BaseNodeData extends Record<string, unknown> {
   label: string;
@@ -22,6 +23,10 @@ export interface BaseNodeData extends Record<string, unknown> {
   cron?: string;
   // Working directory fields
   path?: string;
+  // Execution state
+  executionStatus?: ExecutionStatus;
+  executionOutput?: string;
+  executionError?: string;
 }
 
 const nodeIcons: Record<NodeType, string> = {
@@ -53,10 +58,19 @@ const triggerLabels: Record<string, string> = {
   'webhook': 'Webhook',
 };
 
+const statusIcons: Record<ExecutionStatus, string> = {
+  idle: '',
+  pending: '⏳',
+  running: '▶',
+  completed: '✓',
+  failed: '✗',
+};
+
 export function BaseNode({ data, selected }: NodeProps) {
   const nodeData = data as BaseNodeData;
   const nodeType = nodeData.nodeType;
   const hasInput = nodeType !== 'trigger';
+  const execStatus = nodeData.executionStatus || 'idle';
 
   const getNodeDetails = () => {
     switch (nodeType) {
@@ -115,13 +129,16 @@ export function BaseNode({ data, selected }: NodeProps) {
   const schemaPreview = getOutputSchemaPreview();
 
   return (
-    <div className={`custom-node ${nodeType} ${selected ? 'selected' : ''}`}>
+    <div className={`custom-node ${nodeType} ${selected ? 'selected' : ''} exec-${execStatus}`}>
       {hasInput && (
         <Handle type="target" position={Position.Left} className="handle" />
       )}
       <div className="node-header">
         <span className="node-icon">{nodeIcons[nodeType]}</span>
         <span className="node-type">{nodeLabels[nodeType]}</span>
+        {execStatus !== 'idle' && (
+          <span className={`exec-status-icon ${execStatus}`}>{statusIcons[execStatus]}</span>
+        )}
       </div>
       <div className="node-body">
         <div className="node-label">{nodeData.label || 'Untitled'}</div>

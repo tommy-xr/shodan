@@ -162,3 +162,65 @@
   background: var(--node-workdir) !important;
   box-shadow: 0 0 10px var(--node-workdir);
 }
+
+/* Execution status styles */
+.exec-status-icon {
+  margin-left: auto;
+  font-size: 0.7rem;
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.exec-status-icon.pending {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.exec-status-icon.running {
+  animation: spin 1s linear infinite;
+}
+
+.exec-status-icon.completed {
+  /* white with shadow for visibility */
+}
+
+.exec-status-icon.failed {
+  /* white with shadow for visibility */
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Node border glow for execution states */
+.custom-node.exec-pending {
+  border-color: #fbbf24 !important;
+  box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);
+}
+
+.custom-node.exec-running {
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 20px rgba(96, 165, 250, 0.5);
+  animation: running-glow 1s ease-in-out infinite alternate;
+}
+
+@keyframes running-glow {
+  from { box-shadow: 0 0 15px rgba(96, 165, 250, 0.4); }
+  to { box-shadow: 0 0 25px rgba(96, 165, 250, 0.7); }
+}
+
+.custom-node.exec-completed {
+  border-color: #34d399 !important;
+  box-shadow: 0 0 15px rgba(52, 211, 153, 0.4);
+}
+
+.custom-node.exec-failed {
+  border-color: #f87171 !important;
+  box-shadow: 0 0 15px rgba(248, 113, 113, 0.4);
+}

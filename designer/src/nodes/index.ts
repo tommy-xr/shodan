@@ -7,4 +7,4 @@ export const nodeTypes = {
   workdir: BaseNode,
 };
 
-export type { BaseNodeData, NodeType } from './BaseNode';
+export type { BaseNodeData, NodeType, ExecutionStatus } from './BaseNode';

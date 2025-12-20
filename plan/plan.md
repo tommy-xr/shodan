@@ -1,11 +1,10 @@
 - Add multi-line scripts
-- Allow referencing a file for both scripts and prompts
-- For prompts - should be able to _add_ files
-- Allow exporting / importing either as JSON or YAML
+
+- Workflow: JS / Bash nodes (Take .js and .sh respectively)
+- Workflow: Simple execution with just bash nodes -> incrementally wire up other nodes
+
 - Fix agent models
 - Create template syntax {{ }} when an input is available
-- Add an entry for global context
-- Add an entry to set working directory
 - Initial CLI command
 - Add a container component (a "microchip") that has input and outputs, but an interior workflow. Double-clicking on the container component allows for editing internals. Can be recursive and copy-pasted or created as a template
 - Validate an end-to-end flow with only scripts (ie, echo)

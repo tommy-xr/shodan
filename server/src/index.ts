@@ -3,6 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createFilesRouter } from './routes/files.js';
+import { createExecuteRouter } from './routes/execute.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -20,6 +21,7 @@ export function createServer(config: ServerConfig) {
 
   // API routes
   app.use('/api/files', createFilesRouter());
+  app.use('/api/execute', createExecuteRouter());
 
   // Health check
   app.get('/api/health', (_req, res) => {

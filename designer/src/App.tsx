@@ -18,6 +18,8 @@ import type { BaseNodeData, NodeType } from './nodes';
 import { Sidebar } from './components/Sidebar';
 import { ConfigPanel } from './components/ConfigPanel';
 import { loadFromLocalStorage, saveToLocalStorage, clearLocalStorage } from './lib/storage';
+import { executeWorkflow } from './lib/api';
+import type { ExecutionStatus } from './nodes';
 import './App.css';
 
 // Load initial state from localStorage
@@ -47,6 +49,7 @@ function Flow() {
   const [selectedNode, setSelectedNode] = useState<Node<BaseNodeData> | null>(null);
   const [workflowName, setWorkflowName] = useState(stored?.workflowName || 'Untitled Workflow');
   const [rootDirectory, setRootDirectory] = useState(stored?.rootDirectory || '');
+  const [isExecuting, setIsExecuting] = useState(false);
   const { screenToFlowPosition, fitView, getViewport, setViewport } = useReactFlow();
 
   // Initialize node ID counter and restore viewport from loaded state
@@ -169,6 +172,113 @@ function Flow() {
     nodeId = 0;
   }, [nodes.length, setNodes, setEdges]);
 
+  const updateNodeStatus = useCallback(
+    (nodeId: string, status: ExecutionStatus, output?: string, error?: string) => {
+      setNodes((nds) =>
+        nds.map((node) =>
+          node.id === nodeId
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  executionStatus: status,
+                  executionOutput: output,
+                  executionError: error,
+                },
+              }
+            : node
+        )
+      );
+    },
+    [setNodes]
+  );
+
+  const onExecute = useCallback(async () => {
+    if (isExecuting || nodes.length === 0) return;
+
+    setIsExecuting(true);
+
+    // Set all nodes to pending
+    setNodes((nds) =>
+      nds.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          executionStatus: 'pending' as ExecutionStatus,
+          executionOutput: undefined,
+          executionError: undefined,
+        },
+      }))
+    );
+
+    try {
+      // Prepare request
+      const request = {
+        nodes: nodes.map((n) => ({
+          id: n.id,
+          type: n.type || 'agent',
+          data: n.data,
+        })),
+        edges: edges.map((e) => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+        })),
+        rootDirectory: rootDirectory || undefined,
+      };
+
+      const response = await executeWorkflow(request);
+
+      // Update node statuses based on results
+      for (const result of response.results) {
+        const status: ExecutionStatus =
+          result.status === 'pending' ? 'pending' :
+          result.status === 'running' ? 'running' :
+          result.status === 'completed' ? 'completed' : 'failed';
+
+        updateNodeStatus(
+          result.nodeId,
+          status,
+          result.output,
+          result.error
+        );
+      }
+    } catch (err) {
+      console.error('Execution failed:', err);
+      // Mark all pending nodes as failed
+      setNodes((nds) =>
+        nds.map((node) => ({
+          ...node,
+          data: {
+            ...node.data,
+            executionStatus:
+              node.data.executionStatus === 'pending' ? 'failed' : node.data.executionStatus,
+            executionError:
+              node.data.executionStatus === 'pending'
+                ? (err instanceof Error ? err.message : 'Execution failed')
+                : node.data.executionError,
+          },
+        }))
+      );
+    } finally {
+      setIsExecuting(false);
+    }
+  }, [isExecuting, nodes, edges, rootDirectory, setNodes, updateNodeStatus]);
+
+  const onResetExecution = useCallback(() => {
+    setNodes((nds) =>
+      nds.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          executionStatus: 'idle' as ExecutionStatus,
+          executionOutput: undefined,
+          executionError: undefined,
+        },
+      }))
+    );
+  }, [setNodes]);
+
   return (
     <div className="app">
       <Sidebar
@@ -176,10 +286,13 @@ function Flow() {
         edges={edges}
         workflowName={workflowName}
         rootDirectory={rootDirectory}
+        isExecuting={isExecuting}
         onImport={onImport}
         onNewWorkflow={onNewWorkflow}
         onWorkflowNameChange={setWorkflowName}
         onRootDirectoryChange={setRootDirectory}
+        onExecute={onExecute}
+        onResetExecution={onResetExecution}
       />
       <div className="canvas-container" ref={reactFlowWrapper}>
         <ReactFlow
