@@ -208,15 +208,6 @@ function Flow() {
       }
 
       try {
-        // Save current state to navigation stack
-        const currentState: NavigationItem = {
-          name: navigationStack.length === 0 ? workflowName : navigationStack[navigationStack.length - 1].name,
-          path: navigationStack.length === 0 ? undefined : navigationStack[navigationStack.length - 1].path,
-          nodes: nodes,
-          edges: edges,
-          viewport: getViewport(),
-        };
-
         // Load component workflow
         const workflow = await getComponentWorkflow(node.data.workflowPath);
 
@@ -240,16 +231,44 @@ function Flow() {
           targetHandle: e.targetHandle,
         }));
 
-        // Push to navigation stack
-        setNavigationStack([...navigationStack, {
-          ...currentState,
-          name: workflowName,
-        }, {
-          name: workflow.name,
-          path: node.data.workflowPath,
-          nodes: componentNodes,
-          edges: componentEdges,
-        }]);
+        // Build new navigation stack
+        let newStack: NavigationItem[];
+
+        if (navigationStack.length === 0) {
+          // First drill-down from root - push root workflow and new component
+          newStack = [
+            {
+              name: workflowName,
+              nodes: nodes,
+              edges: edges,
+              viewport: getViewport(),
+            },
+            {
+              name: workflow.name,
+              path: node.data.workflowPath,
+              nodes: componentNodes,
+              edges: componentEdges,
+            },
+          ];
+        } else {
+          // Subsequent drill-down - update current item's viewport and add new component
+          const updatedStack = navigationStack.map((item, index) =>
+            index === navigationStack.length - 1
+              ? { ...item, nodes, edges, viewport: getViewport() }
+              : item
+          );
+          newStack = [
+            ...updatedStack,
+            {
+              name: workflow.name,
+              path: node.data.workflowPath,
+              nodes: componentNodes,
+              edges: componentEdges,
+            },
+          ];
+        }
+
+        setNavigationStack(newStack);
 
         // Update canvas
         updateNodeIdCounter(componentNodes);
