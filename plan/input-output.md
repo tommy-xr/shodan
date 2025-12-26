@@ -688,12 +688,55 @@ Please respond with valid JSON matching this schema: {...}
 3. **Partial match**: Best-effort extraction, missing fields are null
 4. **Large outputs**: May need to truncate before sending to extraction LLM
 
-### Phase 6: Components
-- [ ] Interface definition schema in workflow files
-- [ ] Interface-input/output proxy nodes
-- [ ] Component node type
-- [ ] Drill-down navigation
-- [ ] Component library UI
+### Phase 6: Components (Composition)
+
+Enable workflows to be used as reusable components within other workflows.
+
+#### 6a: Interface Definition ✅
+- [x] Add `interface` section to workflow schema (inputs/outputs at workflow level)
+- [x] Create interface-input node type (maps workflow inputs to internal nodes)
+- [x] Create interface-output node type (maps internal outputs to workflow outputs)
+- [ ] Validate interface matches internal node connections (deferred)
+
+#### 6b: Component Node Type ✅
+- [x] Create `component` node type that references another workflow file
+- [x] Load and validate referenced workflow on node creation
+- [x] Display component's interface as input/output ports
+- [x] Execute component by running referenced workflow with mapped inputs
+
+**Test Files:**
+- `workflows/components/text-transform.yaml` - Simple component that uppercases text
+- `workflows/test-component.yaml` - Main workflow using the component
+
+#### 6c: Designer UI
+- [ ] Add component to node palette (with file picker)
+- [ ] Show component interface in config panel
+- [ ] Drill-down navigation (double-click to view internal workflow)
+- [ ] Breadcrumb navigation for nested components
+
+#### 6d: Component Library
+- [ ] Component browser/search UI
+- [ ] Save workflow as component
+- [ ] Component metadata (name, description, tags, version)
+
+---
+
+### Phase 7: Polish & Remaining Items
+
+Deferred items and improvements:
+
+#### UI Fixes
+- [ ] Fix JSON schema property overflow in visual editor
+- [ ] Extraction pattern builder for shell outputs (regex/json_path UI)
+
+#### Configuration
+- [ ] Make extraction method configurable (openai/claude/regex/none)
+- [ ] Global workflow settings for extraction defaults
+
+#### Testing & Documentation
+- [ ] More comprehensive test coverage for agent runners
+- [ ] Document I/O system usage
+- [ ] Example workflows demonstrating composition
 
 ---
 

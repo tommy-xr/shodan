@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import { executeAgent, type RunnerType } from './agents/index.js';
 import type { PortDefinition, ValueType } from '@shodan/core';
+import { loadWorkflow, getWorkflowDirectory } from './workflow-loader.js';
 
 export type NodeStatus = 'pending' | 'running' | 'completed' | 'failed';
 
@@ -23,6 +24,9 @@ export interface WorkflowNode {
     scriptArgs?: string; // Script node: arguments to pass
     path?: string;
     prompt?: string;
+    // Component node fields
+    workflowPath?: string; // Path to workflow file (relative to root)
+    componentInputs?: Record<string, unknown>; // Static input values for component
     [key: string]: unknown;
   };
 }
@@ -35,6 +39,15 @@ export interface WorkflowEdge {
   targetHandle?: string;  // Format: "input:inputName"
 }
 
+/**
+ * Workflow interface definition for composable workflows
+ * Defines the external inputs and outputs when used as a component
+ */
+export interface WorkflowInterface {
+  inputs?: PortDefinition[];
+  outputs?: PortDefinition[];
+}
+
 export interface WorkflowSchema {
   version: number;
   metadata: {
@@ -42,6 +55,7 @@ export interface WorkflowSchema {
     description?: string;
     rootDirectory?: string;
   };
+  interface?: WorkflowInterface;  // External I/O when used as component
   nodes: Array<{
     id: string;
     type: string;
@@ -75,12 +89,14 @@ export interface ExecuteResult {
   success: boolean;
   results: NodeResult[];
   executionOrder: string[];
+  error?: string;  // Error message if workflow failed
 }
 
 export interface ExecuteOptions {
   rootDirectory?: string;
   startNodeId?: string;
   triggerInputs?: Record<string, unknown>;  // Inputs to pass to trigger nodes (e.g., from CLI --input)
+  workflowInputs?: Record<string, unknown>;  // Inputs when workflow is run as component
   onNodeStart?: (nodeId: string, node: WorkflowNode) => void;
   onNodeComplete?: (nodeId: string, result: NodeResult) => void;
 }
@@ -94,6 +110,8 @@ interface ExecutionContext {
   nodeLabels: Map<string, string>;
   // Trigger input data (from CLI --input or UI)
   triggerInputs?: Record<string, unknown>;
+  // Workflow inputs when run as a component
+  workflowInputs?: Record<string, unknown>;
 }
 
 /**
@@ -567,6 +585,16 @@ function buildOutputValues(
           outputs[outputDef.name] = extractOutput(sourceData, outputDef.extract);
         }
       }
+    } else if (nodeType === 'interface-input') {
+      // Interface-input node: outputs come from workflow inputs
+      const workflowInputs = context.workflowInputs || {};
+      outputs[outputDef.name] = workflowInputs[outputDef.name];
+    } else if (nodeType === 'component') {
+      // Component node: outputs come from sub-workflow's interface-output
+      if (result.structuredOutput && typeof result.structuredOutput === 'object') {
+        const componentOutputs = result.structuredOutput as Record<string, unknown>;
+        outputs[outputDef.name] = componentOutputs[outputDef.name];
+      }
     } else {
       // Other node types - use rawOutput
       sourceData = result.rawOutput || '';
@@ -798,6 +826,106 @@ async function executeNode(
     };
   }
 
+  // Interface-input node: outputs workflow's external inputs
+  // This node type is used inside composable workflows
+  if (nodeType === 'interface-input') {
+    // The outputs of this node are populated from the workflow's input values
+    // which are passed via context.workflowInputs (set when running as component)
+    return {
+      nodeId: node.id,
+      status: 'completed',
+      output: 'Interface input node',
+      rawOutput: JSON.stringify(context.workflowInputs || {}),
+      startTime,
+      endTime: new Date().toISOString(),
+    };
+  }
+
+  // Interface-output node: collects values for workflow's external outputs
+  // This node's inputs become the workflow's outputs when used as a component
+  if (nodeType === 'interface-output') {
+    // Simply pass through - the actual output collection happens in executeWorkflow
+    return {
+      nodeId: node.id,
+      status: 'completed',
+      output: 'Interface output node',
+      rawOutput: JSON.stringify(inputValues),
+      startTime,
+      endTime: new Date().toISOString(),
+    };
+  }
+
+  // Component node: executes another workflow as a sub-workflow
+  if (nodeType === 'component') {
+    const workflowPath = node.data.workflowPath as string | undefined;
+
+    if (!workflowPath) {
+      return {
+        nodeId: node.id,
+        status: 'failed',
+        output: '',
+        error: 'Component node requires workflowPath to be specified',
+        startTime,
+        endTime: new Date().toISOString(),
+      };
+    }
+
+    try {
+      // Load the component workflow
+      const componentWorkflow = await loadWorkflow(workflowPath, rootDirectory);
+      const componentDir = getWorkflowDirectory(workflowPath, rootDirectory);
+
+      // Execute the sub-workflow with our input values as its workflow inputs
+      const subResult = await executeWorkflow(
+        componentWorkflow.nodes.map(n => ({
+          id: n.id,
+          type: n.type,
+          data: n.data as WorkflowNode['data'],
+        })),
+        componentWorkflow.edges,
+        {
+          rootDirectory: componentDir,
+          workflowInputs: inputValues,  // Pass our inputs as the sub-workflow's inputs
+        }
+      );
+
+      if (!subResult.success) {
+        return {
+          nodeId: node.id,
+          status: 'failed',
+          output: '',
+          error: `Component workflow failed: ${subResult.error || 'Unknown error'}`,
+          startTime,
+          endTime: new Date().toISOString(),
+        };
+      }
+
+      // Extract outputs from the component's interface-output node
+      const interfaceOutputResult = subResult.results.find(
+        r => componentWorkflow.nodes.find(n => n.id === r.nodeId)?.data.nodeType === 'interface-output'
+      );
+
+      return {
+        nodeId: node.id,
+        status: 'completed',
+        output: 'Component executed successfully',
+        rawOutput: interfaceOutputResult?.rawOutput || '{}',
+        structuredOutput: interfaceOutputResult?.rawOutput ? JSON.parse(interfaceOutputResult.rawOutput) : undefined,
+        startTime,
+        endTime: new Date().toISOString(),
+      };
+    } catch (err) {
+      return {
+        nodeId: node.id,
+        status: 'failed',
+        output: '',
+        error: `Failed to execute component: ${(err as Error).message}`,
+        startTime,
+        endTime: new Date().toISOString(),
+      };
+    }
+  }
+
   return {
     nodeId: node.id,
     status: 'completed',
@@ -815,7 +943,7 @@ export async function executeWorkflow(
   edges: WorkflowEdge[],
   options: ExecuteOptions = {}
 ): Promise<ExecuteResult> {
-  const { rootDirectory, startNodeId, triggerInputs, onNodeStart, onNodeComplete } = options;
+  const { rootDirectory, startNodeId, triggerInputs, workflowInputs, onNodeStart, onNodeComplete } = options;
 
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   const adjacency = buildAdjacencyMap(edges);
@@ -824,6 +952,7 @@ export async function executeWorkflow(
     outputs: new Map(),
     nodeLabels: new Map(nodes.map(n => [n.id, (n.data.label as string) || n.id])),
     triggerInputs,
+    workflowInputs,
   };
 
   let startNodes: string[];

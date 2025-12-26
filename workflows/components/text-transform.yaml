@@ -1,0 +1,67 @@
+version: 2
+metadata:
+  name: Text Transform Component
+  description: A reusable component that transforms text to uppercase
+
+# Interface defines external inputs/outputs when used as a component
+interface:
+  inputs:
+    - name: text
+      type: string
+      required: true
+      description: Text to transform
+  outputs:
+    - name: result
+      type: string
+      description: Transformed text
+
+nodes:
+  # Interface-input node: receives workflow inputs
+  - id: input-proxy
+    type: interface-input
+    position: { x: 100, y: 100 }
+    data:
+      nodeType: interface-input
+      label: Input
+      outputs:
+        - name: text
+          type: string
+
+  # Processing node
+  - id: transform
+    type: shell
+    position: { x: 300, y: 100 }
+    data:
+      nodeType: shell
+      label: Transform
+      script: |
+        echo "{{ input }}" | tr '[:lower:]' '[:upper:]'
+      inputs:
+        - name: input
+          type: string
+      outputs:
+        - name: output
+          type: string
+
+  # Interface-output node: provides workflow outputs
+  - id: output-proxy
+    type: interface-output
+    position: { x: 500, y: 100 }
+    data:
+      nodeType: interface-output
+      label: Output
+      inputs:
+        - name: result
+          type: string
+
+edges:
+  - id: e1
+    source: input-proxy
+    target: transform
+    sourceHandle: "output:text"
+    targetHandle: "input:input"
+  - id: e2
+    source: transform
+    target: output-proxy
+    sourceHandle: "output:output"
+    targetHandle: "input:result"
