@@ -45,29 +45,48 @@ nodes:
     data:
       label: Print Summary
       nodeType: shell
+      inputs:
+        - name: branch
+          type: string
+        - name: commit
+          type: string
+        - name: files
+          type: string
       commands:
         - "echo '=== Project Summary ==='"
-        - "echo 'Branch: {{ get_branch.output }}'"
-        - "echo 'Commit: {{ get_commit.output }}'"
-        - "echo 'TypeScript files: {{ count_files.output }}'"
+        - "echo 'Branch: {{ inputs.branch }}'"
+        - "echo 'Commit: {{ inputs.commit }}'"
+        - "echo 'TypeScript files: {{ inputs.files }}'"
         - "echo '======================='"
 
 edges:
   - id: e1
     source: trigger_1
     target: shell_branch
+    sourceHandle: output:text
+    targetHandle: input:input
   - id: e2
     source: trigger_1
     target: shell_commit
+    sourceHandle: output:text
+    targetHandle: input:input
   - id: e3
     source: trigger_1
     target: shell_files
+    sourceHandle: output:text
+    targetHandle: input:input
   - id: e4
     source: shell_branch
     target: shell_summary
+    sourceHandle: output:stdout
+    targetHandle: input:branch
   - id: e5
     source: shell_commit
     target: shell_summary
+    sourceHandle: output:stdout
+    targetHandle: input:commit
   - id: e6
     source: shell_files
     target: shell_summary
+    sourceHandle: output:stdout
+    targetHandle: input:files

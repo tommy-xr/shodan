@@ -1,0 +1,63 @@
+version: 2
+metadata:
+  name: Failure Stops Workflow Test
+  description: Negative test - verify workflow stops when node fails without continueOnFailure
+
+nodes:
+  - id: trigger-1
+    type: trigger
+    position: { x: 100, y: 100 }
+    data:
+      label: Start
+      nodeType: trigger
+      triggerType: manual
+
+  - id: shell-success
+    type: shell
+    position: { x: 300, y: 100 }
+    data:
+      label: First Success
+      nodeType: shell
+      script: |
+        echo "This should run successfully"
+        exit 0
+
+  - id: shell-fail
+    type: shell
+    position: { x: 500, y: 100 }
+    data:
+      label: Failure (no continueOnFailure)
+      nodeType: shell
+      # continueOnFailure is NOT set (defaults to false)
+      script: |
+        echo "This will fail and stop the workflow"
+        exit 1
+
+  - id: shell-should-not-run
+    type: shell
+    position: { x: 700, y: 100 }
+    data:
+      label: Should Not Execute
+      nodeType: shell
+      script: |
+        echo "ERROR: This node should never execute!"
+        exit 1
+
+edges:
+  - id: e1
+    source: trigger-1
+    target: shell-success
+    sourceHandle: output:timestamp
+    targetHandle: input:input
+
+  - id: e2
+    source: shell-success
+    target: shell-fail
+    sourceHandle: output:stdout
+    targetHandle: input:input
+
+  - id: e3
+    source: shell-fail
+    target: shell-should-not-run
+    sourceHandle: output:stdout
+    targetHandle: input:input

@@ -1,3 +1,5 @@
 packages:
-  - server
-  - designer
+  - src/core
+  - src/server
+  - src/designer
+  - src/cli

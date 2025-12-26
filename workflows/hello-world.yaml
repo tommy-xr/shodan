@@ -25,3 +25,5 @@ edges:
   - id: e1
     source: trigger_1
     target: shell_1
+    sourceHandle: output:text
+    targetHandle: input:input

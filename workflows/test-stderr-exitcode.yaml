@@ -1,0 +1,87 @@
+version: 2
+metadata:
+  name: stderr and exitCode Test
+  description: Test workflow for stderr and exitCode outputs with continueOnFailure
+
+nodes:
+  - id: trigger-1
+    type: trigger
+    position: { x: 100, y: 100 }
+    data:
+      label: Start
+      nodeType: trigger
+      triggerType: manual
+
+  - id: shell-stderr
+    type: shell
+    position: { x: 300, y: 100 }
+    data:
+      label: Generate stderr
+      nodeType: shell
+      script: |
+        echo "This goes to stdout"
+        echo "This goes to stderr" >&2
+        echo "More stderr output" >&2
+
+  - id: shell-check-stderr
+    type: shell
+    position: { x: 500, y: 100 }
+    data:
+      label: Check stderr
+      nodeType: shell
+      script: |
+        echo "Captured stderr was:"
+        echo "{{ shell-stderr.stderr }}"
+
+  - id: shell-fail
+    type: shell
+    position: { x: 700, y: 100 }
+    data:
+      label: Intentional Failure (exit 42)
+      nodeType: shell
+      continueOnFailure: true
+      script: |
+        echo "This command will fail"
+        echo "Error: Something went wrong!" >&2
+        exit 42
+
+  - id: shell-verify-exitcode
+    type: shell
+    position: { x: 900, y: 100 }
+    data:
+      label: Verify Exit Code
+      nodeType: shell
+      script: |
+        echo "Previous exit code was: {{ shell-fail.exitCode }}"
+        if [ "{{ shell-fail.exitCode }}" = "42" ]; then
+          echo "SUCCESS: Exit code 42 was captured correctly!"
+          exit 0
+        else
+          echo "FAILURE: Expected exit code 42, got {{ shell-fail.exitCode }}"
+          exit 1
+        fi
+
+edges:
+  - id: e1
+    source: trigger-1
+    target: shell-stderr
+    sourceHandle: output:timestamp
+    targetHandle: input:input
+
+  - id: e2
+    source: shell-stderr
+    target: shell-check-stderr
+    sourceHandle: output:stderr
+    targetHandle: input:input
+
+  - id: e3
+    source: shell-check-stderr
+    target: shell-fail
+    sourceHandle: output:exitCode
+    targetHandle: input:input
+
+  - id: e4
+    source: shell-fail
+    target: shell-verify-exitcode
+    sourceHandle: output:exitCode
+    targetHandle: input:input

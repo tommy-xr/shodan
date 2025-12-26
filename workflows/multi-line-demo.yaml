@@ -59,27 +59,46 @@ nodes:
     data:
       label: Summary
       nodeType: shell
+      inputs:
+        - name: loop
+          type: string
+        - name: conditional
+          type: string
+        - name: heredoc
+          type: string
       script: |
         echo "Multi-line scripts completed successfully"
-        echo "Loop result: {{ for_loop.output }}"
-        echo "Conditional result: {{ conditional.output }}"
+        echo "Loop result: {{ inputs.loop }}"
+        echo "Conditional result: {{ inputs.conditional }}"
 
 edges:
   - id: e1
     source: trigger_1
     target: shell_loop
+    sourceHandle: output:text
+    targetHandle: input:input
   - id: e2
     source: trigger_1
     target: shell_conditional
+    sourceHandle: output:text
+    targetHandle: input:input
   - id: e3
     source: trigger_1
     target: shell_heredoc
+    sourceHandle: output:text
+    targetHandle: input:input
   - id: e4
     source: shell_loop
     target: shell_summary
+    sourceHandle: output:stdout
+    targetHandle: input:loop
   - id: e5
     source: shell_conditional
     target: shell_summary
+    sourceHandle: output:stdout
+    targetHandle: input:conditional
   - id: e6
     source: shell_heredoc
     target: shell_summary
+    sourceHandle: output:stdout
+    targetHandle: input:heredoc

@@ -1,0 +1,25 @@
+{
+  "name": "@shodan/cli",
+  "version": "0.1.0",
+  "description": "Shodan CLI for running workflows",
+  "type": "module",
+  "bin": {
+    "shodan": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch index.ts",
+    "shodan": "tsx index.ts"
+  },
+  "dependencies": {
+    "@shodan/core": "workspace:*",
+    "@shodan/server": "workspace:*",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

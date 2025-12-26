@@ -1,0 +1,117 @@
+version: 2
+metadata:
+  name: Test Structured Output
+  description: Tests OpenAI native structured output with JSON schema
+
+nodes:
+  - id: trigger-1
+    type: trigger
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: text
+          type: string
+        - name: timestamp
+          type: string
+
+  - id: agent-1
+    type: agent
+    data:
+      nodeType: agent
+      label: Analyze Text
+      runner: openai
+      model: gpt-4o-mini
+      prompt: |
+        Analyze the following text and provide a structured analysis:
+
+        Text: {{ input }}
+
+        Provide your analysis as JSON matching the required schema.
+      outputSchema: |
+        {
+          "type": "object",
+          "properties": {
+            "sentiment": {
+              "type": "string",
+              "description": "The overall sentiment: positive, negative, or neutral"
+            },
+            "keywords": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Key words or phrases from the text"
+            },
+            "summary": {
+              "type": "string",
+              "description": "A brief one-sentence summary"
+            }
+          },
+          "required": ["sentiment", "keywords", "summary"]
+        }
+      inputs:
+        - name: input
+          type: string
+      outputs:
+        - name: response
+          type: string
+        - name: sentiment
+          type: string
+        - name: keywords
+          type: json
+        - name: summary
+          type: string
+
+  - id: shell-1
+    type: shell
+    data:
+      nodeType: shell
+      label: Print Results
+      script: |
+        echo "=== Structured Output Test ==="
+        echo ""
+        echo "Raw Response:"
+        echo "{{ inputs.raw }}"
+        echo ""
+        echo "Sentiment: {{ inputs.sentiment }}"
+        echo "Summary: {{ inputs.summary }}"
+        echo "Keywords: {{ inputs.keywords }}"
+      inputs:
+        - name: raw
+          type: string
+        - name: sentiment
+          type: string
+        - name: summary
+          type: string
+        - name: keywords
+          type: json
+      outputs:
+        - name: output
+          type: string
+
+edges:
+  - id: e1
+    source: trigger-1
+    target: agent-1
+    sourceHandle: "output:text"
+    targetHandle: "input:input"
+  - id: e2
+    source: agent-1
+    target: shell-1
+    sourceHandle: "output:response"
+    targetHandle: "input:raw"
+  - id: e3
+    source: agent-1
+    target: shell-1
+    sourceHandle: "output:sentiment"
+    targetHandle: "input:sentiment"
+  - id: e4
+    source: agent-1
+    target: shell-1
+    sourceHandle: "output:summary"
+    targetHandle: "input:summary"
+  - id: e5
+    source: agent-1
+    target: shell-1
+    sourceHandle: "output:keywords"
+    targetHandle: "input:keywords"

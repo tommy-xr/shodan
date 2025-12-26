@@ -1,0 +1,81 @@
+version: 2
+metadata:
+  name: Input Resolution Failure Stops Workflow
+  description: Verify workflow stops when input resolution fails (required input not connected)
+
+# Workflow structure:
+#                    ┌─────────────────────┐
+#                    │ shell-missing-input │ (fails - required input not connected)
+#   trigger → shell-success
+#                    │ shell-sibling       │ (should NOT run after failure)
+#                    └─────────────────────┘
+#
+# When shell-success completes, it queues both shell-missing-input and shell-sibling.
+# shell-missing-input fails input resolution first.
+# BUG: shell-sibling still runs because we use 'continue' instead of 'break'.
+
+nodes:
+  - id: trigger-1
+    type: trigger
+    position: { x: 100, y: 100 }
+    data:
+      label: Start
+      nodeType: trigger
+      triggerType: manual
+
+  - id: shell-success
+    type: shell
+    position: { x: 300, y: 200 }
+    data:
+      label: First Success
+      nodeType: shell
+      script: |
+        echo "First node runs successfully"
+
+  - id: shell-missing-input
+    type: shell
+    position: { x: 500, y: 100 }
+    data:
+      label: Missing Required Input
+      nodeType: shell
+      script: |
+        echo "This should never run because input resolution fails"
+      inputs:
+        - name: required_data
+          type: string
+          required: true
+          description: This required input is intentionally NOT connected
+
+  - id: shell-sibling
+    type: shell
+    position: { x: 500, y: 300 }
+    data:
+      label: Sibling - Should Not Run
+      nodeType: shell
+      script: |
+        echo "ERROR: This sibling node should NOT run after input resolution failure!"
+
+edges:
+  # Connect trigger to first shell
+  - id: e1
+    source: trigger-1
+    target: shell-success
+    sourceHandle: output:timestamp
+    targetHandle: input:input
+
+  # shell-success has TWO downstream nodes (both will be queued)
+
+  # First edge: to shell-missing-input (will fail input resolution)
+  # NOTE: We connect to the default 'input' port, but NOT to 'required_data'
+  - id: e2
+    source: shell-success
+    target: shell-missing-input
+    sourceHandle: output:stdout
+    targetHandle: input:input
+
+  # Second edge: to shell-sibling (should NOT run after failure above)
+  - id: e3
+    source: shell-success
+    target: shell-sibling
+    sourceHandle: output:stdout
+    targetHandle: input:input

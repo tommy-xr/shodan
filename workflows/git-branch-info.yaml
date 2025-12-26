@@ -28,12 +28,16 @@ nodes:
       label: Echo Branch
       nodeType: shell
       commands:
-        - "echo \"Currently on branch: {{ get_branch.output }}\""
+        - "echo \"Currently on branch: {{ input }}\""
 
 edges:
   - id: e1
     source: trigger_1
     target: shell_1
+    sourceHandle: output:text
+    targetHandle: input:input
   - id: e2
     source: shell_1
     target: shell_2
+    sourceHandle: output:stdout
+    targetHandle: input:input
