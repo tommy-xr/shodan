@@ -65,6 +65,7 @@ When restoring nodes from cached state (navigation stack), React Flow sometimes 
 ## Pending
 
 - Rebrand to robomesh.ai
+- Implement component library plan (component-library.md)
 - Fix agent models - we might want to make an API request and query each tool respectively?
 - Coercing agent output to JSON to fit output requirements - can we rely on the agents to do that, or does it require a GPT call to coalesce?
 - Add clearly defined input/output for the agent blocks - the inputs can be used as template variables, and the output can be added to the prompt we send the agent. We can then wire the output directly elsewhere
