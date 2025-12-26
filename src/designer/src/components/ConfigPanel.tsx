@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import type { Node } from '@xyflow/react';
 import type { BaseNodeData, NodeType } from '../nodes';
+import type { PortDefinition } from '@shodan/core';
 import { ListEditor } from './ListEditor';
 import { FilePicker } from './FilePicker';
+import { PortEditor } from './PortEditor';
 
 interface ConfigPanelProps {
   node: Node<BaseNodeData> | null;
@@ -121,6 +123,9 @@ function AgentConfig({ node, rootDirectory, onUpdate }: NodeConfigProps) {
     onUpdate(node.id, { runner: newRunner, model: '' });
   };
 
+  const inputs = (node.data.inputs as PortDefinition[]) || [];
+  const outputs = (node.data.outputs as PortDefinition[]) || [];
+
   return (
     <>
       <div className="config-field">
@@ -180,6 +185,16 @@ function AgentConfig({ node, rootDirectory, onUpdate }: NodeConfigProps) {
           className="code-input"
         />
       </div>
+      <PortEditor
+        ports={inputs}
+        direction="input"
+        onChange={(newInputs) => onUpdate(node.id, { inputs: newInputs })}
+      />
+      <PortEditor
+        ports={outputs}
+        direction="output"
+        onChange={(newOutputs) => onUpdate(node.id, { outputs: newOutputs })}
+      />
     </>
   );
 }
@@ -194,6 +209,9 @@ function ShellConfig({ node, onUpdate }: Omit<NodeConfigProps, 'rootDirectory'>)
     onUpdate(node.id, { script: value, commands: undefined });
   };
 
+  const inputs = (node.data.inputs as PortDefinition[]) || [];
+  const outputs = (node.data.outputs as PortDefinition[]) || [];
+
   return (
     <>
       <div className="config-field">
@@ -206,6 +224,16 @@ function ShellConfig({ node, onUpdate }: Omit<NodeConfigProps, 'rootDirectory'>)
           rows={6}
         />
       </div>
+      <PortEditor
+        ports={inputs}
+        direction="input"
+        onChange={(newInputs) => onUpdate(node.id, { inputs: newInputs })}
+      />
+      <PortEditor
+        ports={outputs}
+        direction="output"
+        onChange={(newOutputs) => onUpdate(node.id, { outputs: newOutputs })}
+      />
     </>
   );
 }
@@ -225,6 +253,9 @@ function ScriptConfig({ node, rootDirectory, onUpdate }: NodeConfigProps) {
     onUpdate(node.id, { scriptFile: path });
     setShowFilePicker(false);
   };
+
+  const inputs = (node.data.inputs as PortDefinition[]) || [];
+  const outputs = (node.data.outputs as PortDefinition[]) || [];
 
   return (
     <>
@@ -269,6 +300,16 @@ function ScriptConfig({ node, rootDirectory, onUpdate }: NodeConfigProps) {
           <li><code>.sh</code> - Bash script</li>
         </ul>
       </div>
+      <PortEditor
+        ports={inputs}
+        direction="input"
+        onChange={(newInputs) => onUpdate(node.id, { inputs: newInputs })}
+      />
+      <PortEditor
+        ports={outputs}
+        direction="output"
+        onChange={(newOutputs) => onUpdate(node.id, { outputs: newOutputs })}
+      />
       {showFilePicker && rootDirectory && (
         <FilePicker
           rootDirectory={rootDirectory}

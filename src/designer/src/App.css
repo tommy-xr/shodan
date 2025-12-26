@@ -1019,3 +1019,206 @@
   scrollbar-width: thin;
   scrollbar-color: var(--border) var(--bg-primary);
 }
+/* Port Editor */
+.port-editor {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.port-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.port-editor-header h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.add-port-btn {
+  padding: 4px 12px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.add-port-btn:hover {
+  background: var(--accent-hover);
+}
+
+.port-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.port-empty {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  padding: 16px;
+  text-align: center;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  border: 1px dashed var(--border);
+}
+
+.port-item {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.port-item.expanded {
+  border-color: var(--accent);
+}
+
+.port-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.port-item-header:hover {
+  background: var(--bg-hover);
+}
+
+.port-item-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.port-expand-icon {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  width: 12px;
+  display: inline-block;
+}
+
+.port-name {
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.port-type-badge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border-radius: 3px;
+  font-family: ui-monospace, monospace;
+}
+
+.port-item-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.port-action-btn {
+  padding: 2px 6px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.port-action-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.port-action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.port-action-btn.delete {
+  color: #f87171;
+}
+
+.port-action-btn.delete:hover:not(:disabled) {
+  background: #f87171;
+  color: white;
+  border-color: #f87171;
+}
+
+.port-item-details {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.port-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.port-field label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.port-field input[type="text"],
+.port-field select,
+.port-field textarea {
+  padding: 6px 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-family: inherit;
+}
+
+.port-field input[type="text"]:focus,
+.port-field select:focus,
+.port-field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.port-field textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.port-checkbox {
+  flex-direction: row;
+  align-items: center;
+}
+
+.port-checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.port-checkbox input[type="checkbox"] {
+  cursor: pointer;
+}
