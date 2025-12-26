@@ -6,6 +6,9 @@ export const nodeTypes = {
   script: BaseNode,
   trigger: BaseNode,
   workdir: BaseNode,
+  component: BaseNode,
+  'interface-input': BaseNode,
+  'interface-output': BaseNode,
 };
 
 export type { BaseNodeData, NodeType, ExecutionStatus } from './BaseNode';

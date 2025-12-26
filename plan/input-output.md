@@ -709,10 +709,167 @@ Enable workflows to be used as reusable components within other workflows.
 - `workflows/test-component.yaml` - Main workflow using the component
 
 #### 6c: Designer UI
-- [ ] Add component to node palette (with file picker)
-- [ ] Show component interface in config panel
-- [ ] Drill-down navigation (double-click to view internal workflow)
-- [ ] Breadcrumb navigation for nested components
+
+##### Component Palette Section
+
+```
+┌─────────────────────────────┐
+│ NODES                       │
+│ ┌─────────────────────────┐ │
+│ │ 🤖 Agent                │ │
+│ │ ⌘  Shell                │ │
+│ │ 📜 Script               │ │
+│ │ ⚡ Trigger              │ │
+│ │ 📁 Working Dir          │ │
+│ └─────────────────────────┘ │
+│                             │
+│ COMPONENTS          [+ New] │
+│ ┌─────────────────────────┐ │
+│ │ 📦 Text Transform       │ │
+│ │ 📦 Code Reviewer        │ │
+│ │ 📦 PR Analyzer          │ │
+│ │ ─────────────────────── │ │
+│ │ 📂 Browse...            │ │
+│ └─────────────────────────┘ │
+└─────────────────────────────┘
+```
+
+- New "COMPONENTS" section below "NODES"
+- Auto-discovers components from `workflows/components/` directory
+- "[+ New]" button to create new component
+- "Browse..." option to add component from any workflow file
+- Drag component onto canvas like regular nodes
+
+##### Component Node Display
+
+```
+┌─────────────────────────────┐
+│ 📦 Text Transform           │  ← Distinct icon (📦) and styling
+│ (component)                 │  ← Subtitle indicates it's a component
+├─────────────────────────────┤
+│                             │
+│ ● text          result ●    │  ← Ports from interface definition
+│                             │
+└─────────────────────────────┘
+```
+
+- Distinct visual style (different header color, 📦 icon)
+- "(component)" subtitle
+- Ports derived from referenced workflow's `interface` section
+- Double-click hint on hover
+
+##### Drill-Down Navigation (Double-Click)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ ← Back │ Main Workflow › Text Transform                     │  ← Breadcrumb bar
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
+│  │ ⊕ Input      │───▶│ ⌘ Transform  │───▶│ ⊕ Output     │  │
+│  │ (interface)  │    │              │    │ (interface)  │  │
+│  └──────────────┘    └──────────────┘    └──────────────┘  │
+│                                                             │
+│  ↑ Interface nodes shown with special styling (⊕ icon)     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- Double-click component → opens its internal workflow
+- Breadcrumb bar appears at top: "Main Workflow › Component Name"
+- "← Back" button or click breadcrumb to return
+- Interface-input/output nodes visible with distinct styling
+- Editing interface nodes updates the component's external ports
+- Nested drill-down supported (component within component)
+
+##### Create New Component Dialog
+
+Triggered by "+ New" button in Components section:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Create New Component                                    [×] │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│ Name:  [____________________]                               │
+│                                                             │
+│ Description:  [________________________________]            │
+│                                                             │
+│ ─────────────────────────────────────────────────────────── │
+│ INPUTS                                              [+ Add] │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ text      │ string │ required │ Text to process    [×]  │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                             │
+│ OUTPUTS                                             [+ Add] │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ result    │ string │          │ Processed result   [×]  │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                             │
+│ Save to: [workflows/components/]  [_______________].yaml    │
+│                                                             │
+│                              [Cancel]  [Create Component]   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- Define name and description
+- Add/remove/edit input ports
+- Add/remove/edit output ports
+- Choose save location (defaults to `workflows/components/`)
+- Creates workflow file with interface-input/output nodes pre-configured
+- Opens the new component for editing after creation
+
+##### Config Panel for Components
+
+When component is selected:
+
+```
+┌─────────────────────────────┐
+│ Configure Component     [×] │
+├─────────────────────────────┤
+│ Label                       │
+│ [Text Transform______]      │
+│                             │
+│ Workflow Path               │
+│ [components/text-transform] │
+│ [Browse...]                 │
+│                             │
+│ ─────────────────────────── │
+│ INTERFACE (read-only)       │
+│                             │
+│ Inputs:                     │
+│  • text (string, required)  │
+│                             │
+│ Outputs:                    │
+│  • result (string)          │
+│                             │
+│ [Edit Component ↗]          │  ← Opens drill-down view
+└─────────────────────────────┘
+```
+
+- Shows workflow path (with browse button to change)
+- Displays interface summary (read-only, derived from file)
+- "Edit Component" button as alternative to double-click
+
+##### State Management
+
+- Track navigation stack: `[{ type: 'main' }, { type: 'component', path: '...', nodeId: '...' }]`
+- When drilling down, push to stack
+- When going back, pop from stack
+- Save changes to component file when editing
+- Reload component interface when file changes
+
+##### Implementation Tasks
+
+- [x] Add "COMPONENTS" section to Sidebar
+- [x] Component discovery from `workflows/components/` directory (API endpoint)
+- [x] Component node type in designer with distinct styling (purple)
+- [x] Load component interface to display ports
+- [x] Interface-input/output node types with distinct styling (dashed border, cyan)
+- [x] Config panel for component nodes (read-only interface display)
+- [ ] Breadcrumb navigation bar component
+- [ ] Drill-down state management (navigation stack)
+- [ ] "Create New Component" dialog
+- [ ] Save component changes back to file
 
 #### 6d: Component Library
 - [ ] Component browser/search UI

@@ -17,10 +17,20 @@ import { nodeTypes } from './nodes';
 import type { BaseNodeData, NodeType } from './nodes';
 import { Sidebar } from './components/Sidebar';
 import { ConfigPanel } from './components/ConfigPanel';
+import { Breadcrumb } from './components/Breadcrumb';
 import { loadFromLocalStorage, saveToLocalStorage, clearLocalStorage } from './lib/storage';
-import { executeWorkflow, getConfig } from './lib/api';
+import { executeWorkflow, getConfig, getComponentWorkflow } from './lib/api';
 import type { ExecutionStatus } from './nodes';
 import './App.css';
+
+// Navigation stack item for component drill-down
+interface NavigationItem {
+  name: string;
+  path?: string;  // undefined for root workflow
+  nodes: Node<BaseNodeData>[];
+  edges: Edge[];
+  viewport?: { x: number; y: number; zoom: number };
+}
 
 // Load initial state from localStorage
 const stored = loadFromLocalStorage();
@@ -50,6 +60,7 @@ function Flow() {
   const [workflowName, setWorkflowName] = useState(stored?.workflowName || 'Untitled Workflow');
   const [rootDirectory, setRootDirectory] = useState(stored?.rootDirectory || '');
   const [isExecuting, setIsExecuting] = useState(false);
+  const [navigationStack, setNavigationStack] = useState<NavigationItem[]>([]);
   const { screenToFlowPosition, fitView, getViewport, setViewport } = useReactFlow();
 
   // Initialize node ID counter and restore viewport from loaded state
@@ -130,15 +141,47 @@ function Flow() {
         y: event.clientY,
       });
 
-      const newNode: Node<BaseNodeData> = {
-        id: getNodeId(),
-        type,
-        position,
-        data: {
-          label: `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
-          nodeType: type,
-        },
-      };
+      // Check if this is a component being dropped
+      const componentDataStr = event.dataTransfer.getData('application/component');
+
+      let newNode: Node<BaseNodeData>;
+
+      if (type === 'component' && componentDataStr) {
+        // Parse component data and create a component node with its interface
+        const componentData = JSON.parse(componentDataStr);
+        newNode = {
+          id: getNodeId(),
+          type,
+          position,
+          data: {
+            label: componentData.name,
+            nodeType: type,
+            workflowPath: componentData.path,
+            // Map component interface to node I/O
+            inputs: componentData.inputs?.map((input: { name: string; type: string; required?: boolean; description?: string }) => ({
+              name: input.name,
+              type: input.type || 'any',
+              required: input.required,
+              description: input.description,
+            })) || [],
+            outputs: componentData.outputs?.map((output: { name: string; type: string; description?: string }) => ({
+              name: output.name,
+              type: output.type || 'any',
+              description: output.description,
+            })) || [],
+          },
+        };
+      } else {
+        newNode = {
+          id: getNodeId(),
+          type,
+          position,
+          data: {
+            label: `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
+            nodeType: type,
+          },
+        };
+      }
 
       setNodes((nds) => [...nds, newNode]);
     },
@@ -155,6 +198,106 @@ function Flow() {
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
   }, []);
+
+  // Double-click on a component node to drill into it
+  const onNodeDoubleClick = useCallback(
+    async (_: React.MouseEvent, node: Node<BaseNodeData>) => {
+      // Only drill into component nodes
+      if (node.data.nodeType !== 'component' || !node.data.workflowPath) {
+        return;
+      }
+
+      try {
+        // Save current state to navigation stack
+        const currentState: NavigationItem = {
+          name: navigationStack.length === 0 ? workflowName : navigationStack[navigationStack.length - 1].name,
+          path: navigationStack.length === 0 ? undefined : navigationStack[navigationStack.length - 1].path,
+          nodes: nodes,
+          edges: edges,
+          viewport: getViewport(),
+        };
+
+        // Load component workflow
+        const workflow = await getComponentWorkflow(node.data.workflowPath);
+
+        // Convert workflow nodes to ReactFlow nodes
+        const componentNodes: Node<BaseNodeData>[] = workflow.nodes.map((n) => ({
+          id: n.id,
+          type: n.type,
+          position: n.position,
+          data: {
+            ...n.data,
+            nodeType: n.type as NodeType,
+          } as BaseNodeData,
+        }));
+
+        // Convert edges
+        const componentEdges: Edge[] = workflow.edges.map((e) => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          sourceHandle: e.sourceHandle,
+          targetHandle: e.targetHandle,
+        }));
+
+        // Push to navigation stack
+        setNavigationStack([...navigationStack, {
+          ...currentState,
+          name: workflowName,
+        }, {
+          name: workflow.name,
+          path: node.data.workflowPath,
+          nodes: componentNodes,
+          edges: componentEdges,
+        }]);
+
+        // Update canvas
+        updateNodeIdCounter(componentNodes);
+        setNodes(componentNodes);
+        setEdges(componentEdges);
+        setWorkflowName(workflow.name);
+        setSelectedNode(null);
+
+        // Fit view after loading
+        setTimeout(() => fitView({ padding: 0.2 }), 50);
+      } catch (err) {
+        console.error('Failed to load component:', err);
+      }
+    },
+    [nodes, edges, workflowName, navigationStack, getViewport, setNodes, setEdges, fitView]
+  );
+
+  // Navigate back to a specific level in the stack
+  const onNavigateBreadcrumb = useCallback(
+    (index: number) => {
+      if (index >= navigationStack.length - 1) return;
+
+      const targetItem = navigationStack[index];
+
+      // Restore state
+      updateNodeIdCounter(targetItem.nodes);
+      setNodes(targetItem.nodes);
+      setEdges(targetItem.edges);
+      setWorkflowName(targetItem.name);
+      setSelectedNode(null);
+
+      // Restore viewport
+      if (targetItem.viewport) {
+        setViewport(targetItem.viewport);
+      } else {
+        setTimeout(() => fitView({ padding: 0.2 }), 50);
+      }
+
+      // Trim navigation stack
+      setNavigationStack(navigationStack.slice(0, index + 1));
+    },
+    [navigationStack, setNodes, setEdges, setViewport, fitView]
+  );
+
+  // Get breadcrumb items from navigation stack
+  const breadcrumbItems = navigationStack.length > 0
+    ? navigationStack.map((item) => ({ name: item.name, path: item.path }))
+    : [{ name: workflowName }];
 
   const onMoveEnd = useCallback(() => {
     // Save viewport when user finishes panning/zooming
@@ -334,6 +477,7 @@ function Flow() {
         onResetExecution={onResetExecution}
       />
       <div className="canvas-container" ref={reactFlowWrapper}>
+        <Breadcrumb items={breadcrumbItems} onNavigate={onNavigateBreadcrumb} />
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -343,6 +487,7 @@ function Flow() {
           onDragOver={onDragOver}
           onDrop={onDrop}
           onNodeClick={onNodeClick}
+          onNodeDoubleClick={onNodeDoubleClick}
           onPaneClick={onPaneClick}
           onMoveEnd={onMoveEnd}
           nodeTypes={nodeTypes}

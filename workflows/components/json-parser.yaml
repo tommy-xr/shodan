@@ -1,0 +1,39 @@
+version: 2
+metadata:
+  name: JSON Parser
+interface:
+  inputs:
+    - name: input
+      type: string
+      required: true
+      description: ''
+  outputs:
+    - name: output
+      type: string
+      description: ''
+nodes:
+  - id: input-proxy
+    type: interface-input
+    position:
+      x: 100
+      'y': 200
+    data:
+      nodeType: interface-input
+      label: Input
+      outputs:
+        - name: input
+          type: string
+          description: ''
+  - id: output-proxy
+    type: interface-output
+    position:
+      x: 500
+      'y': 200
+    data:
+      nodeType: interface-output
+      label: Output
+      inputs:
+        - name: output
+          type: string
+          description: ''
+edges: []

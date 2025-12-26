@@ -53,11 +53,33 @@
   box-shadow: 0 0 0 2px var(--node-workdir), var(--glow-purple);
 }
 
+.custom-node.component {
+  border-color: var(--node-component, #8b5cf6);
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.2);
+}
+.custom-node.component.selected {
+  box-shadow: 0 0 0 2px var(--node-component, #8b5cf6), 0 0 25px rgba(139, 92, 246, 0.5);
+}
+
+.custom-node.interface-input,
+.custom-node.interface-output {
+  border-color: var(--node-interface, #06b6d4);
+  box-shadow: 0 4px 20px rgba(6, 182, 212, 0.2);
+  border-style: dashed;
+}
+.custom-node.interface-input.selected,
+.custom-node.interface-output.selected {
+  box-shadow: 0 0 0 2px var(--node-interface, #06b6d4), 0 0 25px rgba(6, 182, 212, 0.5);
+}
+
 .custom-node.agent .node-header { background: linear-gradient(90deg, var(--node-agent), #00b4d8); }
 .custom-node.shell .node-header { background: linear-gradient(90deg, var(--node-shell), #00d9a5); }
 .custom-node.script .node-header { background: linear-gradient(90deg, var(--node-script), #fbbf24); }
 .custom-node.trigger .node-header { background: linear-gradient(90deg, var(--node-trigger), #ff6b9d); }
 .custom-node.workdir .node-header { background: linear-gradient(90deg, var(--node-workdir), #ff00ff); }
+.custom-node.component .node-header { background: linear-gradient(90deg, var(--node-component, #8b5cf6), #a855f7); }
+.custom-node.interface-input .node-header,
+.custom-node.interface-output .node-header { background: linear-gradient(90deg, var(--node-interface, #06b6d4), #22d3ee); }
 
 .node-header {
   display: flex;

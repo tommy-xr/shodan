@@ -3,7 +3,7 @@ import type { NodeProps } from '@xyflow/react';
 import type { PortDefinition, ValueType } from '@shodan/core';
 import './nodes.css';
 
-export type NodeType = 'agent' | 'shell' | 'script' | 'trigger' | 'workdir';
+export type NodeType = 'agent' | 'shell' | 'script' | 'trigger' | 'workdir' | 'component' | 'interface-input' | 'interface-output';
 export type ExecutionStatus = 'idle' | 'pending' | 'running' | 'completed' | 'failed';
 
 // Color mapping for port types
@@ -44,6 +44,8 @@ export interface BaseNodeData extends Record<string, unknown> {
   scriptArgs?: string; // Arguments to pass to the script
   // Working directory fields
   path?: string;
+  // Component fields
+  workflowPath?: string;  // Path to component workflow file
   // Execution state
   executionStatus?: ExecutionStatus;
   executionOutput?: string;
@@ -56,6 +58,9 @@ const nodeIcons: Record<NodeType, string> = {
   script: '📜',
   trigger: '⚡',
   workdir: '📁',
+  component: '📦',
+  'interface-input': '⊕',
+  'interface-output': '⊕',
 };
 
 const nodeLabels: Record<NodeType, string> = {
@@ -64,6 +69,9 @@ const nodeLabels: Record<NodeType, string> = {
   script: 'Script',
   trigger: 'Trigger',
   workdir: 'Working Dir',
+  component: 'Component',
+  'interface-input': 'Input',
+  'interface-output': 'Output',
 };
 
 const runnerLabels: Record<string, string> = {
@@ -113,6 +121,29 @@ function getDefaultIO(nodeType: NodeType): { inputs: PortDefinition[]; outputs: 
         { name: 'stderr', type: 'string', description: 'Standard error from script' },
         { name: 'exitCode', type: 'number', description: 'Exit code from script' }
       ]
+    };
+  } else if (nodeType === 'interface-input') {
+    // Interface-input nodes only have outputs (they expose workflow inputs to internal nodes)
+    return {
+      inputs: [],
+      outputs: [
+        { name: 'value', type: 'any', description: 'Workflow input value' }
+      ]
+    };
+  } else if (nodeType === 'interface-output') {
+    // Interface-output nodes only have inputs (they collect outputs from internal nodes)
+    return {
+      inputs: [
+        { name: 'value', type: 'any', description: 'Value to expose as workflow output' }
+      ],
+      outputs: []
+    };
+  } else if (nodeType === 'component') {
+    // Component nodes have I/O defined by the referenced workflow
+    // Defaults are empty; they get populated when workflowPath is set
+    return {
+      inputs: [],
+      outputs: []
     };
   } else {
     return {
@@ -165,6 +196,15 @@ export function BaseNode({ data, selected }: NodeProps) {
         return nodeData.triggerType ? triggerLabels[nodeData.triggerType] || nodeData.triggerType : null;
       case 'workdir':
         return nodeData.path || null;
+      case 'component':
+        if (nodeData.workflowPath) {
+          const fileName = nodeData.workflowPath.split('/').pop() || nodeData.workflowPath;
+          return fileName.replace(/\.(yaml|yml)$/, '');
+        }
+        return null;
+      case 'interface-input':
+      case 'interface-output':
+        return '(interface)';
       default:
         return null;
     }

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { createFilesRouter } from './routes/files.js';
 import { createExecuteRouter } from './routes/execute.js';
 import { createConfigRouter } from './routes/config.js';
+import { createComponentsRouter } from './routes/components.js';
 import { getProjectRoot, getProjectRootMarker } from './utils/project-root.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -33,6 +34,7 @@ export function createServer(config: ServerConfig): Express {
   app.use('/api/config', createConfigRouter());
   app.use('/api/files', createFilesRouter());
   app.use('/api/execute', createExecuteRouter(projectRoot));
+  app.use('/api/components', createComponentsRouter(projectRoot));
 
   // Health check
   app.get('/api/health', (_req, res) => {

@@ -13,6 +13,20 @@ interface ConfigPanelProps {
   onUpdate: (nodeId: string, data: Partial<BaseNodeData>) => void;
 }
 
+function formatNodeType(type: NodeType): string {
+  const labels: Record<string, string> = {
+    'agent': 'Agent',
+    'shell': 'Shell',
+    'script': 'Script',
+    'trigger': 'Trigger',
+    'workdir': 'Working Dir',
+    'component': 'Component',
+    'interface-input': 'Interface Input',
+    'interface-output': 'Interface Output',
+  };
+  return labels[type] || type.charAt(0).toUpperCase() + type.slice(1);
+}
+
 export function ConfigPanel({ node, rootDirectory, onClose, onUpdate }: ConfigPanelProps) {
   if (!node) {
     return (
@@ -29,7 +43,7 @@ export function ConfigPanel({ node, rootDirectory, onClose, onUpdate }: ConfigPa
   return (
     <aside className="config-panel">
       <div className="config-panel-header">
-        <h2>Configure {nodeType.charAt(0).toUpperCase() + nodeType.slice(1)}</h2>
+        <h2>Configure {formatNodeType(nodeType)}</h2>
         <button className="config-panel-close" onClick={onClose}>
           ×
         </button>
@@ -50,6 +64,8 @@ export function ConfigPanel({ node, rootDirectory, onClose, onUpdate }: ConfigPa
         {nodeType === 'script' && <ScriptConfig node={node} rootDirectory={rootDirectory} onUpdate={onUpdate} />}
         {nodeType === 'trigger' && <TriggerConfig node={node} onUpdate={onUpdate} />}
         {nodeType === 'workdir' && <WorkdirConfig node={node} onUpdate={onUpdate} />}
+        {nodeType === 'component' && <ComponentConfig node={node} />}
+        {(nodeType === 'interface-input' || nodeType === 'interface-output') && <InterfaceConfig node={node} onUpdate={onUpdate} />}
 
         {/* Execution Output */}
         {node.data.executionStatus && node.data.executionStatus !== 'idle' && (
@@ -365,5 +381,84 @@ function WorkdirConfig({ node, onUpdate }: NodeConfigProps) {
         placeholder="e.g., ./my-project"
       />
     </div>
+  );
+}
+
+function ComponentConfig({ node }: Omit<NodeConfigProps, 'rootDirectory' | 'onUpdate'>) {
+  const workflowPath = (node.data.workflowPath as string) || '';
+  const inputs = (node.data.inputs as PortDefinition[]) || [];
+  const outputs = (node.data.outputs as PortDefinition[]) || [];
+
+  return (
+    <>
+      <div className="config-field">
+        <label>Workflow Path</label>
+        <input
+          type="text"
+          value={workflowPath}
+          readOnly
+          className="monospace"
+          style={{ opacity: 0.7 }}
+        />
+      </div>
+      <div className="config-field">
+        <label>Interface (read-only)</label>
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+          <div style={{ marginBottom: '8px' }}>
+            <strong>Inputs:</strong>
+            {inputs.length === 0 && <span style={{ fontStyle: 'italic' }}> none</span>}
+            <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
+              {inputs.map((input) => (
+                <li key={input.name}>
+                  <code style={{ color: 'var(--text-primary)' }}>{input.name}</code>
+                  <span style={{ marginLeft: '8px', opacity: 0.7 }}>({input.type})</span>
+                  {input.required && <span style={{ marginLeft: '4px', color: '#f87171' }}>*</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <strong>Outputs:</strong>
+            {outputs.length === 0 && <span style={{ fontStyle: 'italic' }}> none</span>}
+            <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
+              {outputs.map((output) => (
+                <li key={output.name}>
+                  <code style={{ color: 'var(--text-primary)' }}>{output.name}</code>
+                  <span style={{ marginLeft: '8px', opacity: 0.7 }}>({output.type})</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function InterfaceConfig({ node, onUpdate }: Omit<NodeConfigProps, 'rootDirectory'>) {
+  const nodeType = node.data.nodeType as string;
+  const isInput = nodeType === 'interface-input';
+  const ports = isInput
+    ? (node.data.outputs as PortDefinition[]) || []
+    : (node.data.inputs as PortDefinition[]) || [];
+
+  return (
+    <>
+      <div className="config-field">
+        <label>Interface Type</label>
+        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', padding: '8px 0' }}>
+          {isInput
+            ? 'This node exposes workflow inputs to internal nodes'
+            : 'This node collects outputs to expose as workflow outputs'}
+        </div>
+      </div>
+      <PortEditor
+        ports={ports}
+        direction={isInput ? 'output' : 'input'}
+        onChange={(newPorts) =>
+          onUpdate(node.id, isInput ? { outputs: newPorts } : { inputs: newPorts })
+        }
+      />
+    </>
   );
 }

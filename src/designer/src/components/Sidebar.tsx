@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { DragEvent } from 'react';
 import type { Node, Edge } from '@xyflow/react';
 import type { NodeType, BaseNodeData } from '../nodes';
@@ -9,6 +9,8 @@ import {
   downloadFile,
   openFilePicker,
 } from '../lib/workflow';
+import { listComponents, createComponent, type ComponentInfo } from '../lib/api';
+import { CreateComponentDialog, type NewComponentData } from './CreateComponentDialog';
 
 interface PaletteItem {
   type: NodeType;
@@ -49,9 +51,55 @@ export function Sidebar({
 }: SidebarProps) {
   const [exportFormat, setExportFormat] = useState<'yaml' | 'json'>('yaml');
   const [error, setError] = useState<string | null>(null);
+  const [components, setComponents] = useState<ComponentInfo[]>([]);
+  const [componentsError, setComponentsError] = useState<string | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+
+  // Load available components
+  const loadComponents = () => {
+    listComponents()
+      .then((response) => {
+        setComponents(response.components);
+        setComponentsError(null);
+      })
+      .catch((err) => {
+        console.warn('Failed to load components:', err);
+        setComponentsError(err.message);
+      });
+  };
+
+  // Load available components on mount
+  useEffect(() => {
+    loadComponents();
+  }, []);
+
+  const handleCreateComponent = async (data: NewComponentData) => {
+    try {
+      await createComponent({
+        name: data.name,
+        description: data.description,
+        filename: data.filename,
+        inputs: data.inputs,
+        outputs: data.outputs,
+      });
+      setShowCreateDialog(false);
+      // Refresh components list
+      loadComponents();
+    } catch (err) {
+      console.error('Failed to create component:', err);
+      setComponentsError(err instanceof Error ? err.message : 'Failed to create component');
+    }
+  };
 
   const onDragStart = (event: DragEvent, nodeType: NodeType) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
+    event.dataTransfer.effectAllowed = 'move';
+  };
+
+  const onComponentDragStart = (event: DragEvent, component: ComponentInfo) => {
+    // Pass component data as JSON for the drop handler
+    event.dataTransfer.setData('application/reactflow', 'component');
+    event.dataTransfer.setData('application/component', JSON.stringify(component));
     event.dataTransfer.effectAllowed = 'move';
   };
 
@@ -143,6 +191,33 @@ export function Sidebar({
         ))}
       </div>
 
+      <div className="palette components-palette">
+        <div className="section-header">
+          <h2>Components</h2>
+          <button className="new-workflow-btn" onClick={() => setShowCreateDialog(true)} title="New Component">
+            + New
+          </button>
+        </div>
+        {componentsError && (
+          <div className="palette-error">{componentsError}</div>
+        )}
+        {components.length === 0 && !componentsError && (
+          <div className="palette-empty">No components found</div>
+        )}
+        {components.map((component) => (
+          <div
+            key={component.path}
+            className="palette-item component"
+            draggable
+            onDragStart={(e) => onComponentDragStart(e, component)}
+            title={component.description || component.name}
+          >
+            <div className="palette-icon component">📦</div>
+            <span className="palette-label">{component.name}</span>
+          </div>
+        ))}
+      </div>
+
       <div className="sidebar-section import-export">
         <h2>Import / Export</h2>
 
@@ -172,6 +247,13 @@ export function Sidebar({
 
         {error && <div className="error-message">{error}</div>}
       </div>
+
+      {showCreateDialog && (
+        <CreateComponentDialog
+          onClose={() => setShowCreateDialog(false)}
+          onCreate={handleCreateComponent}
+        />
+      )}
     </aside>
   );
 }

@@ -113,3 +113,126 @@ export async function executeWorkflow(request: ExecuteRequest): Promise<ExecuteR
 
   return response.json();
 }
+
+// Component types
+export interface ComponentInfo {
+  name: string;
+  description?: string;
+  path: string;
+  inputs: Array<{
+    name: string;
+    type: string;
+    required?: boolean;
+    description?: string;
+  }>;
+  outputs: Array<{
+    name: string;
+    type: string;
+    description?: string;
+  }>;
+}
+
+export interface ListComponentsResponse {
+  components: ComponentInfo[];
+}
+
+export async function listComponents(): Promise<ListComponentsResponse> {
+  const response = await fetch(`${API_BASE}/components/list`);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to list components');
+  }
+
+  return response.json();
+}
+
+export async function getComponentInfo(path: string): Promise<ComponentInfo> {
+  const params = new URLSearchParams({ path });
+  const response = await fetch(`${API_BASE}/components/info?${params}`);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to get component info');
+  }
+
+  return response.json();
+}
+
+export interface ComponentWorkflow {
+  name: string;
+  description?: string;
+  path: string;
+  nodes: Array<{
+    id: string;
+    type: string;
+    position: { x: number; y: number };
+    data: Record<string, unknown>;
+  }>;
+  edges: Array<{
+    id: string;
+    source: string;
+    target: string;
+    sourceHandle?: string;
+    targetHandle?: string;
+  }>;
+  interface?: {
+    inputs: Array<{
+      name: string;
+      type: string;
+      required?: boolean;
+      description?: string;
+    }>;
+    outputs: Array<{
+      name: string;
+      type: string;
+      description?: string;
+    }>;
+  };
+}
+
+export async function getComponentWorkflow(path: string): Promise<ComponentWorkflow> {
+  const params = new URLSearchParams({ path });
+  const response = await fetch(`${API_BASE}/components/workflow?${params}`);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to load component workflow');
+  }
+
+  return response.json();
+}
+
+export interface CreateComponentRequest {
+  name: string;
+  description?: string;
+  filename: string;
+  inputs: Array<{
+    name: string;
+    type: string;
+    required?: boolean;
+    description?: string;
+  }>;
+  outputs: Array<{
+    name: string;
+    type: string;
+    description?: string;
+  }>;
+}
+
+export async function createComponent(request: CreateComponentRequest): Promise<ComponentInfo> {
+  const response = await fetch(`${API_BASE}/components/create`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to create component');
+  }
+
+  return response.json();
+}
