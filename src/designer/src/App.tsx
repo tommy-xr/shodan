@@ -395,13 +395,13 @@ function Flow() {
         data: n.data,
       }));
 
-      // Build edges for saving
+      // Build edges for saving (convert null to undefined for type compatibility)
       const workflowEdges = edges.map((e) => ({
         id: e.id,
         source: e.source,
         target: e.target,
-        sourceHandle: e.sourceHandle,
-        targetHandle: e.targetHandle,
+        sourceHandle: e.sourceHandle ?? undefined,
+        targetHandle: e.targetHandle ?? undefined,
       }));
 
       // Reconstruct interface from interface-input/output nodes
