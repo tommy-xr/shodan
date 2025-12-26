@@ -527,11 +527,11 @@ When a workflow is used as a component in another workflow:
 - `src/designer/src/nodes/nodes.css` - Port container and label styling
 - `src/designer/src/App.tsx` - Connection validation logic
 
-### Phase 4: UI - Configuration (In Progress)
+### Phase 4: UI - Configuration ✅ COMPLETED
 - [x] Input/output port editor (add/remove/reorder)
 - [x] Type selector dropdown
-- [ ] Extraction pattern builder for shell outputs
 - [x] JSON schema editor for `json` type
+- [ ] Extraction pattern builder for shell outputs (deferred to Phase 7)
 
 **Implementation Details:**
 - **PortEditor component:** Collapsible port items with name, label, type, required, default, description fields
@@ -708,7 +708,7 @@ Enable workflows to be used as reusable components within other workflows.
 - `workflows/components/text-transform.yaml` - Simple component that uppercases text
 - `workflows/test-component.yaml` - Main workflow using the component
 
-#### 6c: Designer UI
+#### 6c: Designer UI ✅ COMPLETED
 
 ##### Component Palette Section
 
@@ -866,10 +866,10 @@ When component is selected:
 - [x] Load component interface to display ports
 - [x] Interface-input/output node types with distinct styling (dashed border, cyan)
 - [x] Config panel for component nodes (read-only interface display)
-- [ ] Breadcrumb navigation bar component
-- [ ] Drill-down state management (navigation stack)
-- [ ] "Create New Component" dialog
-- [ ] Save component changes back to file
+- [x] Breadcrumb navigation bar component (`Breadcrumb.tsx`)
+- [x] Drill-down state management (navigation stack in `App.tsx`)
+- [x] "Create New Component" dialog (`CreateComponentDialog.tsx`)
+- [x] Save component changes back to file (`saveComponentWorkflow` API)
 
 #### 6d: Component Library
 - [ ] Component browser/search UI
@@ -890,8 +890,14 @@ Deferred items and improvements:
 - [ ] Make extraction method configurable (openai/claude/regex/none)
 - [ ] Global workflow settings for extraction defaults
 
+#### Component Library (Phase 6d)
+- [ ] Component browser/search UI
+- [ ] Save workflow as component (convert existing workflow)
+- [ ] Component metadata (name, description, tags, version)
+
 #### Testing & Documentation
 - [ ] More comprehensive test coverage for agent runners
+- [ ] Test workflow with Claude Code + extraction (requires Claude CLI)
 - [ ] Document I/O system usage
 - [ ] Example workflows demonstrating composition
 
