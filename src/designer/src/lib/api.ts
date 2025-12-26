@@ -203,6 +203,34 @@ export async function getComponentWorkflow(path: string): Promise<ComponentWorkf
   return response.json();
 }
 
+export interface SaveComponentRequest {
+  path: string;
+  nodes: ComponentWorkflow['nodes'];
+  edges: ComponentWorkflow['edges'];
+  metadata?: {
+    name?: string;
+    description?: string;
+  };
+  interface?: ComponentWorkflow['interface'];
+}
+
+export async function saveComponentWorkflow(request: SaveComponentRequest): Promise<{ success: boolean; path: string }> {
+  const response = await fetch(`${API_BASE}/components/workflow`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to save component');
+  }
+
+  return response.json();
+}
+
 export interface CreateComponentRequest {
   name: string;
   description?: string;

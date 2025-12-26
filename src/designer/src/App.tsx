@@ -19,7 +19,8 @@ import { Sidebar } from './components/Sidebar';
 import { ConfigPanel } from './components/ConfigPanel';
 import { Breadcrumb } from './components/Breadcrumb';
 import { loadFromLocalStorage, saveToLocalStorage, clearLocalStorage } from './lib/storage';
-import { executeWorkflow, getConfig, getComponentWorkflow } from './lib/api';
+import { executeWorkflow, getConfig, getComponentWorkflow, saveComponentWorkflow } from './lib/api';
+import type { ComponentWorkflow } from './lib/api';
 import type { ExecutionStatus } from './nodes';
 import './App.css';
 
@@ -30,6 +31,7 @@ interface NavigationItem {
   nodes: Node<BaseNodeData>[];
   edges: Edge[];
   viewport?: { x: number; y: number; zoom: number };
+  interface?: ComponentWorkflow['interface'];  // Component interface for saving
 }
 
 // Load initial state from localStorage
@@ -61,7 +63,15 @@ function Flow() {
   const [rootDirectory, setRootDirectory] = useState(stored?.rootDirectory || '');
   const [isExecuting, setIsExecuting] = useState(false);
   const [navigationStack, setNavigationStack] = useState<NavigationItem[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { screenToFlowPosition, fitView, getViewport, setViewport } = useReactFlow();
+
+  // Check if currently editing a component (not at root level)
+  const isEditingComponent = navigationStack.length > 1;
+  const currentComponentPath = isEditingComponent
+    ? navigationStack[navigationStack.length - 1].path
+    : undefined;
 
   // Initialize node ID counter and restore viewport from loaded state
   useEffect(() => {
@@ -248,6 +258,7 @@ function Flow() {
               path: node.data.workflowPath,
               nodes: componentNodes,
               edges: componentEdges,
+              interface: workflow.interface,
             },
           ];
         } else {
@@ -264,6 +275,7 @@ function Flow() {
               path: node.data.workflowPath,
               nodes: componentNodes,
               edges: componentEdges,
+              interface: workflow.interface,
             },
           ];
         }
@@ -317,6 +329,81 @@ function Flow() {
   const breadcrumbItems = navigationStack.length > 0
     ? navigationStack.map((item) => ({ name: item.name, path: item.path }))
     : [{ name: workflowName }];
+
+  // Track changes when editing a component
+  useEffect(() => {
+    if (isEditingComponent) {
+      setHasUnsavedChanges(true);
+    }
+  }, [nodes, edges, isEditingComponent]);
+
+  // Reset unsaved changes when navigating
+  useEffect(() => {
+    setHasUnsavedChanges(false);
+  }, [navigationStack.length]);
+
+  // Save component workflow
+  const onSaveComponent = useCallback(async () => {
+    if (!isEditingComponent || !currentComponentPath || isSaving) return;
+
+    const currentItem = navigationStack[navigationStack.length - 1];
+    if (!currentItem.path) return;
+
+    setIsSaving(true);
+    try {
+      // Build nodes for saving (convert ReactFlow format to workflow format)
+      const workflowNodes = nodes.map((n) => ({
+        id: n.id,
+        type: n.type || 'agent',
+        position: n.position,
+        data: n.data,
+      }));
+
+      // Build edges for saving
+      const workflowEdges = edges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle,
+        targetHandle: e.targetHandle,
+      }));
+
+      // Reconstruct interface from interface-input/output nodes
+      const interfaceInputNode = nodes.find((n) => n.data.nodeType === 'interface-input');
+      const interfaceOutputNode = nodes.find((n) => n.data.nodeType === 'interface-output');
+
+      const componentInterface = {
+        inputs: (interfaceInputNode?.data.outputs as Array<{name: string; type: string; required?: boolean; description?: string}>) || [],
+        outputs: (interfaceOutputNode?.data.inputs as Array<{name: string; type: string; description?: string}>) || [],
+      };
+
+      await saveComponentWorkflow({
+        path: currentItem.path,
+        nodes: workflowNodes,
+        edges: workflowEdges,
+        metadata: {
+          name: workflowName,
+        },
+        interface: componentInterface,
+      });
+
+      // Update the navigation stack with the new interface
+      setNavigationStack((stack) =>
+        stack.map((item, index) =>
+          index === stack.length - 1
+            ? { ...item, interface: componentInterface }
+            : item
+        )
+      );
+
+      setHasUnsavedChanges(false);
+      console.log('Component saved successfully');
+    } catch (err) {
+      console.error('Failed to save component:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [isEditingComponent, currentComponentPath, isSaving, navigationStack, nodes, edges, workflowName]);
 
   const onMoveEnd = useCallback(() => {
     // Save viewport when user finishes panning/zooming
@@ -496,7 +583,13 @@ function Flow() {
         onResetExecution={onResetExecution}
       />
       <div className="canvas-container" ref={reactFlowWrapper}>
-        <Breadcrumb items={breadcrumbItems} onNavigate={onNavigateBreadcrumb} />
+        <Breadcrumb
+          items={breadcrumbItems}
+          onNavigate={onNavigateBreadcrumb}
+          onSave={isEditingComponent ? onSaveComponent : undefined}
+          isSaving={isSaving}
+          hasUnsavedChanges={hasUnsavedChanges}
+        />
         <ReactFlow
           nodes={nodes}
           edges={edges}

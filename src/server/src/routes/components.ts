@@ -253,5 +253,40 @@ export function createComponentsRouter(projectRoot: string): Router {
     }
   });
 
+  // Save/update a component workflow
+  router.put('/workflow', async (req, res) => {
+    try {
+      const { path: componentPath, nodes, edges, metadata, interface: iface } = req.body;
+
+      if (!componentPath) {
+        return res.status(400).json({ error: 'path is required' });
+      }
+
+      const fullPath = path.resolve(projectRoot, componentPath);
+
+      // Security: ensure we're not escaping the project root
+      if (!fullPath.startsWith(projectRoot)) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      // Build the workflow schema
+      const workflow: WorkflowSchema = {
+        version: 2,
+        metadata: metadata || {},
+        interface: iface,
+        nodes: nodes || [],
+        edges: edges || [],
+      };
+
+      const content = yaml.dump(workflow, { lineWidth: -1, noRefs: true });
+      await fs.writeFile(fullPath, content, 'utf-8');
+
+      res.json({ success: true, path: componentPath });
+    } catch (error) {
+      console.error('Error saving component:', error);
+      res.status(500).json({ error: 'Failed to save component' });
+    }
+  });
+
   return router;
 }

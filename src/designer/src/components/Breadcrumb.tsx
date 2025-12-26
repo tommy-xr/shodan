@@ -6,9 +6,12 @@ interface BreadcrumbItem {
 interface BreadcrumbProps {
   items: BreadcrumbItem[];
   onNavigate: (index: number) => void;
+  onSave?: () => void;
+  isSaving?: boolean;
+  hasUnsavedChanges?: boolean;
 }
 
-export function Breadcrumb({ items, onNavigate }: BreadcrumbProps) {
+export function Breadcrumb({ items, onNavigate, onSave, isSaving, hasUnsavedChanges }: BreadcrumbProps) {
   if (items.length <= 1) {
     return null;
   }
@@ -30,6 +33,16 @@ export function Breadcrumb({ items, onNavigate }: BreadcrumbProps) {
           )}
         </span>
       ))}
+      {onSave && (
+        <button
+          className={`breadcrumb-save ${hasUnsavedChanges ? 'has-changes' : ''}`}
+          onClick={onSave}
+          disabled={isSaving}
+          title={hasUnsavedChanges ? 'Save changes' : 'No changes to save'}
+        >
+          {isSaving ? 'Saving...' : 'Save'}
+        </button>
+      )}
     </nav>
   );
 }

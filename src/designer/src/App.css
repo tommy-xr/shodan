@@ -1787,3 +1787,38 @@
   padding: 2px 6px;
 }
 
+
+/* Breadcrumb Save Button */
+.breadcrumb-save {
+  margin-left: 16px;
+  padding: 4px 12px;
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid var(--accent-purple, #8b5cf6);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.breadcrumb-save:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.3);
+  color: var(--text-primary);
+}
+
+.breadcrumb-save.has-changes {
+  background: linear-gradient(135deg, #8b5cf6, #a855f7);
+  color: white;
+  border-color: transparent;
+}
+
+.breadcrumb-save.has-changes:hover:not(:disabled) {
+  background: linear-gradient(135deg, #9d6ffa, #b866fa);
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
+}
+
+.breadcrumb-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
