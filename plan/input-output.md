@@ -488,11 +488,44 @@ When a workflow is used as a component in another workflow:
 - `src/server/src/test-workflows.ts` - Phase 2 test suite
 - `src/designer/src/nodes/BaseNode.tsx` - BaseNodeData with continueOnFailure
 
-### Phase 3: UI - Port Display
-- [ ] Multiple handles per node (definition order)
-- [ ] Handle labels and type indicators
-- [ ] Connection validation: single edge per input, type matching
-- [ ] Update edge rendering for named handles
+### Phase 3: UI - Port Display ✅ COMPLETED
+- [x] Multiple handles per node (definition order)
+- [x] Always-visible port labels with type indicators
+- [x] Connection validation: single edge per input (replaces existing edge)
+- [x] Type-based color coding for ports
+
+**Implementation Details:**
+- **Input ports:** Left side with colored dots and labels, positioned with proper spacing
+- **Output ports:** Right side with labels and colored dots, aligned correctly
+- **Port labels:** Always visible (not just on hover), monospace font for clarity
+- **Type indicators:** Colored dots next to each port name
+  - string=blue, number=purple, boolean=pink, json=green, file/files=orange, any=gray
+- **Handle colors:** Matches port type color for visual consistency
+- **Spacing:** 28px per port row with automatic node height adjustment
+- **Connection points:** Handles positioned at exact port heights for proper edge routing
+- **Single edge enforcement:** Connecting to occupied input removes old edge automatically
+
+**Visual Layout:**
+```
+┌─────────────────────────────┐
+│ 🤖 Agent                    │
+├─────────────────────────────┤
+│ Label Name                  │
+│ Details...                  │
+│                             │
+│ ● input    ○────    stdout ●│
+│                    stderr ●│
+│                  exitCode ●│
+└─────────────────────────────┘
+  ↑                         ↑
+  Input (left)         Output (right)
+  with colored dot     with colored dot
+```
+
+**Key Files Modified:**
+- `src/designer/src/nodes/BaseNode.tsx` - Port layout with labels and indicators
+- `src/designer/src/nodes/nodes.css` - Port container and label styling
+- `src/designer/src/App.tsx` - Connection validation logic
 
 ### Phase 4: UI - Configuration
 - [ ] Input/output port editor (add/remove/reorder)

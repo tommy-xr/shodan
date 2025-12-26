@@ -1,10 +1,21 @@
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import type { PortDefinition } from '@shodan/core';
+import type { PortDefinition, ValueType } from '@shodan/core';
 import './nodes.css';
 
 export type NodeType = 'agent' | 'shell' | 'script' | 'trigger' | 'workdir';
 export type ExecutionStatus = 'idle' | 'pending' | 'running' | 'completed' | 'failed';
+
+// Color mapping for port types
+const typeColors: Record<ValueType, string> = {
+  string: '#60a5fa',    // blue
+  number: '#a78bfa',    // purple
+  boolean: '#f472b6',   // pink
+  json: '#34d399',      // green
+  file: '#fbbf24',      // orange
+  files: '#fb923c',     // dark orange
+  any: '#9ca3af',       // gray
+};
 
 export interface BaseNodeData extends Record<string, unknown> {
   label: string;
@@ -78,11 +89,52 @@ const statusIcons: Record<ExecutionStatus, string> = {
   failed: '✗',
 };
 
+/**
+ * Get default I/O definitions for a node type
+ */
+function getDefaultIO(nodeType: NodeType): { inputs: PortDefinition[]; outputs: PortDefinition[] } {
+  if (nodeType === 'trigger') {
+    return {
+      inputs: [],
+      outputs: [
+        { name: 'timestamp', type: 'string', description: 'ISO timestamp when trigger fired' },
+        { name: 'type', type: 'string', description: 'Trigger type identifier' },
+        { name: 'text', type: 'string', description: 'Optional text input from user' },
+        { name: 'params', type: 'json', description: 'Optional parameters passed via CLI/UI' }
+      ]
+    };
+  } else if (nodeType === 'shell' || nodeType === 'script') {
+    return {
+      inputs: [
+        { name: 'input', type: 'any', required: false, description: 'Generic input value' }
+      ],
+      outputs: [
+        { name: 'stdout', type: 'string', description: 'Standard output from script' },
+        { name: 'stderr', type: 'string', description: 'Standard error from script' },
+        { name: 'exitCode', type: 'number', description: 'Exit code from script' }
+      ]
+    };
+  } else {
+    return {
+      inputs: [
+        { name: 'input', type: 'any', required: false }
+      ],
+      outputs: [
+        { name: 'output', type: 'string' }
+      ]
+    };
+  }
+}
+
 export function BaseNode({ data, selected }: NodeProps) {
   const nodeData = data as BaseNodeData;
   const nodeType = nodeData.nodeType;
-  const hasInput = nodeType !== 'trigger';
   const execStatus = nodeData.executionStatus || 'idle';
+
+  // Get I/O definitions (use defaults if not defined)
+  const defaultIO = getDefaultIO(nodeType);
+  const inputs = nodeData.inputs || defaultIO.inputs;
+  const outputs = nodeData.outputs || defaultIO.outputs;
 
   const getNodeDetails = () => {
     switch (nodeType) {
@@ -147,11 +199,16 @@ export function BaseNode({ data, selected }: NodeProps) {
   const details = getNodeDetails();
   const schemaPreview = getOutputSchemaPreview();
 
+  // Calculate the minimum height needed for ports
+  const maxPorts = Math.max(inputs.length, outputs.length);
+  const portHeight = 28; // Height per port row
+  const headerHeight = 36; // Node header height
+  const contentPadding = 60; // Space for label, details, etc.
+  const portsStartOffset = headerHeight + contentPadding; // Start ports after content
+  const minBodyHeight = contentPadding + maxPorts * portHeight + 20; // Content padding + ports + extra padding
+
   return (
     <div className={`custom-node ${nodeType} ${selected ? 'selected' : ''} exec-${execStatus}`}>
-      {hasInput && (
-        <Handle type="target" position={Position.Left} className="handle" />
-      )}
       <div className="node-header">
         <span className="node-icon">{nodeIcons[nodeType]}</span>
         <span className="node-type">{nodeLabels[nodeType]}</span>
@@ -159,21 +216,90 @@ export function BaseNode({ data, selected }: NodeProps) {
           <span className={`exec-status-icon ${execStatus}`}>{statusIcons[execStatus]}</span>
         )}
       </div>
-      <div className="node-body">
-        <div className="node-label">{nodeData.label || 'Untitled'}</div>
-        {details && <div className="node-details">{details}</div>}
-        {filesPreview && (
-          <div className="node-files">
-            <span className="files-icon">📄</span> {filesPreview}
-          </div>
-        )}
-        {schemaPreview && (
-          <div className="node-schema">
-            <span className="schema-icon">{ }</span> {schemaPreview}
-          </div>
-        )}
+
+      <div className="node-body" style={{ minHeight: `${minBodyHeight}px` }}>
+        <div className="node-content">
+          <div className="node-label">{nodeData.label || 'Untitled'}</div>
+          {details && <div className="node-details">{details}</div>}
+          {filesPreview && (
+            <div className="node-files">
+              <span className="files-icon">📄</span> {filesPreview}
+            </div>
+          )}
+          {schemaPreview && (
+            <div className="node-schema">
+              <span className="schema-icon">{ }</span> {schemaPreview}
+            </div>
+          )}
+        </div>
       </div>
-      <Handle type="source" position={Position.Right} className="handle" />
+
+      {/* Port labels - positioned absolutely relative to the entire node */}
+      {inputs.map((input, index) => {
+        const topOffset = portsStartOffset + (index * portHeight);
+        return (
+          <div
+            key={`input-label-${input.name}`}
+            className="port-label port-label-input"
+            style={{ top: `${topOffset}px` }}
+          >
+            {input.label || input.name}
+          </div>
+        );
+      })}
+
+      {outputs.map((output, index) => {
+        const topOffset = portsStartOffset + (index * portHeight);
+        return (
+          <div
+            key={`output-label-${output.name}`}
+            className="port-label port-label-output"
+            style={{ top: `${topOffset}px` }}
+          >
+            {output.label || output.name}
+          </div>
+        );
+      })}
+
+      {/* Input handles */}
+      {inputs.map((input, index) => {
+        const topOffset = portsStartOffset + (index * portHeight);
+        return (
+          <Handle
+            key={`input-${input.name}`}
+            type="target"
+            position={Position.Left}
+            id={`input:${input.name}`}
+            className="handle"
+            style={{
+              top: `${topOffset}px`,
+              backgroundColor: typeColors[input.type],
+              borderColor: typeColors[input.type],
+            }}
+            title={input.description || input.label || input.name}
+          />
+        );
+      })}
+
+      {/* Output handles */}
+      {outputs.map((output, index) => {
+        const topOffset = portsStartOffset + (index * portHeight);
+        return (
+          <Handle
+            key={`output-${output.name}`}
+            type="source"
+            position={Position.Right}
+            id={`output:${output.name}`}
+            className="handle"
+            style={{
+              top: `${topOffset}px`,
+              backgroundColor: typeColors[output.type],
+              borderColor: typeColors[output.type],
+            }}
+            title={output.description || output.label || output.name}
+          />
+        );
+      })}
     </div>
   );
 }

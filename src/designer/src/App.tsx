@@ -89,7 +89,26 @@ function Flow() {
 
   const onConnect = useCallback(
     (connection: Connection) => {
-      setEdges((eds) => addEdge(connection, eds));
+      // Validate connection: only one edge per input port
+      if (connection.targetHandle) {
+        setEdges((eds) => {
+          // Check if there's already an edge connected to this input
+          const existingEdge = eds.find(
+            (edge) =>
+              edge.target === connection.target &&
+              edge.targetHandle === connection.targetHandle
+          );
+
+          if (existingEdge) {
+            // Remove the existing edge and add the new one
+            return addEdge(connection, eds.filter((e) => e.id !== existingEdge.id));
+          }
+
+          return addEdge(connection, eds);
+        });
+      } else {
+        setEdges((eds) => addEdge(connection, eds));
+      }
     },
     [setEdges]
   );
