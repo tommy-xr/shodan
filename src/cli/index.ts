@@ -35,12 +35,14 @@ ${color('Usage:', COLORS.bright)}
 
 ${color('Options:', COLORS.bright)}
   --cwd <dir>       Override working directory
+  --input <text>    Pass text input to trigger node
   --quiet           Only show errors and final result
   --verbose         Show detailed output for each node
 
 ${color('Examples:', COLORS.bright)}
   shodan run ./workflows/build.yaml
   shodan run ./workflows/deploy.yaml --cwd /path/to/project
+  shodan run ./workflows/process.yaml --input "Hello World"
   shodan validate ./workflows/*.yaml
 `);
 }
@@ -86,7 +88,7 @@ async function loadWorkflow(filePath: string): Promise<WorkflowSchema> {
   return schema;
 }
 
-async function runWorkflow(filePath: string, options: { cwd?: string; quiet?: boolean; verbose?: boolean }) {
+async function runWorkflow(filePath: string, options: { cwd?: string; input?: string; quiet?: boolean; verbose?: boolean }) {
   console.log(color(`\n▶ Running workflow: ${filePath}`, COLORS.bright));
 
   const schema = await loadWorkflow(filePath);
@@ -101,11 +103,18 @@ async function runWorkflow(filePath: string, options: { cwd?: string; quiet?: bo
     console.log(color(`  Directory: ${schema.metadata.rootDirectory}`, COLORS.dim));
   }
   console.log(color(`  Nodes: ${schema.nodes.length}`, COLORS.dim));
+  if (options.input) {
+    console.log(color(`  Input: ${options.input}`, COLORS.dim));
+  }
   console.log('');
 
   const startTime = Date.now();
 
+  // Build trigger inputs if --input provided
+  const triggerInputs = options.input ? { text: options.input } : undefined;
+
   const result = await executeWorkflowSchema(schema, {
+    triggerInputs,
     onNodeStart: (nodeId, node) => {
       if (!options.quiet) {
         const label = node.data.label || nodeId;
@@ -185,6 +194,7 @@ async function main() {
 
     const options = {
       cwd: args.includes('--cwd') ? args[args.indexOf('--cwd') + 1] : undefined,
+      input: args.includes('--input') ? args[args.indexOf('--input') + 1] : undefined,
       quiet: args.includes('--quiet') || args.includes('-q'),
       verbose: args.includes('--verbose') || args.includes('-v'),
     };

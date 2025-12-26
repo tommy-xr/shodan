@@ -12,6 +12,8 @@ export interface BaseNodeData extends Record<string, unknown> {
   // I/O definition (persisted)
   inputs?: PortDefinition[];
   outputs?: PortDefinition[];
+  // Execution options
+  continueOnFailure?: boolean;
   // Agent fields
   runner?: string;
   model?: string;

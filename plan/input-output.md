@@ -467,14 +467,26 @@ When a workflow is used as a component in another workflow:
 - Default ports: all nodes get `output` (string), non-triggers get `input` (any)
 - Default edge handles: `output:output` and `input:input`
 
-### Phase 2: Trigger/Shell/Script I/O (testable without agents)
-- [ ] Trigger node: outputs for manual trigger (`text`, `params`, `timestamp`)
-- [ ] Shell node: `input` input port, `stdout`/`stderr`/`exitCode` outputs
-- [ ] Script node: inherit shell I/O behavior
-- [ ] Update executor to resolve inputs from edges (single edge per input)
-- [ ] Implement strict type validation
-- [ ] Update template system for named outputs with resolution rules
-- [ ] CLI support: `shodan run workflow.yaml --input "text"`
+### Phase 2: Trigger/Shell/Script I/O (testable without agents) ✅ COMPLETED
+- [x] Trigger node: outputs for manual trigger (`text`, `params`, `timestamp`)
+- [x] Shell node: `input` input port, `stdout`/`stderr`/`exitCode` outputs
+- [x] Script node: inherit shell I/O behavior
+- [x] Update executor to resolve inputs from edges (single edge per input)
+- [x] Implement strict type validation
+- [x] Update template system for named outputs with resolution rules
+- [x] CLI support: `shodan run workflow.yaml --input "text"`
+- [x] **BONUS:** Add `continueOnFailure` flag for nodes to continue execution after failures
+
+**Test Coverage:**
+- `test-phase2-io.yaml` - Trigger inputs, stdout/stderr/exitCode, template variables
+- `test-stderr-exitcode.yaml` - continueOnFailure with non-zero exit codes
+- `test-failure-stops-workflow.yaml` - Negative test for workflow stopping on failure
+
+**Key Files Modified:**
+- `src/server/src/engine/executor.ts` - Core I/O system implementation
+- `src/cli/index.ts` - CLI --input flag support
+- `src/server/src/test-workflows.ts` - Phase 2 test suite
+- `src/designer/src/nodes/BaseNode.tsx` - BaseNodeData with continueOnFailure
 
 ### Phase 3: UI - Port Display
 - [ ] Multiple handles per node (definition order)

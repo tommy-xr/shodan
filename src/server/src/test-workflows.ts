@@ -13,7 +13,7 @@ import path from 'path';
 import yaml from 'js-yaml';
 import { executeWorkflowSchema, type WorkflowSchema } from './engine/executor.js';
 
-const WORKFLOWS_DIR = path.resolve(import.meta.dirname, '../../workflows');
+const WORKFLOWS_DIR = path.resolve(import.meta.dirname, '../../../workflows');
 
 async function loadWorkflow(filename: string): Promise<WorkflowSchema> {
   const content = await fs.readFile(path.join(WORKFLOWS_DIR, filename), 'utf-8');
@@ -117,6 +117,87 @@ describe('Workflow Execution', () => {
       !summaryResult.output?.includes('{{ '),
       `Summary should not have unreplaced templates, got: ${summaryResult.output}`
     );
+  });
+});
+
+describe('Phase 2: I/O System', () => {
+  test('test-phase2-io.yaml - trigger inputs and named outputs', async () => {
+    const schema = await loadWorkflow('test-phase2-io.yaml');
+    const result = await executeWorkflowSchema(schema, {
+      triggerInputs: { text: 'Hello from tests!' }
+    });
+
+    assert.strictEqual(result.success, true, 'Workflow should succeed');
+
+    // Verify trigger outputs were used
+    const shell2 = result.results.find(r => r.nodeId === 'shell-2');
+    assert.ok(shell2, 'Should have shell-2 result');
+    assert.ok(
+      shell2.output?.includes('Hello from tests!'),
+      `Should use trigger text input, got: ${shell2.output}`
+    );
+
+    // Verify stdout output capture
+    const shell1 = result.results.find(r => r.nodeId === 'shell-1');
+    assert.ok(shell1?.stdout, 'shell-1 should have stdout');
+    assert.ok(
+      shell1.stdout?.includes('This is stdout output'),
+      `stdout should contain expected text, got: ${shell1.stdout}`
+    );
+
+    // Verify stderr output capture
+    assert.ok(shell1?.stderr, 'shell-1 should have stderr');
+    assert.ok(
+      shell1.stderr?.includes('This is stderr output'),
+      `stderr should contain expected text, got: ${shell1.stderr}`
+    );
+
+    // Verify exitCode output
+    assert.strictEqual(shell1?.exitCode, 0, 'shell-1 should have exitCode 0');
+  });
+
+  test('test-stderr-exitcode.yaml - continueOnFailure and non-zero exit codes', async () => {
+    const schema = await loadWorkflow('test-stderr-exitcode.yaml');
+    const result = await executeWorkflowSchema(schema);
+
+    // Workflow should fail overall (a node failed) but continue execution
+    assert.strictEqual(result.success, false, 'Workflow should fail overall');
+
+    // Verify the failing node executed
+    const failNode = result.results.find(r => r.nodeId === 'shell-fail');
+    assert.ok(failNode, 'Should have shell-fail result');
+    assert.strictEqual(failNode.status, 'failed', 'shell-fail should be marked as failed');
+    assert.strictEqual(failNode.exitCode, 42, 'shell-fail should have exitCode 42');
+
+    // Verify execution continued after failure
+    const verifyNode = result.results.find(r => r.nodeId === 'shell-verify-exitcode');
+    assert.ok(verifyNode, 'Should have shell-verify-exitcode result (execution continued)');
+    assert.strictEqual(verifyNode.status, 'completed', 'Verify node should succeed');
+    assert.ok(
+      verifyNode.output?.includes('SUCCESS: Exit code 42 was captured correctly!'),
+      `Verify node should confirm exit code, got: ${verifyNode.output}`
+    );
+  });
+
+  test('test-failure-stops-workflow.yaml - workflow stops on failure without continueOnFailure', async () => {
+    const schema = await loadWorkflow('test-failure-stops-workflow.yaml');
+    const result = await executeWorkflowSchema(schema);
+
+    assert.strictEqual(result.success, false, 'Workflow should fail');
+
+    // Verify success node ran
+    const successNode = result.results.find(r => r.nodeId === 'shell-success');
+    assert.ok(successNode, 'Should have shell-success result');
+    assert.strictEqual(successNode.status, 'completed', 'First node should succeed');
+
+    // Verify failure node ran
+    const failNode = result.results.find(r => r.nodeId === 'shell-fail');
+    assert.ok(failNode, 'Should have shell-fail result');
+    assert.strictEqual(failNode.status, 'failed', 'Second node should fail');
+
+    // Verify third node did NOT run (workflow should have stopped)
+    const shouldNotRun = result.results.find(r => r.nodeId === 'shell-should-not-run');
+    assert.strictEqual(shouldNotRun, undefined, 'Third node should not have executed');
   });
 });
 

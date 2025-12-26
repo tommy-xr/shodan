@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import { executeAgent, type RunnerType } from './agents/index.js';
+import type { PortDefinition, ValueType } from '@shodan/core';
 
 export type NodeStatus = 'pending' | 'running' | 'completed' | 'failed';
 
@@ -9,6 +10,12 @@ export interface WorkflowNode {
   data: {
     label?: string;
     nodeType?: string;
+    // I/O definitions
+    inputs?: PortDefinition[];
+    outputs?: PortDefinition[];
+    // Execution options
+    continueOnFailure?: boolean; // If true, workflow continues even if this node fails
+    // Node-specific fields
     script?: string; // New: single multi-line script
     commands?: string[]; // Legacy: array of commands
     scriptFiles?: string[];
@@ -24,6 +31,8 @@ export interface WorkflowEdge {
   id: string;
   source: string;
   target: string;
+  sourceHandle?: string;  // Format: "output:outputName"
+  targetHandle?: string;  // Format: "input:inputName"
 }
 
 export interface WorkflowSchema {
@@ -51,6 +60,8 @@ export interface NodeResult {
   status: NodeStatus;
   output?: string;
   rawOutput?: string; // Clean output without command prefixes, used for templating
+  stdout?: string;    // Standard output (for shell/script nodes)
+  stderr?: string;    // Standard error (for shell/script nodes)
   error?: string;
   exitCode?: number;
   startTime?: string;
@@ -66,6 +77,7 @@ export interface ExecuteResult {
 export interface ExecuteOptions {
   rootDirectory?: string;
   startNodeId?: string;
+  triggerInputs?: Record<string, unknown>;  // Inputs to pass to trigger nodes (e.g., from CLI --input)
   onNodeStart?: (nodeId: string, node: WorkflowNode) => void;
   onNodeComplete?: (nodeId: string, result: NodeResult) => void;
 }
@@ -74,8 +86,11 @@ export interface ExecuteOptions {
  * Execution context - stores outputs from executed nodes
  */
 interface ExecutionContext {
-  outputs: Map<string, string>;
+  // Map of nodeId -> { outputName -> value }
+  outputs: Map<string, Record<string, unknown>>;
   nodeLabels: Map<string, string>;
+  // Trigger input data (from CLI --input or UI)
+  triggerInputs?: Record<string, unknown>;
 }
 
 /**
@@ -93,26 +108,190 @@ function buildAdjacencyMap(edges: WorkflowEdge[]): Map<string, string[]> {
 }
 
 /**
- * Replace template variables in a string
+ * Type compatibility check
+ * Returns true if sourceType can connect to targetType
  */
-function replaceTemplates(text: string, context: ExecutionContext): string {
-  const templateRegex = /\{\{\s*([a-zA-Z0-9_-]+)\.output\s*\}\}/g;
+function isTypeCompatible(sourceType: ValueType, targetType: ValueType): boolean {
+  // 'any' is bidirectional - accepts all and is accepted by all
+  if (sourceType === 'any' || targetType === 'any') {
+    return true;
+  }
+  // Otherwise, strict type matching
+  return sourceType === targetType;
+}
 
-  return text.replace(templateRegex, (match, identifier) => {
-    if (context.outputs.has(identifier)) {
-      return context.outputs.get(identifier) || '';
+/**
+ * Resolve input values for a node from incoming edges
+ */
+function resolveInputs(
+  nodeId: string,
+  node: WorkflowNode,
+  edges: WorkflowEdge[],
+  context: ExecutionContext
+): { success: boolean; inputValues: Record<string, unknown>; error?: string } {
+  const inputValues: Record<string, unknown> = {};
+  const inputs = node.data.inputs || [];
+
+  // Build map of input name -> edge
+  const incomingEdges = edges.filter(e => e.target === nodeId);
+  const edgesByInputName = new Map<string, WorkflowEdge>();
+
+  for (const edge of incomingEdges) {
+    // Parse target handle: "input:inputName"
+    const targetHandle = edge.targetHandle || 'input:input';
+    const inputName = targetHandle.startsWith('input:')
+      ? targetHandle.substring(6)
+      : targetHandle;
+
+    // Enforce single edge per input
+    if (edgesByInputName.has(inputName)) {
+      return {
+        success: false,
+        inputValues: {},
+        error: `Multiple edges connected to input '${inputName}'`,
+      };
     }
 
-    for (const [nodeId, label] of context.nodeLabels) {
-      const normalizedLabel = label.toLowerCase().replace(/\s+/g, '_');
-      if (normalizedLabel === identifier.toLowerCase() || label === identifier) {
-        if (context.outputs.has(nodeId)) {
-          return context.outputs.get(nodeId) || '';
+    edgesByInputName.set(inputName, edge);
+  }
+
+  // Resolve each input
+  for (const inputDef of inputs) {
+    const edge = edgesByInputName.get(inputDef.name);
+
+    if (!edge) {
+      // No edge connected - check if required or has default
+      if (inputDef.required && inputDef.default === undefined) {
+        return {
+          success: false,
+          inputValues: {},
+          error: `Required input '${inputDef.name}' is not connected`,
+        };
+      }
+      // Use default value if provided
+      if (inputDef.default !== undefined) {
+        inputValues[inputDef.name] = inputDef.default;
+      }
+      continue;
+    }
+
+    // Get source output value
+    const sourceHandle = edge.sourceHandle || 'output:output';
+    const outputName = sourceHandle.startsWith('output:')
+      ? sourceHandle.substring(7)
+      : sourceHandle;
+
+    const sourceOutputs = context.outputs.get(edge.source);
+    if (!sourceOutputs || !(outputName in sourceOutputs)) {
+      return {
+        success: false,
+        inputValues: {},
+        error: `Source node '${edge.source}' output '${outputName}' not found`,
+      };
+    }
+
+    const value = sourceOutputs[outputName];
+
+    // Type validation
+    // Get source output type
+    const sourceNode = context.outputs.get(edge.source);
+    // For now, we'll do basic type checking - can enhance later
+    // TODO: Look up source node's output definition to get actual type
+
+    inputValues[inputDef.name] = value;
+  }
+
+  return { success: true, inputValues };
+}
+
+/**
+ * Extract output value based on extraction configuration
+ */
+function extractOutput(
+  rawOutput: string,
+  extraction: PortDefinition['extract']
+): unknown {
+  if (!extraction || extraction.type === 'full') {
+    return rawOutput;
+  }
+
+  if (extraction.type === 'regex' && extraction.pattern) {
+    const regex = new RegExp(extraction.pattern);
+    const match = rawOutput.match(regex);
+    return match?.[1] || null;
+  }
+
+  if (extraction.type === 'json_path' && extraction.pattern) {
+    try {
+      const data = JSON.parse(rawOutput);
+      // Simple JSONPath implementation - just support basic paths like $.foo.bar
+      const path = extraction.pattern.replace(/^\$\./, '').split('.');
+      let value: any = data;
+      for (const key of path) {
+        value = value?.[key];
+      }
+      return value;
+    } catch {
+      return null;
+    }
+  }
+
+  return rawOutput;
+}
+
+/**
+ * Replace template variables in a string
+ * Supports both legacy {{ node.output }} and new {{ node.outputName }} syntax
+ */
+function replaceTemplates(text: string, context: ExecutionContext): string {
+  // Match both {{ node.output }} and {{ node.outputName }}
+  const templateRegex = /\{\{\s*([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)\s*\}\}/g;
+
+  return text.replace(templateRegex, (match, identifier, outputName) => {
+    // Try to find node by ID or label
+    let nodeId: string | undefined;
+
+    if (context.outputs.has(identifier)) {
+      nodeId = identifier;
+    } else {
+      // Try to find by label
+      for (const [id, label] of context.nodeLabels) {
+        const normalizedLabel = label.toLowerCase().replace(/\s+/g, '_');
+        if (normalizedLabel === identifier.toLowerCase() || label === identifier) {
+          nodeId = id;
+          break;
         }
       }
     }
 
-    return match;
+    if (!nodeId) {
+      return match; // Node not found, leave template unchanged
+    }
+
+    const nodeOutputs = context.outputs.get(nodeId);
+    if (!nodeOutputs) {
+      return match; // No outputs for this node
+    }
+
+    // Resolution rules:
+    // 1. If outputName is 'output' and node has an 'output' field, use it
+    // 2. Otherwise look up the specific output by name
+    // 3. If not found and outputName is 'output', use first defined output (legacy compat)
+
+    if (outputName in nodeOutputs) {
+      const value = nodeOutputs[outputName];
+      return typeof value === 'string' ? value : JSON.stringify(value);
+    }
+
+    // Legacy compatibility: {{ node.output }} falls back to first output
+    if (outputName === 'output') {
+      const firstOutput = Object.values(nodeOutputs)[0];
+      if (firstOutput !== undefined) {
+        return typeof firstOutput === 'string' ? firstOutput : JSON.stringify(firstOutput);
+      }
+    }
+
+    return match; // Output not found, leave template unchanged
   });
 }
 
@@ -176,7 +355,7 @@ function findTriggerNodes(nodes: WorkflowNode[], edges: WorkflowEdge[]): string[
 function executeShellCommand(
   command: string,
   cwd: string
-): Promise<{ output: string; exitCode: number }> {
+): Promise<{ output: string; stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve) => {
     const proc = spawn('sh', ['-c', command], {
       cwd,
@@ -198,6 +377,8 @@ function executeShellCommand(
       const output = stdout + (stderr ? `\n[stderr]\n${stderr}` : '');
       resolve({
         output: output.trim(),
+        stdout: stdout.trim(),
+        stderr: stderr.trim(),
         exitCode: code ?? 0,
       });
     });
@@ -205,6 +386,8 @@ function executeShellCommand(
     proc.on('error', (err) => {
       resolve({
         output: `Failed to start process: ${err.message}`,
+        stdout: '',
+        stderr: `Failed to start process: ${err.message}`,
         exitCode: 1,
       });
     });
@@ -212,15 +395,154 @@ function executeShellCommand(
 }
 
 /**
+ * Ensure node has default I/O definitions based on its type
+ * This provides backwards compatibility and sets up the I/O system
+ */
+function ensureNodeIO(node: WorkflowNode): WorkflowNode {
+  const nodeType = node.data.nodeType || node.type;
+
+  // If node already has I/O definitions, return as-is
+  if (node.data.inputs || node.data.outputs) {
+    return node;
+  }
+
+  // Add default I/O based on node type
+  const inputs: PortDefinition[] = [];
+  const outputs: PortDefinition[] = [];
+
+  if (nodeType === 'trigger') {
+    // Triggers have no inputs, only outputs
+    outputs.push(
+      { name: 'timestamp', type: 'string', description: 'ISO timestamp when trigger fired' },
+      { name: 'type', type: 'string', description: 'Trigger type identifier' },
+      { name: 'text', type: 'string', description: 'Optional text input from user' },
+      { name: 'params', type: 'json', description: 'Optional parameters passed via CLI/UI' }
+    );
+  } else if (nodeType === 'shell' || nodeType === 'script') {
+    // Shell/script nodes have generic input and stdout/stderr/exitCode outputs
+    inputs.push(
+      { name: 'input', type: 'any', required: false, description: 'Generic input value' }
+    );
+    outputs.push(
+      { name: 'stdout', type: 'string', description: 'Standard output from script' },
+      { name: 'stderr', type: 'string', description: 'Standard error from script' },
+      { name: 'exitCode', type: 'number', description: 'Exit code from script' }
+    );
+  } else {
+    // Other node types get a generic input/output
+    inputs.push(
+      { name: 'input', type: 'any', required: false }
+    );
+    outputs.push(
+      { name: 'output', type: 'string' }
+    );
+  }
+
+  return {
+    ...node,
+    data: {
+      ...node.data,
+      inputs,
+      outputs,
+    },
+  };
+}
+
+/**
+ * Build default outputs for a node execution result
+ */
+function buildOutputValues(
+  node: WorkflowNode,
+  result: {
+    rawOutput?: string;
+    stdout?: string;
+    stderr?: string;
+    exitCode?: number;
+  },
+  context: ExecutionContext
+): Record<string, unknown> {
+  const outputs: Record<string, unknown> = {};
+  const nodeType = node.data.nodeType || node.type;
+  const outputDefs = node.data.outputs || [];
+
+  // If no output definitions, create defaults based on node type
+  if (outputDefs.length === 0) {
+    // Legacy mode: single 'output' field
+    if (result.rawOutput !== undefined) {
+      outputs.output = result.rawOutput;
+    }
+    return outputs;
+  }
+
+  // Extract outputs based on definitions
+  for (const outputDef of outputDefs) {
+    // Determine source data for extraction
+    let sourceData: string = '';
+
+    if (nodeType === 'shell' || nodeType === 'script') {
+      // Shell/script nodes have stdout, stderr, exitCode
+      if (outputDef.name === 'stdout') {
+        outputs.stdout = result.stdout || '';
+      } else if (outputDef.name === 'stderr') {
+        outputs.stderr = result.stderr || '';
+      } else if (outputDef.name === 'exitCode') {
+        outputs.exitCode = result.exitCode ?? 0;
+      } else {
+        // Custom output with extraction
+        sourceData = result.stdout || result.rawOutput || '';
+        outputs[outputDef.name] = extractOutput(sourceData, outputDef.extract);
+      }
+    } else if (nodeType === 'trigger') {
+      // Trigger outputs come from context.triggerInputs
+      const triggerInputs = context.triggerInputs || {};
+      if (outputDef.name === 'timestamp') {
+        outputs.timestamp = new Date().toISOString();
+      } else if (outputDef.name === 'type') {
+        outputs.type = node.data.triggerType || 'manual';
+      } else if (outputDef.name === 'text') {
+        outputs.text = triggerInputs.text || '';
+      } else if (outputDef.name === 'params') {
+        outputs.params = triggerInputs.params || {};
+      } else {
+        // Pass through from trigger inputs
+        outputs[outputDef.name] = triggerInputs[outputDef.name];
+      }
+    } else {
+      // Other node types - use rawOutput
+      sourceData = result.rawOutput || '';
+      outputs[outputDef.name] = extractOutput(sourceData, outputDef.extract);
+    }
+  }
+
+  return outputs;
+}
+
+/**
  * Execute a single node
  */
 async function executeNode(
   node: WorkflowNode,
-  rootDirectory: string
+  rootDirectory: string,
+  edges: WorkflowEdge[],
+  context: ExecutionContext
 ): Promise<NodeResult> {
   const startTime = new Date().toISOString();
   const nodeType = node.data.nodeType || node.type;
   const cwd = (node.data.path as string) || rootDirectory || process.cwd();
+
+  // Resolve inputs from edges
+  const inputResolution = resolveInputs(node.id, node, edges, context);
+  if (!inputResolution.success) {
+    return {
+      nodeId: node.id,
+      status: 'failed',
+      error: inputResolution.error,
+      startTime,
+      endTime: new Date().toISOString(),
+    };
+  }
+
+  const inputValues = inputResolution.inputValues;
 
   if (nodeType === 'shell') {
     // Support both new 'script' field and legacy 'commands' array
@@ -245,6 +567,8 @@ async function executeNode(
 
     const outputs: string[] = [];
     const rawOutputs: string[] = [];
+    const stdouts: string[] = [];
+    const stderrs: string[] = [];
     let lastExitCode = 0;
 
     for (const command of commandsToRun) {
@@ -253,6 +577,8 @@ async function executeNode(
       const result = await executeShellCommand(command, cwd);
       outputs.push(`$ ${command}\n${result.output}`);
       rawOutputs.push(result.output);
+      stdouts.push(result.stdout);
+      stderrs.push(result.stderr);
       lastExitCode = result.exitCode;
 
       if (result.exitCode !== 0) {
@@ -274,6 +600,8 @@ async function executeNode(
       status: 'completed',
       output: outputs.join('\n\n'),
       rawOutput: rawOutputs.join('\n'),
+      stdout: stdouts.join('\n'),
+      stderr: stderrs.join('\n'),
       exitCode: lastExitCode,
       startTime,
       endTime: new Date().toISOString(),
@@ -281,10 +609,13 @@ async function executeNode(
   }
 
   if (nodeType === 'trigger') {
+    // Trigger nodes don't execute anything - they just provide initial outputs
+    // The actual output values are built from triggerInputs in buildOutputValues
     return {
       nodeId: node.id,
       status: 'completed',
       output: 'Trigger activated',
+      rawOutput: '', // Triggers don't have rawOutput from execution
       startTime,
       endTime: new Date().toISOString(),
     };
@@ -346,6 +677,8 @@ async function executeNode(
       status: result.exitCode === 0 ? 'completed' : 'failed',
       output: `$ ${command}\n${result.output}`,
       rawOutput: result.output,
+      stdout: result.stdout,
+      stderr: result.stderr,
       exitCode: result.exitCode,
       error: result.exitCode !== 0 ? `Script exited with code ${result.exitCode}` : undefined,
       startTime,
@@ -420,7 +753,7 @@ export async function executeWorkflow(
   edges: WorkflowEdge[],
   options: ExecuteOptions = {}
 ): Promise<ExecuteResult> {
-  const { rootDirectory, startNodeId, onNodeStart, onNodeComplete } = options;
+  const { rootDirectory, startNodeId, triggerInputs, onNodeStart, onNodeComplete } = options;
 
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   const adjacency = buildAdjacencyMap(edges);
@@ -428,6 +761,7 @@ export async function executeWorkflow(
   const context: ExecutionContext = {
     outputs: new Map(),
     nodeLabels: new Map(nodes.map(n => [n.id, (n.data.label as string) || n.id])),
+    triggerInputs,
   };
 
   let startNodes: string[];
@@ -450,7 +784,7 @@ export async function executeWorkflow(
 
   const queue = [...startNodes];
 
-  while (queue.length > 0 && overallSuccess) {
+  while (queue.length > 0) {
     const nodeId = queue.shift()!;
 
     if (visited.has(nodeId)) continue;
@@ -465,25 +799,29 @@ export async function executeWorkflow(
       onNodeStart(nodeId, node);
     }
 
-    const processedNode = processNodeTemplates(node, context);
-    const result = await executeNode(processedNode, rootDirectory || process.cwd());
+    // Ensure node has I/O definitions before processing
+    const nodeWithIO = ensureNodeIO(node);
+    const processedNode = processNodeTemplates(nodeWithIO, context);
+    const result = await executeNode(processedNode, rootDirectory || process.cwd(), edges, context);
     results.push(result);
 
     if (onNodeComplete) {
       onNodeComplete(nodeId, result);
     }
 
-    // Store raw output for template substitution
-    if (result.rawOutput !== undefined) {
-      context.outputs.set(nodeId, result.rawOutput.trim());
-    } else if (result.output) {
-      // Fallback for nodes that don't set rawOutput
-      context.outputs.set(nodeId, result.output.trim());
-    }
+    // Build and store output values based on node's output definitions
+    const outputValues = buildOutputValues(processedNode, result, context);
+    context.outputs.set(nodeId, outputValues);
 
+    // Check if we should stop on failure
     if (result.status === 'failed') {
+      const continueOnFailure = processedNode.data.continueOnFailure === true;
+      if (!continueOnFailure) {
+        overallSuccess = false;
+        break;
+      }
+      // Node failed but continueOnFailure is true - keep going but mark overall as failed
       overallSuccess = false;
-      break;
     }
 
     const nextNodes = adjacency.get(nodeId) || [];

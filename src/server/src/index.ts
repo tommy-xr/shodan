@@ -52,8 +52,10 @@ export function createServer(config: ServerConfig): Express {
   return app;
 }
 
-// Start server if run directly
-const isMainModule = process.argv[1]?.includes('index');
+// Start server if run directly (not when imported by other modules)
+// Check if this is the main module by looking for 'server' in the path
+const isMainModule = process.argv[1]?.includes('server/dist/index.js') ||
+                     process.argv[1]?.includes('server/src/index.ts');
 if (isMainModule) {
   const config: ServerConfig = {
     port: parseInt(process.env.PORT || '3000', 10),
