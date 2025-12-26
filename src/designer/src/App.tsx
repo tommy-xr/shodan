@@ -300,16 +300,52 @@ function Flow() {
 
   // Navigate back to a specific level in the stack
   const onNavigateBreadcrumb = useCallback(
-    (index: number) => {
+    async (index: number) => {
       if (index >= navigationStack.length - 1) return;
 
       const targetItem = navigationStack[index];
 
-      // Restore state
-      updateNodeIdCounter(targetItem.nodes);
-      setNodes(targetItem.nodes);
-      setEdges(targetItem.edges);
-      setWorkflowName(targetItem.name);
+      // If navigating to a component (has path), reload from YAML for fresh handles
+      if (targetItem.path) {
+        try {
+          const workflow = await getComponentWorkflow(targetItem.path);
+          const componentNodes: Node<BaseNodeData>[] = workflow.nodes.map((n) => ({
+            id: n.id,
+            type: n.type,
+            position: n.position,
+            data: {
+              ...n.data,
+              nodeType: n.type as NodeType,
+            } as BaseNodeData,
+          }));
+          const componentEdges: Edge[] = workflow.edges.map((e) => ({
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            sourceHandle: e.sourceHandle,
+            targetHandle: e.targetHandle,
+          }));
+
+          updateNodeIdCounter(componentNodes);
+          setNodes(componentNodes);
+          setEdges(componentEdges);
+          setWorkflowName(workflow.name);
+        } catch (err) {
+          console.error('Failed to reload component:', err);
+          // Fall back to cached state
+          updateNodeIdCounter(targetItem.nodes);
+          setNodes(targetItem.nodes);
+          setEdges(targetItem.edges);
+          setWorkflowName(targetItem.name);
+        }
+      } else {
+        // Root workflow - use cached state
+        updateNodeIdCounter(targetItem.nodes);
+        setNodes(targetItem.nodes);
+        setEdges(targetItem.edges);
+        setWorkflowName(targetItem.name);
+      }
+
       setSelectedNode(null);
 
       // Restore viewport
@@ -388,12 +424,36 @@ function Flow() {
       });
 
       // Update the navigation stack with the new interface
+      // Also update parent workflows' component nodes that reference this component
       setNavigationStack((stack) =>
-        stack.map((item, index) =>
-          index === stack.length - 1
-            ? { ...item, interface: componentInterface }
-            : item
-        )
+        stack.map((item, index) => {
+          if (index === stack.length - 1) {
+            // Current item - update interface
+            return { ...item, interface: componentInterface };
+          } else if (currentItem.path) {
+            // Parent workflows - update component nodes that reference this component
+            const updatedNodes = item.nodes.map((node) => {
+              if (
+                node.data.nodeType === 'component' &&
+                node.data.workflowPath === currentItem.path
+              ) {
+                // Update this component node's interface
+                return {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    label: workflowName,
+                    inputs: componentInterface.inputs,
+                    outputs: componentInterface.outputs,
+                  },
+                };
+              }
+              return node;
+            });
+            return { ...item, nodes: updatedNodes as Node<BaseNodeData>[] };
+          }
+          return item;
+        })
       );
 
       setHasUnsavedChanges(false);

@@ -1,0 +1,63 @@
+version: 2
+metadata:
+  name: Text Wrapper
+interface:
+  inputs:
+    - name: input
+      type: string
+      description: ''
+  outputs:
+    - name: output
+      type: string
+      description: ''
+nodes:
+  - id: input-proxy
+    type: interface-input
+    position:
+      x: 100
+      'y': 200
+    data:
+      nodeType: interface-input
+      label: Input
+      outputs:
+        - name: input
+          type: string
+          description: ''
+  - id: output-proxy
+    type: interface-output
+    position:
+      x: 596.9438933722902
+      'y': 126.13798600206465
+    data:
+      nodeType: interface-output
+      label: Output
+      inputs:
+        - name: output
+          type: string
+          description: ''
+  - id: node_0
+    type: component
+    position:
+      x: 496.4020901953986
+      'y': 270.6308724832215
+    data:
+      label: Text Transform Component
+      nodeType: component
+      workflowPath: workflows/components/text-transform.yaml
+      inputs:
+        - name: text
+          type: string
+      outputs:
+        - name: result
+          type: string
+edges:
+  - id: xy-edge__input-proxyoutput:input-node_0input:text
+    source: input-proxy
+    target: node_0
+    sourceHandle: output:input
+    targetHandle: input:text
+  - id: xy-edge__node_0output:result-output-proxyinput:output
+    source: node_0
+    target: output-proxy
+    sourceHandle: output:result
+    targetHandle: input:output
