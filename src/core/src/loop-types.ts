@@ -7,15 +7,7 @@
  */
 
 import type { PortDefinition } from './io-types.js';
-
-/**
- * Workflow schema reference (simplified for loop embedding)
- * The full WorkflowSchema is defined in the server package
- */
-export interface InlineWorkflow {
-  nodes: unknown[];  // WorkflowNode[]
-  edges: unknown[];  // WorkflowEdge[]
-}
+import type { InlineWorkflow } from './workflow-types.js';
 
 /**
  * Loop node data - defines a loop container

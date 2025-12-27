@@ -1,75 +1,12 @@
 import { spawn } from 'child_process';
 import { executeAgent, type RunnerType } from './agents/index.js';
-import type { PortDefinition, ValueType } from '@shodan/core';
+import type { PortDefinition, ValueType, WorkflowNode, WorkflowEdge, WorkflowSchema } from '@shodan/core';
 import { loadWorkflow, getWorkflowDirectory } from './workflow-loader.js';
 
+// Re-export workflow types for backwards compatibility
+export type { WorkflowNode, WorkflowEdge, WorkflowSchema } from '@shodan/core';
+
 export type NodeStatus = 'pending' | 'running' | 'completed' | 'failed';
-
-export interface WorkflowNode {
-  id: string;
-  type: string;
-  data: {
-    label?: string;
-    nodeType?: string;
-    // I/O definitions
-    inputs?: PortDefinition[];
-    outputs?: PortDefinition[];
-    // Execution options
-    continueOnFailure?: boolean; // If true, workflow continues even if this node fails
-    // Node-specific fields
-    script?: string; // New: single multi-line script
-    commands?: string[]; // Legacy: array of commands
-    scriptFiles?: string[];
-    scriptFile?: string; // Script node: path to .js, .ts, or .sh file
-    scriptArgs?: string; // Script node: arguments to pass
-    path?: string;
-    prompt?: string;
-    // Component node fields
-    workflowPath?: string; // Path to workflow file (relative to root)
-    componentInputs?: Record<string, unknown>; // Static input values for component
-    [key: string]: unknown;
-  };
-}
-
-export interface WorkflowEdge {
-  id: string;
-  source: string;
-  target: string;
-  sourceHandle?: string;  // Format: "output:outputName"
-  targetHandle?: string;  // Format: "input:inputName"
-}
-
-/**
- * Workflow interface definition for composable workflows
- * Defines the external inputs and outputs when used as a component
- */
-export interface WorkflowInterface {
-  inputs?: PortDefinition[];
-  outputs?: PortDefinition[];
-}
-
-export interface WorkflowSchema {
-  version: number;
-  metadata: {
-    name: string;
-    description?: string;
-    rootDirectory?: string;
-  };
-  interface?: WorkflowInterface;  // External I/O when used as component
-  nodes: Array<{
-    id: string;
-    type: string;
-    position: { x: number; y: number };
-    data: Record<string, unknown>;
-  }>;
-  edges: Array<{
-    id: string;
-    source: string;
-    target: string;
-    sourceHandle?: string;  // Format: "output:outputName"
-    targetHandle?: string;  // Format: "input:inputName"
-  }>;
-}
 
 export interface NodeResult {
   nodeId: string;
