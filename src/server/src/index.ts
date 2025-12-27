@@ -11,7 +11,8 @@ import { getProjectRoot, getProjectRootMarker } from './utils/project-root.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Re-export for CLI and other consumers
-export { executeWorkflowSchema, type WorkflowSchema, type NodeResult } from './engine/executor.js';
+export { executeWorkflowSchema, type NodeResult } from './engine/executor.js';
+export type { WorkflowSchema, WorkflowNode, WorkflowEdge } from '@shodan/core';
 export { getProjectRoot } from './utils/project-root.js';
 
 export interface ServerConfig {

@@ -3,9 +3,6 @@ import { executeAgent, type RunnerType } from './agents/index.js';
 import type { PortDefinition, ValueType, WorkflowNode, WorkflowEdge, WorkflowSchema } from '@shodan/core';
 import { loadWorkflow, getWorkflowDirectory } from './workflow-loader.js';
 
-// Re-export workflow types for backwards compatibility
-export type { WorkflowNode, WorkflowEdge, WorkflowSchema } from '@shodan/core';
-
 export type NodeStatus = 'pending' | 'running' | 'completed' | 'failed';
 
 export interface NodeResult {

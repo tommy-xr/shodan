@@ -1,10 +1,6 @@
 import { Router } from 'express';
-import {
-  executeWorkflow,
-  type WorkflowNode,
-  type WorkflowEdge,
-  type ExecuteResult,
-} from '../engine/executor.js';
+import type { WorkflowNode, WorkflowEdge } from '@shodan/core';
+import { executeWorkflow, type ExecuteResult } from '../engine/executor.js';
 
 export interface ExecuteRequest {
   nodes: WorkflowNode[];

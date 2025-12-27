@@ -6,7 +6,7 @@
 import { readFile } from 'fs/promises';
 import { resolve, dirname } from 'path';
 import yaml from 'js-yaml';
-import type { WorkflowSchema } from './executor.js';
+import type { WorkflowSchema } from '@shodan/core';
 
 /**
  * Load a workflow from a file path
