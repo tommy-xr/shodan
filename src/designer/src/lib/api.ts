@@ -87,12 +87,19 @@ export interface ExecuteRequest {
   nodes: Array<{
     id: string;
     type: string;
+    position: { x: number; y: number };
     data: Record<string, unknown>;
+    // Loop container support
+    parentId?: string;
+    extent?: 'parent';
+    style?: { width?: number; height?: number };
   }>;
   edges: Array<{
     id: string;
     source: string;
     target: string;
+    sourceHandle?: string | null;
+    targetHandle?: string | null;
   }>;
   rootDirectory?: string;
 }

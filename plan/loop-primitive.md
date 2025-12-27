@@ -822,89 +822,57 @@ The loop system uses the same template syntax as the I/O system. All values are 
 
 ---
 
-### Phase 3b: Drag-and-Drop into Loop Container
+### Phase 3b: Drag-and-Drop into Loop Container ✅
 
 **Goal:** Allow users to drag nodes from palette into loop, and move existing nodes into/out of loops.
 
+**Status:** Complete.
+
 **Tasks:**
-- [ ] Detect when node is dropped inside loop container bounds
-- [ ] Auto-set `parentId` and convert position to relative coordinates
-- [ ] Handle dragging node out of loop (remove `parentId`, convert to absolute)
-- [ ] Visual feedback when dragging over loop (highlight drop zone)
-- [ ] Keep dropped nodes above dock area (leave space at bottom for dock)
-- [ ] Update edge connections when nodes move into/out of loops
+- [x] Detect when node is dropped inside loop container bounds
+- [x] Auto-set `parentId` and convert position to relative coordinates
+- [x] Handle dragging node out of loop (remove `parentId`, convert to absolute)
+- [x] Visual feedback when dragging over loop (highlight drop zone with cyan glow)
+- [x] Keep dropped nodes above dock area (leave space at bottom for dock)
+- [x] Handle moving nodes from one loop to another
 
-**Drop Detection Logic:**
-```typescript
-const onNodeDragStop = (event, node) => {
-  // Find if node is inside any loop container
-  const loopContainers = nodes.filter(n => n.data.nodeType === 'loop');
-
-  for (const loop of loopContainers) {
-    if (isInsideBounds(node.position, loop)) {
-      // Convert to relative position and set parentId
-      node.parentId = loop.id;
-      node.extent = 'parent';
-      node.position = {
-        x: node.position.x - loop.position.x,
-        y: node.position.y - loop.position.y
-      };
-      // Ensure node is above dock area
-      const dockHeight = 80;
-      const maxY = (loop.style?.height || 400) - dockHeight - node.height;
-      node.position.y = Math.min(node.position.y, maxY);
-    }
-  }
-};
-```
+**Phase 3b completion notes:**
+- Implemented `onNodeDragStop` handler with `findContainingLoop` helper
+- Nodes inside loops get `parentId` set and positions converted to relative coordinates
+- `isDropTarget` state on loop nodes triggers cyan highlight styling
+- Bounds checking ensures nodes stay above dock area (40px header, 70px dock)
 
 ---
 
-### Phase 3c: Dock Rendering and Slot Management
+### Phase 3c: Dock Rendering and Slot Management ✅
 
 **Goal:** Render the dock bar at the bottom of the loop container with slots for iteration control.
 
-**Visual Design:**
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ 🔁 Code Review Loop                              [max: 5]       │
-├─────────────────────────────────────────────────────────────────┤
-│  ○ task                                        final_code ●     │
-│  ○ guidelines                                                   │
-│                                                                 │
-│    ┌──────────────┐              ┌──────────────┐               │
-│    │  🤖 Coder    │─────────────▶│  🤖 Reviewer │               │
-│    └──────────────┘              └──────────────┘               │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌────────────┐   ┌──────────────────────────┐   ┌──────────┐   │
-│  │ iteration  │   │        feedback          │   │ continue │   │
-│  │    ●→      │   │   ●→               →●    │   │   →●     │   │
-│  └────────────┘   └──────────────────────────┘   └──────────┘   │
-├─────────────────────────────────────────────────────────────────┤
-│                    Iteration 3/5                                │
-└─────────────────────────────────────────────────────────────────┘
-```
+**Status:** Complete (core rendering done, config panel slot management pending).
 
 **Tasks:**
-- [ ] Dock bar component at bottom of loop container
-- [ ] Render dock slots based on `dockSlots` array in node data
-- [ ] Built-in slots: `iteration` (output) and `continue` (input)
-- [ ] User-defined feedback slots with bidirectional ports
-- [ ] Arrow indicators for port direction:
-  - `●→` for output ports (data flows out to internal nodes)
-  - `→●` for input ports (data flows in from internal nodes)
-- [ ] Handles for dock ports (for edge connections)
+- [x] Dock bar component at bottom of loop container
+- [x] Render dock slots based on `dockSlots` array in node data
+- [x] Built-in slots: `iteration` (output) and `continue` (input)
+- [x] User-defined feedback slots with bidirectional ports
+- [x] Handles for dock ports (for edge connections) with proper handle IDs
+- [x] Status bar showing current iteration during execution
+- [ ] Arrow indicators for port direction (visual only, handles work)
 - [ ] Slot configuration in config panel (add/remove feedback slots)
-- [ ] Status bar showing current iteration during execution
+
+**Phase 3c completion notes:**
+- `LoopContainerNode.tsx` implements dock bar with `renderDockSlot()` function
+- Handle IDs follow pattern: `dock:{name}:output`, `dock:{name}:input`, `dock:{name}:prev`, `dock:{name}:current`
+- Feedback slots render with bidirectional handles (25%/75% positioning)
+- Slots colored by `valueType` using type color mapping
 
 ---
 
-### Phase 3d: Executor Support for Dock-Based Model
+### Phase 3d: Executor Support for Dock-Based Model ✅
 
 **Goal:** Update the loop executor to work with dock slots instead of interface nodes.
 
-**Status:** Partially complete (parentId filtering works), needs update for dock-based model.
+**Status:** Complete.
 
 **Completed Tasks (parentId model):**
 - [x] Remove `inlineWorkflow` and `workflowRef` from `LoopNodeData` type
@@ -912,14 +880,26 @@ const onNodeDragStop = (event, node) => {
 - [x] Update `executeLoop()` to filter edges where both endpoints are inside loop
 - [x] Update workflow YAML schema to support `parentId` and `extent` on nodes
 
-**Remaining Tasks (dock-based model):**
-- [ ] Add `dockSlots` field to `LoopNodeData` type
-- [ ] Update executor to read dock slot definitions from loop node
-- [ ] Implement dock slot value management (feedbackValues map)
-- [ ] Handle `dock:*` handle IDs in edge resolution
-- [ ] Implement deferred edge execution (internal→external fires after loop)
-- [ ] Remove interface node validation (no longer needed)
-- [ ] Update test workflows to use dock-based format
+**Completed Tasks (dock-based model):**
+- [x] Add `dockSlots` field to `LoopNodeData` type
+- [x] Update executor to read dock slot definitions from loop node
+- [x] Implement dock slot value management (feedbackValues map)
+- [x] Handle `dock:*` handle IDs in edge resolution
+- [x] Implement deferred edge execution (internal→external fires after loop)
+- [x] Remove interface node validation (no longer needed)
+- [x] Update test workflows to use dock-based format
+- [x] Add `loopId` to ExecuteOptions for proper nested loop support
+- [x] Filter dock input edges from adjacency map (prevent infinite recursion)
+- [x] Support dynamic continue slot names (not just "continue")
+
+**Phase 3d completion notes:**
+- Rewrote `loop-executor.ts` for dock-based model with edge categorization (innerEdges, dockOutputEdges, dockInputEdges, deferredEdges)
+- Added `DockContext` interface for passing dock slot values to inner workflow
+- Extended `resolveInputs` to handle `input:*` and `dock:*` handles
+- Added `outputs` Map to `ExecuteResult` for proper value extraction
+- Created test workflows: `test-loop-dock.yaml` (simple counter) and `test-loop-nested.yaml` (i/j nested loop pattern)
+- Fixed nested loop issues: added `loopId` option to only execute direct children, filter dock input edges from adjacency to prevent re-execution
+- All loop tests added to test corpus and passing
 
 **Executor Logic (Dock-Based):**
 ```typescript
@@ -980,18 +960,26 @@ const executeLoop = async (
 
 ---
 
-### Phase 3e: Loop I/O Ports on Container
+### Phase 3e: Loop I/O Ports on Container ✅
 
 **Goal:** Loop container shows external input/output ports (standard ports) plus dock slot ports.
 
+**Status:** Complete.
+
 **Tasks:**
-- [ ] Loop container has external input handles on left (from `data.inputs`)
-- [ ] Loop container has external output handles on right (from `data.outputs`)
-- [ ] Dock slot handles rendered at bottom (dock bar area)
-- [ ] Handle ID format distinguishes external ports from dock ports:
+- [x] Loop container has external input handles on left (from `data.inputs`)
+- [x] Loop container has external output handles on right (from `data.outputs`)
+- [x] Dock slot handles rendered at bottom (dock bar area)
+- [x] Handle ID format distinguishes external ports from dock ports:
   - External: `input:{name}`, `output:{name}`
   - Dock: `dock:{name}:prev`, `dock:{name}:current`, `dock:iteration:output`, `dock:continue:input`
-- [ ] External output edges are deferred (fire only after loop completes)
+- [x] External output edges are deferred (fire only after loop completes) - handled in executor
+
+**Phase 3e completion notes:**
+- External ports rendered in `LoopContainerNode.tsx` with port labels
+- Ports positioned on left (inputs) and right (outputs) sides of container
+- Port coloring follows type color mapping for visual type indication
+- Fixed `workflow.ts` serialization to preserve `parentId`, `extent`, and `style` fields for proper loop container display when importing YAML workflows
 
 **Visual:**
 ```
@@ -1024,7 +1012,9 @@ const executeLoop = async (
 
 1. **Parallel loops (map/forEach)**: Should we support running iterations in parallel over a collection? This would be a different primitive - more like a "map" node than a feedback loop.
 
-2. **Nested loops**: Loops containing loops should work naturally since the inner workflow can contain any nodes. Worth testing.
+2. **Nested loops**: ✅ Tested and working. The `test-loop-nested.yaml` workflow demonstrates an outer loop (i=1-3) containing an inner loop (j=1-2), producing pairs (1,1), (1,2), (2,1), (2,2), (3,1), (3,2). Key implementation details:
+   - Added `loopId` to `ExecuteOptions` to filter child nodes by their direct parent
+   - Dock input edges filtered from adjacency map to prevent infinite recursion
 
 3. **Session resumption**: For CLI agents (claude-code, codex), should we support resuming the same conversation across iterations?
    - Pro: Agent remembers previous attempts, reduces token usage

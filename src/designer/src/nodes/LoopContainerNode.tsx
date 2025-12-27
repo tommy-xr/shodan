@@ -204,7 +204,7 @@ export function LoopContainerNode({ data, selected }: NodeProps) {
         })}
       </div>
 
-      {/* External input handles on left side of container */}
+      {/* External input handles on left side of container (for incoming edges) */}
       {inputs.map((input, index) => {
         const topOffset = portStartOffset + (index * portHeight);
         return (
@@ -224,7 +224,28 @@ export function LoopContainerNode({ data, selected }: NodeProps) {
         );
       })}
 
-      {/* External output handles on right side of container */}
+      {/* Internal input handles (source) - to pass loop inputs to child nodes */}
+      {inputs.map((input, index) => {
+        const topOffset = portStartOffset + (index * portHeight);
+        return (
+          <Handle
+            key={`input-internal-${input.name}`}
+            type="source"
+            position={Position.Left}
+            id={`input:${input.name}:internal`}
+            className="handle handle-internal"
+            style={{
+              top: `${topOffset}px`,
+              left: '20px',
+              backgroundColor: typeColors[input.type],
+              borderColor: typeColors[input.type],
+            }}
+            title={`Pass ${input.label || input.name} to child nodes`}
+          />
+        );
+      })}
+
+      {/* External output handles on right side of container (for outgoing edges) */}
       {outputs.map((output, index) => {
         const topOffset = portStartOffset + (index * portHeight);
         return (
@@ -240,6 +261,27 @@ export function LoopContainerNode({ data, selected }: NodeProps) {
               borderColor: typeColors[output.type],
             }}
             title={output.description || output.label || output.name}
+          />
+        );
+      })}
+
+      {/* Internal output handles (target) - to collect results from child nodes */}
+      {outputs.map((output, index) => {
+        const topOffset = portStartOffset + (index * portHeight);
+        return (
+          <Handle
+            key={`output-internal-${output.name}`}
+            type="target"
+            position={Position.Right}
+            id={`output:${output.name}:internal`}
+            className="handle handle-internal"
+            style={{
+              top: `${topOffset}px`,
+              right: '20px',
+              backgroundColor: typeColors[output.type],
+              borderColor: typeColors[output.type],
+            }}
+            title={`Collect ${output.label || output.name} from child nodes (fires after loop)`}
           />
         );
       })}

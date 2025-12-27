@@ -25,6 +25,10 @@ export interface SerializedNode {
   type: string;
   position: { x: number; y: number };
   data: Record<string, unknown>;
+  // Loop container support
+  parentId?: string;
+  extent?: 'parent';
+  style?: { width?: number; height?: number };
 }
 
 export interface SerializedEdge {
@@ -103,12 +107,28 @@ export function serializeWorkflow(
       createdAt: metadata.createdAt || now,
       updatedAt: now,
     },
-    nodes: nodes.map((node) => ({
-      id: node.id,
-      type: node.type || 'agent',
-      position: { x: node.position.x, y: node.position.y },
-      data: { ...node.data },
-    })),
+    nodes: nodes.map((node) => {
+      const serialized: SerializedNode = {
+        id: node.id,
+        type: node.type || 'agent',
+        position: { x: node.position.x, y: node.position.y },
+        data: { ...node.data },
+      };
+      // Preserve loop container properties
+      if (node.parentId) {
+        serialized.parentId = node.parentId;
+      }
+      if (node.extent === 'parent') {
+        serialized.extent = 'parent';
+      }
+      if (node.style && (node.style.width || node.style.height)) {
+        serialized.style = {
+          width: node.style.width as number | undefined,
+          height: node.style.height as number | undefined,
+        };
+      }
+      return serialized;
+    }),
     edges: edges.map((edge) => ({
       id: edge.id,
       source: edge.source,
@@ -130,12 +150,25 @@ export function deserializeWorkflow(workflow: WorkflowSchema): {
   const upgraded = upgradeWorkflow(workflow);
 
   return {
-    nodes: upgraded.nodes.map((node) => ({
-      id: node.id,
-      type: node.type,
-      position: node.position,
-      data: node.data as BaseNodeData,
-    })),
+    nodes: upgraded.nodes.map((node) => {
+      const deserialized: Node<BaseNodeData> = {
+        id: node.id,
+        type: node.type,
+        position: node.position,
+        data: node.data as BaseNodeData,
+      };
+      // Restore loop container properties
+      if (node.parentId) {
+        deserialized.parentId = node.parentId;
+      }
+      if (node.extent === 'parent') {
+        deserialized.extent = 'parent';
+      }
+      if (node.style) {
+        deserialized.style = node.style;
+      }
+      return deserialized;
+    }),
     edges: upgraded.edges.map((edge) => ({
       id: edge.id,
       source: edge.source,

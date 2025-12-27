@@ -131,8 +131,12 @@ function resolveInputs(
   const edgesByInputName = new Map<string, WorkflowEdge>();
 
   for (const edge of incomingEdges) {
-    // Parse target handle: "input:inputName"
-    const targetHandle = edge.targetHandle || 'input:input';
+    // Parse target handle: "input:inputName" or "input:inputName:internal"
+    let targetHandle = edge.targetHandle || 'input:input';
+    // Strip :internal suffix if present (used for internal loop handles)
+    if (targetHandle.endsWith(':internal')) {
+      targetHandle = targetHandle.slice(0, -9);
+    }
     const inputName = targetHandle.startsWith('input:')
       ? targetHandle.substring(6)
       : targetHandle;
@@ -170,7 +174,11 @@ function resolveInputs(
     }
 
     // Get source output value
-    const sourceHandle = edge.sourceHandle || 'output:output';
+    let sourceHandle = edge.sourceHandle || 'output:output';
+    // Strip :internal suffix if present (used for internal loop handles)
+    if (sourceHandle.endsWith(':internal')) {
+      sourceHandle = sourceHandle.slice(0, -9);
+    }
 
     // Check if this is a dock output edge or loop input edge
     // Dock handles: dock:iteration:output, dock:count:prev, etc.
@@ -1061,6 +1069,13 @@ export async function executeWorkflow(
 
     const node = nodeMap.get(nodeId);
     if (!node) continue;
+
+    // Skip the loop node itself when executing inside that loop
+    // This prevents the loop from re-executing itself when downstream edges lead back to it
+    if (loopId && nodeId === loopId) {
+      // Don't execute the loop container from within its own inner workflow
+      continue;
+    }
 
     // Skip nodes that have a parentId - they are children of container nodes (like loops)
     // and should only be executed by their parent, not by the main workflow

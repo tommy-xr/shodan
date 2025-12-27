@@ -462,21 +462,21 @@ function LoopConfig({ node, onUpdate }: Omit<NodeConfigProps, 'rootDirectory'>) 
       <div className="config-field">
         <label>Inner Workflow</label>
         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', padding: '8px 0' }}>
-          Drag nodes into this loop container to add them. Required nodes:
+          Drag nodes into this loop container. Use the dock slots at the bottom:
           <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
-            <li><code>interface-input</code> - receives loop inputs + iteration info</li>
-            <li><code>interface-output</code> - defines outputs for each iteration</li>
-            <li><code>interface-continue</code> - controls when to stop looping</li>
+            <li><strong>Iteration</strong> - outputs current iteration number (1, 2, 3...)</li>
+            <li><strong>Continue</strong> - connect a boolean to control looping</li>
+            <li><strong>Feedback</strong> - pass values between iterations (prev/current)</li>
           </ul>
         </div>
       </div>
 
       <div className="config-field">
-        <label>Interface (from child nodes)</label>
+        <label>External I/O</label>
         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
           <div style={{ marginBottom: '8px' }}>
             <strong>Inputs:</strong>
-            {inputs.length === 0 && <span style={{ fontStyle: 'italic' }}> none (add interface-input node)</span>}
+            {inputs.length === 0 && <span style={{ fontStyle: 'italic' }}> none defined</span>}
             <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
               {inputs.map((input) => (
                 <li key={input.name}>
@@ -489,7 +489,7 @@ function LoopConfig({ node, onUpdate }: Omit<NodeConfigProps, 'rootDirectory'>) 
           </div>
           <div>
             <strong>Outputs:</strong>
-            {outputs.length === 0 && <span style={{ fontStyle: 'italic' }}> none (add interface-output node)</span>}
+            {outputs.length === 0 && <span style={{ fontStyle: 'italic' }}> none defined</span>}
             <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
               {outputs.map((output) => (
                 <li key={output.name}>

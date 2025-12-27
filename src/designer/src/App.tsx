@@ -10,7 +10,7 @@ import {
   ReactFlowProvider,
   useReactFlow,
 } from '@xyflow/react';
-import type { Connection, Node, Edge, NodeDragHandler } from '@xyflow/react';
+import type { Connection, Node, Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import { nodeTypes } from './nodes';
@@ -255,10 +255,18 @@ function Flow() {
             label: 'New Loop',
             nodeType: 'loop',
             maxIterations: 10,
+            // External I/O ports (so loop can be wired to other nodes)
+            inputs: [
+              { name: 'input', type: 'any', description: 'Trigger input to start the loop' },
+            ],
+            outputs: [
+              { name: 'output', type: 'any', description: 'Final output after loop completes' },
+            ],
             // Default dock slots for iteration control
             dockSlots: [
               { name: 'iteration', type: 'iteration', valueType: 'number', label: 'Iteration' },
               { name: 'continue', type: 'continue', valueType: 'boolean', label: 'Continue' },
+              { name: 'feedback', type: 'feedback', valueType: 'string', label: 'Feedback' },
             ],
           },
         };
@@ -295,8 +303,8 @@ function Flow() {
   }, []);
 
   // Handle node drag stop - detect if node moved into/out of a loop
-  const onNodeDragStop: NodeDragHandler = useCallback(
-    (_event, node) => {
+  const onNodeDragStop = useCallback(
+    (_event: React.MouseEvent, node: Node<BaseNodeData>) => {
       // Don't process loop nodes themselves
       if (node.data.nodeType === 'loop') return;
 
@@ -752,7 +760,12 @@ function Flow() {
         nodes: nodes.map((n) => ({
           id: n.id,
           type: n.type || 'agent',
+          position: n.position,
           data: n.data,
+          // Include loop container properties
+          parentId: n.parentId,
+          extent: n.extent,
+          style: n.style as { width?: number; height?: number },
         })),
         edges: edges.map((e) => ({
           id: e.id,

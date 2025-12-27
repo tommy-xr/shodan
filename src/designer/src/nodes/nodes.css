@@ -200,6 +200,18 @@
   box-shadow: 0 0 8px currentColor;
 }
 
+/* Internal handles (inside loop containers) */
+.handle-internal {
+  width: 8px !important;
+  height: 8px !important;
+  border-style: dashed !important;
+  opacity: 0.8;
+}
+
+.handle-internal:hover {
+  opacity: 1;
+}
+
 /* Execution status styles */
 .exec-status-icon {
   margin-left: auto;
