@@ -24,6 +24,7 @@ const paletteItems: PaletteItem[] = [
   { type: 'script', label: 'Script', icon: '📜' },
   { type: 'trigger', label: 'Trigger', icon: '⚡' },
   { type: 'workdir', label: 'Working Dir', icon: '📁' },
+  { type: 'loop', label: 'Loop', icon: '🔁' },
 ];
 
 interface SidebarProps {

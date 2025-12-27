@@ -1,0 +1,137 @@
+version: 2
+metadata:
+  name: Counter Loop Test
+  description: Simple loop that counts up to a target number (shell nodes only)
+
+nodes:
+  - id: trigger
+    type: trigger
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: text
+          type: string
+
+  - id: count-loop
+    type: loop
+    data:
+      label: Count to Target
+      nodeType: loop
+      maxIterations: 10
+
+      inputs:
+        - name: target
+          type: string
+          default: "5"
+
+      outputs:
+        - name: final_count
+          type: number
+
+      inlineWorkflow:
+        nodes:
+          # Interface nodes
+          - id: input
+            type: interface-input
+            data:
+              nodeType: interface-input
+              label: Input
+              outputs:
+                - name: target
+                  type: string
+                - name: iteration
+                  type: number
+                - name: prev.count
+                  type: number
+
+          - id: output
+            type: interface-output
+            data:
+              nodeType: interface-output
+              label: Output
+              inputs:
+                - name: count
+                  type: number
+
+          - id: continue
+            type: interface-continue
+            data:
+              nodeType: interface-continue
+              label: Continue?
+              inputs:
+                - name: continue
+                  type: boolean
+
+          # Counter logic
+          - id: counter
+            type: shell
+            data:
+              nodeType: shell
+              label: Increment Counter
+              script: |
+                TARGET={{ inputs.target }}
+                PREV={{ inputs.prev_count }}
+                PREV=${PREV:-0}
+                # Handle null/empty prev value
+                if [ "$PREV" = "null" ] || [ -z "$PREV" ]; then
+                  PREV=0
+                fi
+                COUNT=$((PREV + 1))
+                echo "Count: $COUNT / $TARGET"
+                if [ $COUNT -lt $TARGET ]; then
+                  echo "CONTINUE=true"
+                else
+                  echo "CONTINUE=false"
+                fi
+              inputs:
+                - name: target
+                  type: string
+                - name: prev_count
+                  type: number
+              outputs:
+                - name: count
+                  type: number
+                  extract:
+                    type: regex
+                    pattern: 'Count: (\d+)'
+                - name: should_continue
+                  type: boolean
+                  extract:
+                    type: regex
+                    pattern: 'CONTINUE=(true|false)'
+
+        edges:
+          # Input -> Counter
+          - id: e1
+            source: input
+            target: counter
+            sourceHandle: "output:target"
+            targetHandle: "input:target"
+          - id: e2
+            source: input
+            target: counter
+            sourceHandle: "output:prev.count"
+            targetHandle: "input:prev_count"
+
+          # Counter -> Output
+          - id: e3
+            source: counter
+            target: output
+            sourceHandle: "output:count"
+            targetHandle: "input:count"
+
+          # Counter -> Continue
+          - id: e4
+            source: counter
+            target: continue
+            sourceHandle: "output:should_continue"
+            targetHandle: "input:continue"
+
+edges:
+  - id: trigger-to-loop
+    source: trigger
+    target: count-loop
+    sourceHandle: "output:text"
+    targetHandle: "input:target"

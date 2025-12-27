@@ -1,75 +1,11 @@
 import { spawn } from 'child_process';
 import { executeAgent, type RunnerType } from './agents/index.js';
-import type { PortDefinition, ValueType } from '@shodan/core';
+import type { PortDefinition, ValueType, WorkflowNode, WorkflowEdge, WorkflowSchema, LoopNodeData } from '@shodan/core';
+import { isLoopNodeData } from '@shodan/core';
 import { loadWorkflow, getWorkflowDirectory } from './workflow-loader.js';
+import { executeLoop } from './loop-executor.js';
 
 export type NodeStatus = 'pending' | 'running' | 'completed' | 'failed';
-
-export interface WorkflowNode {
-  id: string;
-  type: string;
-  data: {
-    label?: string;
-    nodeType?: string;
-    // I/O definitions
-    inputs?: PortDefinition[];
-    outputs?: PortDefinition[];
-    // Execution options
-    continueOnFailure?: boolean; // If true, workflow continues even if this node fails
-    // Node-specific fields
-    script?: string; // New: single multi-line script
-    commands?: string[]; // Legacy: array of commands
-    scriptFiles?: string[];
-    scriptFile?: string; // Script node: path to .js, .ts, or .sh file
-    scriptArgs?: string; // Script node: arguments to pass
-    path?: string;
-    prompt?: string;
-    // Component node fields
-    workflowPath?: string; // Path to workflow file (relative to root)
-    componentInputs?: Record<string, unknown>; // Static input values for component
-    [key: string]: unknown;
-  };
-}
-
-export interface WorkflowEdge {
-  id: string;
-  source: string;
-  target: string;
-  sourceHandle?: string;  // Format: "output:outputName"
-  targetHandle?: string;  // Format: "input:inputName"
-}
-
-/**
- * Workflow interface definition for composable workflows
- * Defines the external inputs and outputs when used as a component
- */
-export interface WorkflowInterface {
-  inputs?: PortDefinition[];
-  outputs?: PortDefinition[];
-}
-
-export interface WorkflowSchema {
-  version: number;
-  metadata: {
-    name: string;
-    description?: string;
-    rootDirectory?: string;
-  };
-  interface?: WorkflowInterface;  // External I/O when used as component
-  nodes: Array<{
-    id: string;
-    type: string;
-    position: { x: number; y: number };
-    data: Record<string, unknown>;
-  }>;
-  edges: Array<{
-    id: string;
-    source: string;
-    target: string;
-    sourceHandle?: string;  // Format: "output:outputName"
-    targetHandle?: string;  // Format: "input:inputName"
-  }>;
-}
 
 export interface NodeResult {
   nodeId: string;
@@ -611,6 +547,7 @@ function buildOutputValues(
 async function executeNode(
   node: WorkflowNode,
   rootDirectory: string,
+  nodes: WorkflowNode[],
   edges: WorkflowEdge[],
   context: ExecutionContext
 ): Promise<NodeResult> {
@@ -855,6 +792,20 @@ async function executeNode(
     };
   }
 
+  // Interface-continue node: controls loop iteration
+  // This node receives a boolean 'continue' input that determines whether the loop continues
+  if (nodeType === 'interface-continue') {
+    // Pass through - the loop executor reads this value to decide continuation
+    return {
+      nodeId: node.id,
+      status: 'completed',
+      output: 'Interface continue node',
+      rawOutput: JSON.stringify(inputValues),
+      startTime,
+      endTime: new Date().toISOString(),
+    };
+  }
+
   // Component node: executes another workflow as a sub-workflow
   if (nodeType === 'component') {
     const workflowPath = node.data.workflowPath as string | undefined;
@@ -920,6 +871,76 @@ async function executeNode(
         status: 'failed',
         output: '',
         error: `Failed to execute component: ${(err as Error).message}`,
+        startTime,
+        endTime: new Date().toISOString(),
+      };
+    }
+  }
+
+  // Loop node: executes inner workflow iteratively until continue=false
+  if (nodeType === 'loop') {
+    if (!isLoopNodeData(node.data)) {
+      return {
+        nodeId: node.id,
+        status: 'failed',
+        output: '',
+        error: 'Invalid loop node data',
+        startTime,
+        endTime: new Date().toISOString(),
+      };
+    }
+
+    try {
+      const loopResult = await executeLoop(
+        node,                      // loopNode - for accessing parentId filtering
+        node.data as LoopNodeData, // loopNodeData - loop configuration
+        nodes,                     // allNodes - for finding child nodes by parentId
+        edges,                     // allEdges - for finding internal edges
+        inputValues,               // outerInputs - inputs from connected edges
+        cwd,                       // rootDirectory
+        executeWorkflow,           // executeWorkflowFn - for inner workflow execution
+        {
+          onIterationStart: (iteration) => {
+            // Could add logging or callbacks here
+          },
+          onIterationComplete: (result) => {
+            // Could add logging or callbacks here
+          },
+        }
+      );
+
+      if (!loopResult.success) {
+        return {
+          nodeId: node.id,
+          status: 'failed',
+          output: `Loop failed after ${loopResult.totalIterations} iterations`,
+          rawOutput: JSON.stringify(loopResult.finalOutputs),
+          error: loopResult.error,
+          startTime,
+          endTime: new Date().toISOString(),
+        };
+      }
+
+      // Return success with final outputs
+      const terminationNote = loopResult.terminationReason === 'max_iterations'
+        ? ` (max iterations reached)`
+        : '';
+
+      return {
+        nodeId: node.id,
+        status: 'completed',
+        output: `Loop completed after ${loopResult.totalIterations} iterations${terminationNote}`,
+        rawOutput: JSON.stringify(loopResult.finalOutputs),
+        structuredOutput: loopResult.finalOutputs,
+        startTime,
+        endTime: new Date().toISOString(),
+      };
+    } catch (err) {
+      return {
+        nodeId: node.id,
+        status: 'failed',
+        output: '',
+        error: `Failed to execute loop: ${(err as Error).message}`,
         startTime,
         endTime: new Date().toISOString(),
       };
@@ -1028,7 +1049,7 @@ export async function executeWorkflow(
 
     // Process templates with resolved input values
     const processedNode = processNodeTemplates(nodeWithIO, context, inputValues);
-    const result = await executeNode(processedNode, rootDirectory || process.cwd(), edges, context);
+    const result = await executeNode(processedNode, rootDirectory || process.cwd(), nodes, edges, context);
     results.push(result);
 
     if (onNodeComplete) {

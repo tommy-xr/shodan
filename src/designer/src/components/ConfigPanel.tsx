@@ -23,6 +23,8 @@ function formatNodeType(type: NodeType): string {
     'component': 'Component',
     'interface-input': 'Interface Input',
     'interface-output': 'Interface Output',
+    'interface-continue': 'Interface Continue',
+    'loop': 'Loop',
   };
   return labels[type] || type.charAt(0).toUpperCase() + type.slice(1);
 }
@@ -65,7 +67,8 @@ export function ConfigPanel({ node, rootDirectory, onClose, onUpdate }: ConfigPa
         {nodeType === 'trigger' && <TriggerConfig node={node} onUpdate={onUpdate} />}
         {nodeType === 'workdir' && <WorkdirConfig node={node} onUpdate={onUpdate} />}
         {nodeType === 'component' && <ComponentConfig node={node} />}
-        {(nodeType === 'interface-input' || nodeType === 'interface-output') && <InterfaceConfig node={node} onUpdate={onUpdate} />}
+        {nodeType === 'loop' && <LoopConfig node={node} onUpdate={onUpdate} />}
+        {(nodeType === 'interface-input' || nodeType === 'interface-output' || nodeType === 'interface-continue') && <InterfaceConfig node={node} onUpdate={onUpdate} />}
 
         {/* Execution Output */}
         {node.data.executionStatus && node.data.executionStatus !== 'idle' && (
@@ -435,9 +438,94 @@ function ComponentConfig({ node }: Omit<NodeConfigProps, 'rootDirectory' | 'onUp
   );
 }
 
+function LoopConfig({ node, onUpdate }: Omit<NodeConfigProps, 'rootDirectory'>) {
+  const maxIterations = (node.data.maxIterations as number) || 10;
+  const inputs = (node.data.inputs as PortDefinition[]) || [];
+  const outputs = (node.data.outputs as PortDefinition[]) || [];
+
+  return (
+    <>
+      <div className="config-field">
+        <label>Max Iterations</label>
+        <input
+          type="number"
+          value={maxIterations}
+          onChange={(e) => onUpdate(node.id, { maxIterations: parseInt(e.target.value, 10) || 10 })}
+          min={1}
+          max={100}
+        />
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+          Safety limit to prevent infinite loops
+        </div>
+      </div>
+
+      <div className="config-field">
+        <label>Inner Workflow</label>
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', padding: '8px 0' }}>
+          Drag nodes into this loop container to add them. Required nodes:
+          <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+            <li><code>interface-input</code> - receives loop inputs + iteration info</li>
+            <li><code>interface-output</code> - defines outputs for each iteration</li>
+            <li><code>interface-continue</code> - controls when to stop looping</li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="config-field">
+        <label>Interface (from child nodes)</label>
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+          <div style={{ marginBottom: '8px' }}>
+            <strong>Inputs:</strong>
+            {inputs.length === 0 && <span style={{ fontStyle: 'italic' }}> none (add interface-input node)</span>}
+            <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
+              {inputs.map((input) => (
+                <li key={input.name}>
+                  <code style={{ color: 'var(--text-primary)' }}>{input.name}</code>
+                  <span style={{ marginLeft: '8px', opacity: 0.7 }}>({input.type})</span>
+                  {input.required && <span style={{ marginLeft: '4px', color: '#f87171' }}>*</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <strong>Outputs:</strong>
+            {outputs.length === 0 && <span style={{ fontStyle: 'italic' }}> none (add interface-output node)</span>}
+            <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
+              {outputs.map((output) => (
+                <li key={output.name}>
+                  <code style={{ color: 'var(--text-primary)' }}>{output.name}</code>
+                  <span style={{ marginLeft: '8px', opacity: 0.7 }}>({output.type})</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function InterfaceConfig({ node, onUpdate }: Omit<NodeConfigProps, 'rootDirectory'>) {
   const nodeType = node.data.nodeType as string;
   const isInput = nodeType === 'interface-input';
+  const isContinue = nodeType === 'interface-continue';
+
+  // For continue nodes, show read-only info
+  if (isContinue) {
+    return (
+      <div className="config-field">
+        <label>Interface Type</label>
+        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', padding: '8px 0' }}>
+          This node controls loop iteration. Connect a boolean value to its <code>continue</code> input:
+          <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+            <li><code>true</code> - run another iteration</li>
+            <li><code>false</code> - stop the loop</li>
+          </ul>
+        </div>
+      </div>
+    );
+  }
+
   const ports = isInput
     ? (node.data.outputs as PortDefinition[]) || []
     : (node.data.inputs as PortDefinition[]) || [];

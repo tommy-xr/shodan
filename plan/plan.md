@@ -64,6 +64,7 @@ When restoring nodes from cached state (navigation stack), React Flow sometimes 
 
 ## Pending
 
+- Fix outdated paths in CLAUDE.md
 - Rebrand to robomesh.ai
 - Implement component library plan (component-library.md)
 - Fix agent models - we might want to make an API request and query each tool respectively?

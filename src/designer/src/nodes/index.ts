@@ -9,6 +9,8 @@ export const nodeTypes = {
   component: BaseNode,
   'interface-input': BaseNode,
   'interface-output': BaseNode,
+  loop: BaseNode,
+  'interface-continue': BaseNode,
 };
 
 export type { BaseNodeData, NodeType, ExecutionStatus } from './BaseNode';

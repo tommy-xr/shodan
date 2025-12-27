@@ -25,6 +25,8 @@
   --node-script: #f59e0b;
   --node-trigger: #ff2a6d;
   --node-workdir: #d300c5;
+  --node-loop: #a855f7;
+  --node-interface: #06b6d4;
 
   /* Glow effects */
   --glow-cyan: 0 0 10px #05d9e8, 0 0 20px #05d9e844;
@@ -32,6 +34,7 @@
   --glow-green: 0 0 10px #01ffc3, 0 0 20px #01ffc344;
   --glow-purple: 0 0 10px #d300c5, 0 0 20px #d300c544;
   --glow-orange: 0 0 10px #f59e0b, 0 0 20px #f59e0b44;
+  --glow-loop: 0 0 10px #a855f7, 0 0 20px #a855f744;
 }
 
 html, body, #root {
