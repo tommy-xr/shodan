@@ -182,11 +182,11 @@ edges:
     sourceHandle: "dock:i:output"
     targetHandle: "input:i_value"
 
-  # Outer loop max -> Outer control
+  # Outer loop max -> Outer control (from internal input handle)
   - id: outer-max-to-control
     source: outer-loop
     target: outer-control
-    sourceHandle: "input:outer_max"
+    sourceHandle: "input:outer_max:internal"
     targetHandle: "input:outer_max"
 
   # Inner loop -> Inner node (j value)
@@ -196,18 +196,18 @@ edges:
     sourceHandle: "dock:j:output"
     targetHandle: "input:j_value"
 
-  # Inner loop -> Inner node (i value passthrough)
+  # Inner loop -> Inner node (i value passthrough from internal input handle)
   - id: inner-i-to-print
     source: inner-loop
     target: print-pair
-    sourceHandle: "input:i_value"
+    sourceHandle: "input:i_value:internal"
     targetHandle: "input:i_value"
 
-  # Inner loop -> Inner node (max j)
+  # Inner loop -> Inner node (max j from internal input handle)
   - id: inner-max-to-print
     source: inner-loop
     target: print-pair
-    sourceHandle: "input:inner_max"
+    sourceHandle: "input:inner_max:internal"
     targetHandle: "input:inner_max"
 
   # Inner node -> Inner loop continue

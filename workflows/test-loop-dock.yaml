@@ -101,11 +101,11 @@ edges:
     sourceHandle: "output:text"
     targetHandle: "input:trigger"
 
-  # Loop input -> Counter (pass target from loop's input to inner node)
+  # Loop input -> Counter (pass target from loop's internal input to inner node)
   - id: loop-target-to-counter
     source: count-loop
     target: counter
-    sourceHandle: "input:target"
+    sourceHandle: "input:target:internal"
     targetHandle: "input:target"
 
   # Dock: iteration output -> Counter
