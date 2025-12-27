@@ -733,7 +733,7 @@ The loop system uses the same template syntax as the I/O system. All values are 
 
 ---
 
-### Phase 3a: Loop as Sub-Flow Container
+### Phase 3a: Loop as Sub-Flow Container ✅
 
 **Goal:** Transform the loop node into a visual container using ReactFlow's `parentId` pattern.
 
@@ -744,16 +744,24 @@ The loop system uses the same template syntax as the I/O system. All values are 
 - Parent nodes must appear **before** children in the nodes array
 
 **Tasks:**
-- [ ] Create `LoopContainerNode` component (renders as resizable frame)
-- [ ] Update node type registry to use container node for loops
-- [ ] Add minimum dimensions for loop container (e.g., 400x300)
-- [ ] Style container with header bar (label, max iterations badge) and content area
-- [ ] Auto-create interface nodes when loop is dropped:
+- [x] Create `LoopContainerNode` component (renders as resizable frame)
+- [x] Update node type registry to use container node for loops
+- [x] Add minimum dimensions for loop container (400x300)
+- [x] Style container with header bar (label, max iterations badge) and content area
+- [x] Auto-create interface nodes when loop is dropped:
   - `interface-input` (top-left of container)
-  - `interface-output` (bottom-right of container)
+  - `interface-output` (top-right of container)
   - `interface-continue` (bottom-center of container)
-- [ ] Set `parentId` on interface nodes to link them to loop
-- [ ] Ensure parent nodes sorted before children in nodes array
+- [x] Set `parentId` on interface nodes to link them to loop
+- [x] Ensure parent nodes sorted before children in nodes array
+
+**Phase 3a completion notes:**
+- Created `LoopContainerNode.tsx` with `NodeResizer` for resizable frame
+- Purple dashed border container with header showing loop icon, label, and max iterations badge
+- Modified `onDrop` handler in `App.tsx` to auto-create 3 interface nodes when loop is dropped
+- Interface nodes have `parentId` and `extent: 'parent'` set automatically
+- Parent node is always added first in the array, followed by child nodes
+- Added comprehensive CSS styling for loop container (`.loop-container`, `.loop-header`, etc.)
 
 **Data Structure Changes:**
 ```typescript
@@ -862,17 +870,25 @@ const onNodeDragStop = (event, node) => {
 
 ---
 
-### Phase 3d: Executor Support for Flat parentId Model
+### Phase 3d: Executor Support for Flat parentId Model ✅
 
 **Goal:** Update the loop executor to find inner nodes/edges by filtering on `parentId` instead of reading `inlineWorkflow`.
 
 **Tasks:**
-- [ ] Remove `inlineWorkflow` and `workflowRef` from `LoopNodeData` type
-- [ ] Update `executeLoop()` to filter nodes by `parentId`
-- [ ] Update `executeLoop()` to filter edges where both endpoints are inside loop
-- [ ] Validate required interface nodes exist (interface-input, interface-output, interface-continue)
-- [ ] Show validation warnings if required nodes are missing
-- [ ] Update workflow YAML schema to support `parentId` and `extent` on nodes
+- [x] Remove `inlineWorkflow` and `workflowRef` from `LoopNodeData` type
+- [x] Update `executeLoop()` to filter nodes by `parentId`
+- [x] Update `executeLoop()` to filter edges where both endpoints are inside loop
+- [x] Validate required interface nodes exist (interface-input, interface-output, interface-continue)
+- [x] Show validation warnings if required nodes are missing
+- [x] Update workflow YAML schema to support `parentId` and `extent` on nodes
+
+**Phase 3d completion notes:**
+- Updated `loop-executor.ts` with `getLoopInnerWorkflow()` function that filters by `parentId`
+- Updated `executeLoop()` signature to accept `loopNode`, `allNodes`, `allEdges`
+- Updated `executor.ts` to pass nodes/edges to the loop executor
+- Removed `inlineWorkflow` from core types (`loop-types.ts`, `workflow-types.ts`)
+- Added `parentId`, `extent`, `style` to `WorkflowNode` type
+- Updated test workflow `test-loop-counter.yaml` to flat parentId format
 
 **Executor Logic:**
 ```typescript

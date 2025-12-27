@@ -273,3 +273,162 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
 }
+
+/* ================================
+   Loop Container Node Styles
+   ================================ */
+
+.loop-container {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, rgba(168, 85, 247, 0.08) 0%, rgba(30, 27, 38, 0.95) 100%);
+  border: 2px dashed var(--node-loop, #a855f7);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  box-shadow: 0 4px 30px rgba(168, 85, 247, 0.15);
+}
+
+.loop-container.selected {
+  border-style: solid;
+  box-shadow: 0 0 0 2px var(--node-loop, #a855f7), 0 0 30px rgba(168, 85, 247, 0.4);
+}
+
+/* Loop header */
+.loop-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: linear-gradient(90deg, var(--node-loop, #a855f7), #c084fc);
+  border-radius: 10px 10px 0 0;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 600;
+  min-height: 40px;
+  flex-shrink: 0;
+}
+
+.loop-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.loop-icon {
+  font-size: 1rem;
+}
+
+.loop-label {
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.loop-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.loop-max-badge {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.loop-iteration-badge {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  background: rgba(96, 165, 250, 0.3);
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.loop-iteration-badge.running {
+  animation: iteration-pulse 1.5s ease-in-out infinite;
+}
+
+.loop-status-icon {
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.loop-status-icon.running {
+  animation: spin 1s linear infinite;
+}
+
+/* Loop content area */
+.loop-content {
+  flex: 1;
+  min-height: 200px;
+  position: relative;
+  /* Child nodes are rendered here by ReactFlow */
+}
+
+/* Loop port labels */
+.loop-port-label {
+  position: absolute;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  font-family: ui-monospace, monospace;
+  white-space: nowrap;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.loop-port-label-input {
+  left: 12px;
+  text-align: left;
+}
+
+.loop-port-label-output {
+  right: 12px;
+  text-align: right;
+}
+
+/* Loop resizer styles */
+.loop-resizer-line {
+  border-color: var(--node-loop, #a855f7) !important;
+}
+
+.loop-resizer-handle {
+  width: 10px !important;
+  height: 10px !important;
+  background: var(--node-loop, #a855f7) !important;
+  border: 2px solid white !important;
+  border-radius: 3px !important;
+}
+
+/* Loop execution states */
+.loop-container.exec-pending {
+  border-color: #fbbf24 !important;
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+}
+
+.loop-container.exec-running {
+  border-color: #60a5fa !important;
+  border-style: solid;
+  box-shadow: 0 0 25px rgba(96, 165, 250, 0.4);
+  animation: loop-running-glow 1s ease-in-out infinite alternate;
+}
+
+@keyframes loop-running-glow {
+  from { box-shadow: 0 0 20px rgba(96, 165, 250, 0.3); }
+  to { box-shadow: 0 0 35px rgba(96, 165, 250, 0.6); }
+}
+
+.loop-container.exec-completed {
+  border-color: #34d399 !important;
+  border-style: solid;
+  box-shadow: 0 0 20px rgba(52, 211, 153, 0.3);
+}
+
+.loop-container.exec-failed {
+  border-color: #f87171 !important;
+  border-style: solid;
+  box-shadow: 0 0 20px rgba(248, 113, 113, 0.3);
+}

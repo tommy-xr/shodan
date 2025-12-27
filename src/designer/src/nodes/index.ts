@@ -1,4 +1,5 @@
 import { BaseNode } from './BaseNode';
+import { LoopContainerNode } from './LoopContainerNode';
 
 export const nodeTypes = {
   agent: BaseNode,
@@ -9,7 +10,7 @@ export const nodeTypes = {
   component: BaseNode,
   'interface-input': BaseNode,
   'interface-output': BaseNode,
-  loop: BaseNode,
+  loop: LoopContainerNode,
   'interface-continue': BaseNode,
 };
 

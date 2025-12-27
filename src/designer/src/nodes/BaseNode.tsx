@@ -48,7 +48,6 @@ export interface BaseNodeData extends Record<string, unknown> {
   workflowPath?: string;  // Path to component workflow file
   // Loop fields
   maxIterations?: number;  // Safety limit for loops (default: 10)
-  inlineWorkflow?: unknown;  // Embedded workflow for loops
   // Execution state
   executionStatus?: ExecutionStatus;
   executionOutput?: string;
