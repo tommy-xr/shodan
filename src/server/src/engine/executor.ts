@@ -1,7 +1,9 @@
 import { spawn } from 'child_process';
 import { executeAgent, type RunnerType } from './agents/index.js';
-import type { PortDefinition, ValueType, WorkflowNode, WorkflowEdge, WorkflowSchema } from '@shodan/core';
+import type { PortDefinition, ValueType, WorkflowNode, WorkflowEdge, WorkflowSchema, LoopNodeData } from '@shodan/core';
+import { isLoopNodeData } from '@shodan/core';
 import { loadWorkflow, getWorkflowDirectory } from './workflow-loader.js';
+import { executeLoop } from './loop-executor.js';
 
 export type NodeStatus = 'pending' | 'running' | 'completed' | 'failed';
 
@@ -789,6 +791,20 @@ async function executeNode(
     };
   }
 
+  // Interface-continue node: controls loop iteration
+  // This node receives a boolean 'continue' input that determines whether the loop continues
+  if (nodeType === 'interface-continue') {
+    // Pass through - the loop executor reads this value to decide continuation
+    return {
+      nodeId: node.id,
+      status: 'completed',
+      output: 'Interface continue node',
+      rawOutput: JSON.stringify(inputValues),
+      startTime,
+      endTime: new Date().toISOString(),
+    };
+  }
+
   // Component node: executes another workflow as a sub-workflow
   if (nodeType === 'component') {
     const workflowPath = node.data.workflowPath as string | undefined;
@@ -854,6 +870,73 @@ async function executeNode(
         status: 'failed',
         output: '',
         error: `Failed to execute component: ${(err as Error).message}`,
+        startTime,
+        endTime: new Date().toISOString(),
+      };
+    }
+  }
+
+  // Loop node: executes inner workflow iteratively until continue=false
+  if (nodeType === 'loop') {
+    if (!isLoopNodeData(node.data)) {
+      return {
+        nodeId: node.id,
+        status: 'failed',
+        output: '',
+        error: 'Invalid loop node data',
+        startTime,
+        endTime: new Date().toISOString(),
+      };
+    }
+
+    try {
+      const loopResult = await executeLoop(
+        node.data as LoopNodeData,
+        inputValues,
+        cwd,
+        executeWorkflow,  // Pass the executeWorkflow function for inner workflow execution
+        {
+          onIterationStart: (iteration) => {
+            // Could add logging or callbacks here
+          },
+          onIterationComplete: (result) => {
+            // Could add logging or callbacks here
+          },
+        }
+      );
+
+      if (!loopResult.success) {
+        return {
+          nodeId: node.id,
+          status: 'failed',
+          output: `Loop failed after ${loopResult.totalIterations} iterations`,
+          rawOutput: JSON.stringify(loopResult.finalOutputs),
+          error: loopResult.error,
+          startTime,
+          endTime: new Date().toISOString(),
+        };
+      }
+
+      // Return success with final outputs
+      const terminationNote = loopResult.terminationReason === 'max_iterations'
+        ? ` (max iterations reached)`
+        : '';
+
+      return {
+        nodeId: node.id,
+        status: 'completed',
+        output: `Loop completed after ${loopResult.totalIterations} iterations${terminationNote}`,
+        rawOutput: JSON.stringify(loopResult.finalOutputs),
+        structuredOutput: loopResult.finalOutputs,
+        startTime,
+        endTime: new Date().toISOString(),
+      };
+    } catch (err) {
+      return {
+        nodeId: node.id,
+        status: 'failed',
+        output: '',
+        error: `Failed to execute loop: ${(err as Error).message}`,
         startTime,
         endTime: new Date().toISOString(),
       };

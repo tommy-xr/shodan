@@ -625,7 +625,7 @@ src/
 │   ├── workflow-types.ts   # WorkflowNode, WorkflowEdge, WorkflowSchema, InlineWorkflow ✅
 │   └── index.ts            # Re-exports all types ✅
 ├── server/src/engine/
-│   └── loop-executor.ts    # Loop execution logic, iteration management (Phase 1)
+│   └── loop-executor.ts    # Loop execution logic, iteration management ✅
 ├── designer/src/
 │   ├── nodes/
 │   │   ├── BaseNode.tsx    # Extended with loop, interface-continue types ✅
@@ -665,14 +665,21 @@ The loop system uses the same template syntax as the I/O system. All values are 
 - [x] Add `loop` and `interface-continue` to node type unions (`src/designer/src/nodes/index.ts`, `BaseNode.tsx`)
 - [x] Update workflow schema types - moved to `@shodan/core` (`src/core/src/workflow-types.ts`)
 
-### Phase 1: Core Loop Execution
-- [ ] Loop node executor implementation
-- [ ] Validate inner workflow has required interface nodes
-- [ ] Implement iteration lifecycle (prepare → execute → check → repeat)
-- [ ] `interface-input`: populate with outer inputs + `iteration` + `prev.*`
-- [ ] `interface-output`: collect values, make available as `prev.*` next iteration
-- [ ] `interface-continue`: read boolean to decide continuation
-- [ ] Respect `maxIterations` limit
+### Phase 1: Core Loop Execution ✅
+- [x] Loop node executor implementation (`src/server/src/engine/loop-executor.ts`)
+- [x] Validate inner workflow has required interface nodes
+- [x] Implement iteration lifecycle (prepare → execute → check → repeat)
+- [x] `interface-input`: populate with outer inputs + `iteration` + `prev.*`
+- [x] `interface-output`: collect values, make available as `prev.*` next iteration
+- [x] `interface-continue`: read boolean to decide continuation
+- [x] Respect `maxIterations` limit
+
+**Phase 1 completion notes:**
+- Created `loop-executor.ts` with `executeLoop()` function and `validateLoopWorkflow()` helper
+- Integrated into main `executor.ts` via `loop` nodeType handler
+- Added `interface-continue` node handling (reads boolean input for continuation)
+- Test workflow: `workflows/test-loop-counter.yaml` demonstrates counting loop with shell nodes
+- All existing tests pass
 
 ### Phase 2: UI Support
 - [ ] Loop node as visible container (not abstracted like components)
