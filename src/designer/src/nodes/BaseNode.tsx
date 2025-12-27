@@ -55,6 +55,8 @@ export interface BaseNodeData extends Record<string, unknown> {
   executionError?: string;
   // Loop execution state
   currentIteration?: number;  // Current iteration number (1-based)
+  // UI state (transient, not persisted)
+  isDropTarget?: boolean;  // True when dragging node over this loop
 }
 
 const nodeIcons: Record<NodeType, string> = {

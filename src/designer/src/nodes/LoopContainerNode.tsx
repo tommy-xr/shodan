@@ -31,6 +31,7 @@ export function LoopContainerNode({ data, selected }: NodeProps) {
   const execStatus = nodeData.executionStatus || 'idle';
   const maxIterations = nodeData.maxIterations || 10;
   const currentIteration = nodeData.currentIteration;
+  const isDropTarget = nodeData.isDropTarget || false;
 
   // Get I/O definitions for external ports
   const inputs = (nodeData.inputs as PortDefinition[]) || [];
@@ -127,7 +128,7 @@ export function LoopContainerNode({ data, selected }: NodeProps) {
         handleClassName="loop-resizer-handle"
       />
 
-      <div className={`loop-container ${selected ? 'selected' : ''} exec-${execStatus}`}>
+      <div className={`loop-container ${selected ? 'selected' : ''} ${isDropTarget ? 'drop-target' : ''} exec-${execStatus}`}>
         {/* Header bar */}
         <div className="loop-header">
           <div className="loop-header-left">

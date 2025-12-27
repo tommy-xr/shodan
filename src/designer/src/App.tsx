@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef, useEffect } from 'react';
+import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import type { DragEvent } from 'react';
 import {
   ReactFlow,
@@ -10,7 +10,7 @@ import {
   ReactFlowProvider,
   useReactFlow,
 } from '@xyflow/react';
-import type { Connection, Node, Edge } from '@xyflow/react';
+import type { Connection, Node, Edge, NodeDragHandler } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import { nodeTypes } from './nodes';
@@ -65,7 +65,32 @@ function Flow() {
   const [navigationStack, setNavigationStack] = useState<NavigationItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [dragOverLoopId, setDragOverLoopId] = useState<string | null>(null);
   const { screenToFlowPosition, fitView, getViewport, setViewport } = useReactFlow();
+
+  // Helper: Find the loop container that contains a given position (in flow coordinates)
+  const findContainingLoop = useCallback((position: { x: number; y: number }, excludeNodeId?: string): Node<BaseNodeData> | null => {
+    const loopNodes = nodes.filter(
+      n => n.data.nodeType === 'loop' && n.id !== excludeNodeId
+    );
+
+    for (const loop of loopNodes) {
+      const loopWidth = (loop.style?.width as number) || 500;
+      const loopHeight = (loop.style?.height as number) || 350;
+      const dockHeight = 70; // Leave space for dock at bottom
+
+      // Check if position is inside loop bounds (above dock area)
+      if (
+        position.x >= loop.position.x &&
+        position.x <= loop.position.x + loopWidth &&
+        position.y >= loop.position.y &&
+        position.y <= loop.position.y + loopHeight - dockHeight
+      ) {
+        return loop;
+      }
+    }
+    return null;
+  }, [nodes]);
 
   // Check if currently editing a component (not at root level)
   const isEditingComponent = navigationStack.length > 1;
@@ -137,11 +162,20 @@ function Flow() {
   const onDragOver = useCallback((event: DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
-  }, []);
+
+    // Check if dragging over a loop container for visual feedback
+    const position = screenToFlowPosition({
+      x: event.clientX,
+      y: event.clientY,
+    });
+    const hoverLoop = findContainingLoop(position);
+    setDragOverLoopId(hoverLoop?.id || null);
+  }, [screenToFlowPosition, findContainingLoop]);
 
   const onDrop = useCallback(
     (event: DragEvent) => {
       event.preventDefault();
+      setDragOverLoopId(null); // Clear drag hover state
 
       const type = event.dataTransfer.getData('application/reactflow') as NodeType;
       if (!type) return;
@@ -154,6 +188,29 @@ function Flow() {
       // Check if this is a component being dropped
       const componentDataStr = event.dataTransfer.getData('application/component');
 
+      // Check if drop is inside a loop container (not for loops themselves)
+      const targetLoop = type !== 'loop' ? findContainingLoop(position) : null;
+
+      // Calculate final position (relative if inside loop, absolute otherwise)
+      let finalPosition = position;
+      let parentId: string | undefined;
+      let extent: 'parent' | undefined;
+
+      if (targetLoop) {
+        parentId = targetLoop.id;
+        extent = 'parent';
+        finalPosition = {
+          x: position.x - targetLoop.position.x,
+          y: position.y - targetLoop.position.y,
+        };
+        // Ensure node stays within bounds (above dock)
+        const loopHeight = (targetLoop.style?.height as number) || 350;
+        const dockHeight = 70;
+        const maxY = loopHeight - dockHeight - 100;
+        finalPosition.y = Math.min(Math.max(finalPosition.y, 40), maxY);
+        finalPosition.x = Math.max(finalPosition.x, 10);
+      }
+
       let newNodes: Node<BaseNodeData>[] = [];
 
       if (type === 'component' && componentDataStr) {
@@ -162,7 +219,9 @@ function Flow() {
         newNodes = [{
           id: getNodeId(),
           type,
-          position,
+          position: finalPosition,
+          parentId,
+          extent,
           data: {
             label: componentData.name,
             nodeType: type,
@@ -209,7 +268,9 @@ function Flow() {
         newNodes = [{
           id: getNodeId(),
           type,
-          position,
+          position: finalPosition,
+          parentId,
+          extent,
           data: {
             label: `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
             nodeType: type,
@@ -219,7 +280,7 @@ function Flow() {
 
       setNodes((nds) => [...nds, ...newNodes]);
     },
-    [screenToFlowPosition, setNodes]
+    [screenToFlowPosition, setNodes, findContainingLoop]
   );
 
   const onNodeClick = useCallback(
@@ -232,6 +293,108 @@ function Flow() {
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
   }, []);
+
+  // Handle node drag stop - detect if node moved into/out of a loop
+  const onNodeDragStop: NodeDragHandler = useCallback(
+    (_event, node) => {
+      // Don't process loop nodes themselves
+      if (node.data.nodeType === 'loop') return;
+
+      // Get the node's absolute position (for nodes with parentId, we need to calculate it)
+      let absolutePosition = { ...node.position };
+      if (node.parentId) {
+        const parentNode = nodes.find(n => n.id === node.parentId);
+        if (parentNode) {
+          absolutePosition = {
+            x: parentNode.position.x + node.position.x,
+            y: parentNode.position.y + node.position.y,
+          };
+        }
+      }
+
+      // Find if the node is now inside a loop container
+      const targetLoop = findContainingLoop(absolutePosition, node.id);
+
+      // Check current parent
+      const currentParentId = node.parentId;
+
+      // Case 1: Node moved INTO a loop (wasn't in one, now is)
+      if (targetLoop && currentParentId !== targetLoop.id) {
+        setNodes(nds =>
+          nds.map(n => {
+            if (n.id === node.id) {
+              // Convert to relative position
+              const relativePosition = {
+                x: absolutePosition.x - targetLoop.position.x,
+                y: absolutePosition.y - targetLoop.position.y,
+              };
+
+              // Ensure node stays within bounds (above dock)
+              const loopHeight = (targetLoop.style?.height as number) || 350;
+              const dockHeight = 70;
+              const maxY = loopHeight - dockHeight - 100; // 100px buffer for node height
+              relativePosition.y = Math.min(Math.max(relativePosition.y, 40), maxY); // 40px for header
+              relativePosition.x = Math.max(relativePosition.x, 10);
+
+              return {
+                ...n,
+                position: relativePosition,
+                parentId: targetLoop.id,
+                extent: 'parent' as const,
+              };
+            }
+            return n;
+          })
+        );
+      }
+      // Case 2: Node moved OUT of a loop (was in one, now isn't)
+      else if (!targetLoop && currentParentId) {
+        setNodes(nds =>
+          nds.map(n => {
+            if (n.id === node.id) {
+              // Convert to absolute position (already calculated above)
+              const { parentId, extent, ...rest } = n;
+              return {
+                ...rest,
+                position: absolutePosition,
+              };
+            }
+            return n;
+          })
+        );
+      }
+      // Case 3: Node moved from one loop to another
+      else if (targetLoop && currentParentId && currentParentId !== targetLoop.id) {
+        setNodes(nds =>
+          nds.map(n => {
+            if (n.id === node.id) {
+              // Convert to relative position for new parent
+              const relativePosition = {
+                x: absolutePosition.x - targetLoop.position.x,
+                y: absolutePosition.y - targetLoop.position.y,
+              };
+
+              // Ensure node stays within bounds
+              const loopHeight = (targetLoop.style?.height as number) || 350;
+              const dockHeight = 70;
+              const maxY = loopHeight - dockHeight - 100;
+              relativePosition.y = Math.min(Math.max(relativePosition.y, 40), maxY);
+              relativePosition.x = Math.max(relativePosition.x, 10);
+
+              return {
+                ...n,
+                position: relativePosition,
+                parentId: targetLoop.id,
+                extent: 'parent' as const,
+              };
+            }
+            return n;
+          })
+        );
+      }
+    },
+    [nodes, findContainingLoop, setNodes]
+  );
 
   // Double-click on a component node to drill into it
   const onNodeDoubleClick = useCallback(
@@ -653,6 +816,23 @@ function Flow() {
     );
   }, [setNodes]);
 
+  // Compute nodes with drop target state for visual feedback
+  const nodesWithDropState = useMemo(() => {
+    if (!dragOverLoopId) return nodes;
+    return nodes.map(node => {
+      if (node.id === dragOverLoopId) {
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            isDropTarget: true,
+          },
+        };
+      }
+      return node;
+    });
+  }, [nodes, dragOverLoopId]);
+
   return (
     <div className="app">
       <Sidebar
@@ -675,7 +855,7 @@ function Flow() {
           hasUnsavedChanges={hasUnsavedChanges}
         />
         <ReactFlow
-          nodes={nodes}
+          nodes={nodesWithDropState}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
@@ -684,6 +864,7 @@ function Flow() {
           onDrop={onDrop}
           onNodeClick={onNodeClick}
           onNodeDoubleClick={onNodeDoubleClick}
+          onNodeDragStop={onNodeDragStop}
           onPaneClick={onPaneClick}
           onMoveEnd={onMoveEnd}
           nodeTypes={nodeTypes}

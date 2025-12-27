@@ -295,6 +295,13 @@
   box-shadow: 0 0 0 2px var(--node-loop, #a855f7), 0 0 30px rgba(168, 85, 247, 0.4);
 }
 
+.loop-container.drop-target {
+  border-color: #22d3ee !important;
+  border-style: solid;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.5), 0 0 40px rgba(34, 211, 238, 0.3);
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.15) 0%, rgba(30, 27, 38, 0.95) 100%);
+}
+
 /* Loop header */
 .loop-header {
   display: flex;
