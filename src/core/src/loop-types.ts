@@ -2,24 +2,55 @@
  * Loop System Types
  *
  * This file defines the core types for the loop primitive in Shodan workflows.
- * Loops use the same interface node pattern as components, with the addition
- * of an interface-continue node for controlling iteration.
+ * Loops use a dock-based UI for iteration control, with slots for:
+ * - iteration: outputs current iteration number
+ * - continue: receives boolean to control looping
+ * - feedback: bidirectional slots for passing data between iterations
  */
 
-import type { PortDefinition } from './io-types.js';
+import type { PortDefinition, ValueType } from './io-types.js';
+
+/**
+ * Dock slot types
+ */
+export type DockSlotType = 'iteration' | 'continue' | 'feedback';
+
+/**
+ * A slot in the loop's dock bar
+ *
+ * Dock slots provide iteration control and feedback:
+ * - iteration: Output only (●→) - provides current iteration number
+ * - continue: Input only (→●) - receives boolean to control looping
+ * - feedback: Bidirectional (●→ + →●) - left port outputs prev value, right port receives current
+ */
+export interface DockSlot {
+  name: string;
+  type: DockSlotType;
+  valueType: ValueType;
+  label?: string;
+  description?: string;
+}
+
+/**
+ * Default dock slots for a new loop
+ */
+export const DEFAULT_DOCK_SLOTS: DockSlot[] = [
+  { name: 'iteration', type: 'iteration', valueType: 'number', label: 'Iteration' },
+  { name: 'continue', type: 'continue', valueType: 'boolean', label: 'Continue' },
+];
 
 /**
  * Loop node data - defines a loop container
  *
  * A loop contains child nodes that execute repeatedly until
- * the interface-continue node receives `false` on its continue input.
+ * the continue dock slot receives `false`.
  *
  * Child nodes use `parentId` to reference the loop (flat model, not nested).
  *
- * The loop MUST contain these child nodes (identified by parentId):
- * - Exactly one interface-input node (provides outer inputs + iteration + prev.*)
- * - Exactly one interface-output node (defines loop's output ports)
- * - Exactly one interface-continue node (controls iteration)
+ * The loop's dock bar contains slots for iteration control:
+ * - iteration: outputs current iteration number (1-based)
+ * - continue: receives boolean to control looping
+ * - feedback slots: user-defined bidirectional slots for iteration data
  */
 export interface LoopNodeData {
   nodeType: 'loop';
@@ -28,7 +59,10 @@ export interface LoopNodeData {
   // Safety limit to prevent infinite loops
   maxIterations: number;  // Default: 10
 
-  // I/O ports (derived from interface nodes in child nodes)
+  // Dock slots for iteration control
+  dockSlots: DockSlot[];
+
+  // External I/O ports (for connecting to nodes outside the loop)
   inputs?: PortDefinition[];
   outputs?: PortDefinition[];
 }

@@ -182,14 +182,13 @@ function Flow() {
           },
         }];
       } else if (type === 'loop') {
-        // Create loop container with auto-generated interface nodes
-        const loopId = getNodeId();
+        // Create loop container with dock slots (no interface nodes needed)
         const loopWidth = 500;
         const loopHeight = 350;
 
-        // Loop container node (must come first in array for ReactFlow)
+        // Loop container node with default dock slots
         const loopNode: Node<BaseNodeData> = {
-          id: loopId,
+          id: getNodeId(),
           type: 'loop',
           position,
           style: { width: loopWidth, height: loopHeight },
@@ -197,59 +196,15 @@ function Flow() {
             label: 'New Loop',
             nodeType: 'loop',
             maxIterations: 10,
-          },
-        };
-
-        // Interface-input node (top-left of container)
-        const inputNode: Node<BaseNodeData> = {
-          id: getNodeId(),
-          type: 'interface-input',
-          position: { x: 20, y: 60 },
-          parentId: loopId,
-          extent: 'parent',
-          data: {
-            label: 'Input',
-            nodeType: 'interface-input',
-            outputs: [
-              { name: 'iteration', type: 'number', description: 'Current iteration (1-based)' },
+            // Default dock slots for iteration control
+            dockSlots: [
+              { name: 'iteration', type: 'iteration', valueType: 'number', label: 'Iteration' },
+              { name: 'continue', type: 'continue', valueType: 'boolean', label: 'Continue' },
             ],
           },
         };
 
-        // Interface-output node (top-right of container)
-        const outputNode: Node<BaseNodeData> = {
-          id: getNodeId(),
-          type: 'interface-output',
-          position: { x: loopWidth - 170, y: 60 },
-          parentId: loopId,
-          extent: 'parent',
-          data: {
-            label: 'Output',
-            nodeType: 'interface-output',
-            inputs: [
-              { name: 'result', type: 'any', description: 'Loop output value' },
-            ],
-          },
-        };
-
-        // Interface-continue node (bottom-center of container)
-        const continueNode: Node<BaseNodeData> = {
-          id: getNodeId(),
-          type: 'interface-continue',
-          position: { x: (loopWidth - 150) / 2, y: loopHeight - 120 },
-          parentId: loopId,
-          extent: 'parent',
-          data: {
-            label: 'Continue',
-            nodeType: 'interface-continue',
-            inputs: [
-              { name: 'continue', type: 'boolean', required: true, description: 'Whether to continue iterating' },
-            ],
-          },
-        };
-
-        // Parent must come before children in the array
-        newNodes = [loopNode, inputNode, outputNode, continueNode];
+        newNodes = [loopNode];
       } else {
         newNodes = [{
           id: getNodeId(),

@@ -1,6 +1,6 @@
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import type { PortDefinition, ValueType } from '@shodan/core';
+import type { PortDefinition, ValueType, DockSlot } from '@shodan/core';
 import type { BaseNodeData } from './BaseNode';
 import './nodes.css';
 
@@ -18,7 +18,11 @@ const typeColors: Record<ValueType, string> = {
 /**
  * Loop Container Node
  *
- * Renders as a resizable container frame that can hold child nodes.
+ * Renders as a resizable container frame with:
+ * - Header bar with loop icon, label, and max iterations
+ * - Content area for child nodes
+ * - Dock bar at bottom with iteration control slots
+ *
  * Uses ReactFlow's sub-flow pattern where child nodes have parentId
  * referencing this loop.
  */
@@ -28,11 +32,14 @@ export function LoopContainerNode({ data, selected }: NodeProps) {
   const maxIterations = nodeData.maxIterations || 10;
   const currentIteration = nodeData.currentIteration;
 
-  // Get I/O definitions from interface nodes
+  // Get I/O definitions for external ports
   const inputs = (nodeData.inputs as PortDefinition[]) || [];
   const outputs = (nodeData.outputs as PortDefinition[]) || [];
 
-  // Calculate port positions
+  // Get dock slots
+  const dockSlots = (nodeData.dockSlots as DockSlot[]) || [];
+
+  // Layout constants
   const headerHeight = 40;
   const portHeight = 24;
   const portStartOffset = headerHeight + 20;
@@ -46,6 +53,68 @@ export function LoopContainerNode({ data, selected }: NodeProps) {
   };
 
   const iterationDisplay = getIterationDisplay();
+
+  // Render a dock slot with its handle(s)
+  const renderDockSlot = (slot: DockSlot) => {
+    const slotWidth = slot.type === 'feedback' ? 140 : 90;
+
+    return (
+      <div
+        key={slot.name}
+        className={`dock-slot dock-slot-${slot.type}`}
+        style={{ width: slotWidth, position: 'relative' }}
+      >
+        {/* Handle positioned at top-center of slot */}
+        {(slot.type === 'iteration' || slot.type === 'feedback') && (
+          <Handle
+            type="source"
+            position={Position.Top}
+            id={getDockHandleId(slot, 'prev')}
+            className="handle dock-handle"
+            style={{
+              position: 'absolute',
+              left: slot.type === 'feedback' ? '25%' : '50%',
+              top: '-5px',
+              transform: 'translateX(-50%)',
+              backgroundColor: typeColors[slot.valueType],
+              borderColor: typeColors[slot.valueType],
+            }}
+            title={slot.type === 'iteration' ? 'Iteration number' : `${slot.label || slot.name} (previous value)`}
+          />
+        )}
+        {(slot.type === 'continue' || slot.type === 'feedback') && (
+          <Handle
+            type="target"
+            position={Position.Top}
+            id={getDockHandleId(slot, 'current')}
+            className="handle dock-handle"
+            style={{
+              position: 'absolute',
+              left: slot.type === 'feedback' ? '75%' : '50%',
+              top: '-5px',
+              transform: 'translateX(-50%)',
+              backgroundColor: typeColors[slot.valueType],
+              borderColor: typeColors[slot.valueType],
+            }}
+            title={slot.type === 'continue' ? 'Continue looping (boolean)' : `${slot.label || slot.name} (current value)`}
+          />
+        )}
+        <div className="dock-slot-label">{slot.label || slot.name}</div>
+      </div>
+    );
+  };
+
+  // Generate handle ID for dock slot
+  const getDockHandleId = (slot: DockSlot, portType: 'prev' | 'current' | 'output' | 'input') => {
+    if (slot.type === 'iteration') {
+      return `dock:${slot.name}:output`;
+    } else if (slot.type === 'continue') {
+      return `dock:${slot.name}:input`;
+    } else {
+      // feedback slot
+      return `dock:${slot.name}:${portType}`;
+    }
+  };
 
   return (
     <>
@@ -92,7 +161,21 @@ export function LoopContainerNode({ data, selected }: NodeProps) {
           {/* ReactFlow handles the rendering automatically */}
         </div>
 
-        {/* Port labels */}
+        {/* Dock bar - iteration control slots */}
+        <div className="loop-dock">
+          <div className="loop-dock-slots">
+            {dockSlots.map((slot) => renderDockSlot(slot))}
+          </div>
+        </div>
+
+        {/* Status bar */}
+        {iterationDisplay && (
+          <div className="loop-status-bar">
+            {iterationDisplay}
+          </div>
+        )}
+
+        {/* Port labels for external I/O */}
         {inputs.map((input, index) => {
           const topOffset = portStartOffset + (index * portHeight);
           return (
@@ -120,7 +203,7 @@ export function LoopContainerNode({ data, selected }: NodeProps) {
         })}
       </div>
 
-      {/* Input handles on left side of container */}
+      {/* External input handles on left side of container */}
       {inputs.map((input, index) => {
         const topOffset = portStartOffset + (index * portHeight);
         return (
@@ -140,7 +223,7 @@ export function LoopContainerNode({ data, selected }: NodeProps) {
         );
       })}
 
-      {/* Output handles on right side of container */}
+      {/* External output handles on right side of container */}
       {outputs.map((output, index) => {
         const topOffset = portStartOffset + (index * portHeight);
         return (
@@ -159,6 +242,7 @@ export function LoopContainerNode({ data, selected }: NodeProps) {
           />
         );
       })}
+
     </>
   );
 }

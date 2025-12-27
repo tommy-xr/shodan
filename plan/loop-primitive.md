@@ -10,11 +10,12 @@ Key decisions made for consistency and simplicity:
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Continue condition | `interface-continue` node with boolean input | Consistent with component pattern; visual; logic is explicit in graph |
+| Continue condition | Dock slot with boolean input | Simple, always visible in loop dock |
 | Loop interior | Visible (container), not abstracted | Unlike components; use component inside loop if abstraction needed |
-| Previous iteration access | `interface-input` exposes `prev.*` outputs | Auto-generated from `interface-output` inputs; null on first iteration |
-| Built-in outputs | `iteration` on `interface-input` | Available as wirable output, not magic variable |
-| `workflowRef` when using inline | Omit field entirely | Cleaner than `null`; TypeScript optional field handles this |
+| Previous iteration access | Dock feedback slots with bidirectional ports | Left port = prev value, Right port = current value |
+| Built-in outputs | `iteration` dock slot | Always available, outputs current iteration number |
+| Interface approach | **Dock-based** (not interface nodes) | Simpler model, no child nodes to manage |
+| External edges from loop body | Fire only after loop completes | Internal→external edges are deferred until continue=false |
 | Type coercion | Not supported (strict matching) | Per I/O system design; types must match exactly |
 
 ## Motivation
@@ -30,119 +31,131 @@ A pure DAG cannot express these patterns. We need a loop primitive.
 
 ## Design
 
-The Loop node uses the same **interface node pattern** as components, but with key differences:
+The Loop node uses a **dock-based** UI for managing iteration data flow:
 
 | Aspect | Component | Loop |
 |--------|-----------|------|
 | Inner workflow | Hidden (abstracted) | Visible (container/frame) |
 | Drill-down needed | Yes, to see internals | No, always visible |
 | Abstraction | Yes, shows as single node | No, shows inner workflow |
+| Interface mechanism | Interface nodes | **Dock with slots** |
 | If you want to abstract loop contents | N/A | Put a component inside the loop |
 
-**Interface nodes (inside the loop's inner workflow):**
+**Dock slots (built into the loop container):**
 
-| Node Type | Purpose | Ports |
-|-----------|---------|-------|
-| `interface-input` | Receives outer inputs | Outputs: each outer input + `iteration` (number) + `prev.*` (previous iteration outputs) |
-| `interface-output` | Sends outputs to loop's outer ports | Inputs: values to expose as loop outputs |
-| `interface-continue` | Controls iteration | Input: `continue` (boolean) - `true` = run another iteration |
+| Slot Type | Direction | Purpose |
+|-----------|-----------|---------|
+| `iteration` | Output only (`●→`) | Provides current iteration number (1-based) |
+| `continue` | Input only (`→●`) | Receives boolean - `true` continues, `false` stops |
+| Feedback slots | Bidirectional (`●→` + `→●`) | Left port: prev iteration value, Right port: current iteration value |
 
 **Execution flow:**
 
-1. Loop receives inputs via edges (like a component)
-2. Inner workflow executes with `interface-input` providing values
-3. After inner workflow completes, check `interface-continue.continue`:
-   - `true` → run another iteration (interface-input gets `prev.*` from this iteration's interface-output)
-   - `false` → stop, apply interface-output values to loop's output ports
+1. Loop receives inputs via edges to external input ports (standard node ports)
+2. Inner workflow executes:
+   - Dock `iteration` slot outputs current iteration number
+   - Dock feedback slots output previous iteration values (null on first iteration)
+3. After inner workflow completes, check `continue` slot:
+   - `true` → store feedback slot inputs as next iteration's outputs, run again
+   - `false` → fire all edges from internal nodes to external nodes
 4. Safety: `maxIterations` on loop node prevents infinite loops
 
 ### Visual Representation
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│ 🔁 Loop: Code Review                                                    │
-│                                                                         │
-│  ○ task              approved ●                                         │
-│  ○ guidelines        final_code ●                                       │
-│                                                                         │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │ Inner Workflow                                                  │    │
-│  │                                                                 │    │
-│  │ ┌─────────────┐      ┌──────────┐      ┌──────────┐            │    │
-│  │ │ ⊕ Input     │      │ 🤖 Coder │      │ 🤖 Review│            │    │
-│  │ │             │      │          │      │          │            │    │
-│  │ │   task ●────┼─────▶│          │      │          │            │    │
-│  │ │   guidelines●─────▶│          │─────▶│          │            │    │
-│  │ │   iteration ●      │          │      │          │            │    │
-│  │ │   prev.* ●─────────│──────────│─────▶│          │            │    │
-│  │ └─────────────┘      └──────────┘      └────┬─────┘            │    │
-│  │                                             │                   │    │
-│  │                     ┌───────────────────────┼───────────────┐   │    │
-│  │                     │                       │               │   │    │
-│  │                     ▼                       ▼               │   │    │
-│  │              ┌─────────────┐         ┌─────────────┐        │   │    │
-│  │              │ ⊕ Output    │         │ ⊕ Continue  │        │   │    │
-│  │              │             │         │             │        │   │    │
-│  │              │ ○ approved  │         │ ○ continue  │◀── NOT(approved)
-│  │              │ ○ final_code│         └─────────────┘        │   │    │
-│  │              └─────────────┘                                │   │    │
-│  │                                                             │   │    │
-│  └─────────────────────────────────────────────────────────────┘    │
-│                                                                         │
-│  max iterations: 5                                                      │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│ 🔁 Loop: Code Review                              [max: 5]      │
+├─────────────────────────────────────────────────────────────────┤
+│  ○ task                                      final_code ●       │
+│  ○ guidelines                                                   │
+│                                                                 │
+│    ┌──────────────┐              ┌──────────────┐               │
+│    │  🤖 Coder    │    code      │  🤖 Reviewer │               │
+│    │              │─────────────▶│              │               │
+│    │              │              │              │               │
+│    └───────▲──────┘              └───────┬──────┘               │
+│            │                             │                      │
+│            │ feedback.prev               │ approved, feedback   │
+│            │                             ▼                      │
+├────────────┼─────────────────────────────┼──────────────────────┤
+│  ┌─────────┴──┐   ┌──────────────────────▼───┐   ┌──────────┐   │
+│  │ iteration  │   │        feedback          │   │ continue │   │
+│  │    ●→      │   │   ●→               →●    │   │   →●     │   │
+│  └────────────┘   └──────────────────────────┘   └────▲─────┘   │
+│    (output)         (prev out)    (curr in)     (input)│        │
+│                                                    NOT(approved)│
+├─────────────────────────────────────────────────────────────────┤
+│                    Iteration 3/5                                │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼ (edges fire after loop completes)
+                        [External Node]
 ```
+
+**Key visual elements:**
+- **Header bar**: Loop icon, label, max iterations badge
+- **External ports**: Left side (inputs), Right side (outputs) - standard node ports
+- **Content area**: Where user places workflow nodes
+- **Dock bar**: Bottom section with iteration/feedback/continue slots
+- **Status bar**: Shows current iteration during execution
 
 ### Data Flow
 
 ```
 Iteration 1:
-  interface-input provides:
+  Dock slots provide:
+    iteration ●→ outputs: 1
+    feedback ●→ outputs: null (no previous iteration)
+
+  Loop external inputs provide:
     task ← from outer edge
     guidelines ← from outer edge
-    iteration = 1
-    prev.approved = null (no previous iteration)
-    prev.feedback = null
 
-  [inner workflow executes: coder → review]
+  [inner workflow executes: coder → reviewer]
 
-  interface-output receives:
-    approved ← review.approved (false)
-    final_code ← coder.code
+  Dock slots receive:
+    feedback →● receives: "needs error handling" (from reviewer)
+    continue →● receives: true (NOT approved)
 
-  interface-continue receives:
-    continue ← NOT(review.approved) = true → CONTINUE
+  → CONTINUE to iteration 2
 
 Iteration 2:
-  interface-input provides:
+  Dock slots provide:
+    iteration ●→ outputs: 2
+    feedback ●→ outputs: "needs error handling" (stored from iteration 1)
+
+  Loop external inputs provide:
     task ← from outer edge
     guidelines ← from outer edge
-    iteration = 2
-    prev.approved = false (from iteration 1)
-    prev.feedback = "needs error handling" (from iteration 1)
 
-  [inner workflow executes: coder uses prev.feedback → review]
+  [inner workflow executes: coder uses feedback.prev → reviewer]
 
-  interface-output receives:
-    approved ← review.approved (true)
-    final_code ← coder.code
+  Dock slots receive:
+    feedback →● receives: "looks good" (from reviewer)
+    continue →● receives: false (NOT approved = NOT true = false)
 
-  interface-continue receives:
-    continue ← NOT(review.approved) = false → STOP
+  → STOP
 
-Final:
-  Loop outputs ← interface-output values from last iteration
+After loop completes:
+  All edges from internal nodes to external nodes fire
+  e.g., coder.code → external-node.input
 ```
 
 ---
 
 ## Loop Node Configuration
 
-### Data Model: Flat `parentId` Approach
+### Data Model: Dock-Based Approach
 
-Instead of nesting workflows inside loop nodes, we use ReactFlow's native `parentId` pattern. Child nodes reference their parent loop, keeping a flat structure:
+The loop uses a dock-based model where iteration control is handled by slots in a dock bar at the bottom of the loop container:
 
 ```typescript
+interface DockSlot {
+  name: string;                              // Slot identifier
+  type: 'iteration' | 'continue' | 'feedback';
+  valueType: ValueType;                      // For feedback slots: string, number, json, etc.
+}
+
 interface LoopNodeData extends BaseNodeData {
   nodeType: 'loop';
 
@@ -152,58 +165,56 @@ interface LoopNodeData extends BaseNodeData {
   // Container dimensions (for visual rendering)
   width?: number;   // Default: 500
   height?: number;  // Default: 400
+
+  // Dock configuration
+  dockSlots: DockSlot[];
+  // Built-in slots (always present):
+  //   - { name: 'iteration', type: 'iteration', valueType: 'number' }
+  //   - { name: 'continue', type: 'continue', valueType: 'boolean' }
+  // User-defined feedback slots:
+  //   - { name: 'feedback', type: 'feedback', valueType: 'string' }
 }
 
-// Child nodes use parentId to belong to a loop:
+// Child nodes still use parentId to belong to a loop:
 interface ChildNode extends Node {
   parentId?: string;  // References loop node ID
   extent?: 'parent';  // Constrains movement within parent
   position: { x: number; y: number };  // Relative to parent
 }
-
-// The loop MUST contain these child nodes (identified by parentId):
-// - Exactly one interface-input node (provides outer inputs + iteration + prev.*)
-// - Exactly one interface-output node (defines loop's output ports)
-// - Exactly one interface-continue node (controls iteration)
 ```
 
-**Benefits of flat model:**
-- Mirrors ReactFlow's native sub-flow pattern
-- No syncing between visual state and nested data
-- Single source of truth (nodes array)
-- Extensible to future container types (parallel, conditional, retry)
-- Simpler executor logic (filter by parentId)
+**Benefits of dock-based model:**
+- No interface nodes to manage - dock is part of loop container
+- Clear visual distinction between iteration control and workflow nodes
+- Bidirectional feedback slots handle prev/current in one place
+- Simpler mental model for users
+- Still uses ReactFlow's `parentId` for workflow nodes inside loop
 
-### Interface Node Types
+### Dock Slot Types
 
 ```typescript
-// Same as component - receives values from outer edges
-interface InterfaceInputNodeData extends BaseNodeData {
-  nodeType: 'interface-input';
-  // Outputs are derived from loop's input ports + built-ins
-  // Built-in outputs (auto-added):
-  //   - iteration: number (1-based)
-  //   - prev.*: previous iteration's interface-output values (null on first iteration)
-}
+// Iteration slot - provides current iteration number
+// Port: ●→ (output only)
+// Handle ID: dock:iteration:output
 
-// Same as component - sends values to outer edges
-interface InterfaceOutputNodeData extends BaseNodeData {
-  nodeType: 'interface-output';
-  // Inputs become the loop's output ports
-  // These values also become available as prev.* on next iteration
-}
+// Continue slot - receives boolean to control looping
+// Port: →● (input only)
+// Handle ID: dock:continue:input
 
-// Loop-specific - controls whether to continue iterating
-interface InterfaceContinueNodeData extends BaseNodeData {
-  nodeType: 'interface-continue';
-  // Single input:
-  //   - continue: boolean (true = run another iteration, false = stop)
-}
+// Feedback slot - bidirectional for iteration data
+// Ports: ●→ (left, outputs prev value) and →● (right, receives current value)
+// Handle IDs: dock:{name}:prev (output) and dock:{name}:current (input)
 ```
+
+**Handle ID format for dock slots:**
+- `dock:iteration:output` - iteration number output
+- `dock:continue:input` - continue boolean input
+- `dock:{name}:prev` - feedback slot's previous iteration output
+- `dock:{name}:current` - feedback slot's current iteration input
 
 ---
 
-## Example: Code Review Loop (Flat parentId Model)
+## Example: Code Review Loop (Dock-Based Model)
 
 ```yaml
 version: 2
@@ -212,71 +223,37 @@ metadata:
   description: Demonstrates a loop that iterates until code review is approved
 
 nodes:
-  # === Loop Container ===
+  # === Loop Container with Dock Slots ===
   - id: review-loop
     type: loop
     position: { x: 100, y: 100 }
-    style: { width: 600, height: 500 }
+    style: { width: 600, height: 400 }
     data:
       label: Code Review Loop
       nodeType: loop
       maxIterations: 5
+      # External I/O ports (standard node ports)
+      inputs:
+        - { name: task, type: string }
+        - { name: guidelines, type: string }
+      outputs:
+        - { name: final_code, type: string }
+      # Dock slots for iteration control
+      dockSlots:
+        - { name: iteration, type: iteration, valueType: number }
+        - { name: continue, type: continue, valueType: boolean }
+        - { name: feedback, type: feedback, valueType: string }
 
   # === Child Nodes (inside the loop) ===
   # Note: All child nodes have parentId referencing the loop
-
-  # Interface nodes
-  - id: loop-input
-    type: interface-input
-    parentId: review-loop
-    extent: parent
-    position: { x: 20, y: 50 }
-    data:
-      nodeType: interface-input
-      label: Input
-      outputs:
-        - name: task
-          type: string
-        - name: guidelines
-          type: string
-        - name: iteration
-          type: number
-        # prev.* outputs auto-generated from interface-output
-
-  - id: loop-output
-    type: interface-output
-    parentId: review-loop
-    extent: parent
-    position: { x: 400, y: 350 }
-    data:
-      nodeType: interface-output
-      label: Output
-      inputs:
-        - name: approved
-          type: boolean
-        - name: final_code
-          type: string
-        - name: feedback
-          type: string
-
-  - id: loop-continue
-    type: interface-continue
-    parentId: review-loop
-    extent: parent
-    position: { x: 20, y: 350 }
-    data:
-      nodeType: interface-continue
-      label: Continue?
-      inputs:
-        - name: continue
-          type: boolean
+  # No interface nodes needed - dock handles iteration data
 
   # Logic nodes
   - id: not-gate
     type: shell
     parentId: review-loop
     extent: parent
-    position: { x: 200, y: 350 }
+    position: { x: 250, y: 280 }
     data:
       nodeType: shell
       label: NOT
@@ -301,7 +278,7 @@ nodes:
     type: agent
     parentId: review-loop
     extent: parent
-    position: { x: 200, y: 50 }
+    position: { x: 50, y: 50 }
     data:
       label: Coder
       nodeType: agent
@@ -333,7 +310,7 @@ nodes:
     type: agent
     parentId: review-loop
     extent: parent
-    position: { x: 400, y: 150 }
+    position: { x: 350, y: 50 }
     data:
       label: Reviewer
       nodeType: agent
@@ -363,29 +340,37 @@ nodes:
           type: string
 
 edges:
-  # Input → Coder
-  - { source: loop-input, target: coder, sourceHandle: "output:task", targetHandle: "input:task" }
-  - { source: loop-input, target: coder, sourceHandle: "output:guidelines", targetHandle: "input:guidelines" }
-  - { source: loop-input, target: coder, sourceHandle: "output:prev.feedback", targetHandle: "input:feedback" }
+  # External: Loop inputs → child nodes
+  - { source: review-loop, target: coder, sourceHandle: "input:task", targetHandle: "input:task" }
+  - { source: review-loop, target: coder, sourceHandle: "input:guidelines", targetHandle: "input:guidelines" }
 
-  # Coder → Review
+  # Dock: feedback.prev → Coder
+  - { source: review-loop, target: coder, sourceHandle: "dock:feedback:prev", targetHandle: "input:feedback" }
+
+  # Internal: Coder → Reviewer
   - { source: coder, target: reviewer, sourceHandle: "output:code", targetHandle: "input:code" }
 
-  # Review → Output
-  - { source: reviewer, target: loop-output, sourceHandle: "output:approved", targetHandle: "input:approved" }
-  - { source: reviewer, target: loop-output, sourceHandle: "output:feedback", targetHandle: "input:feedback" }
-  - { source: coder, target: loop-output, sourceHandle: "output:code", targetHandle: "input:final_code" }
+  # Dock: Reviewer → feedback.current
+  - { source: reviewer, target: review-loop, sourceHandle: "output:feedback", targetHandle: "dock:feedback:current" }
 
-  # Review → NOT → Continue
+  # Logic: Reviewer.approved → NOT → continue
   - { source: reviewer, target: not-gate, sourceHandle: "output:approved", targetHandle: "input:value" }
-  - { source: not-gate, target: loop-continue, sourceHandle: "output:result", targetHandle: "input:continue" }
+  - { source: not-gate, target: review-loop, sourceHandle: "output:result", targetHandle: "dock:continue:input" }
+
+  # External output: Coder.code → Loop.final_code (fires after loop completes)
+  - { source: coder, target: review-loop, sourceHandle: "output:code", targetHandle: "output:final_code" }
 ```
 
-> **Note**: All edges are at the top level - the executor identifies inner edges by checking if both source and target have `parentId` matching the loop. The `interface-input` auto-exposes `prev.*` outputs for each `interface-output` input from the previous iteration.
+**Key differences from interface-node model:**
+- No `interface-input`, `interface-output`, or `interface-continue` nodes
+- Dock slots defined in `data.dockSlots` on the loop node
+- Dock handles use `dock:{name}:{port}` format
+- External I/O uses standard `input:` and `output:` handles on the loop node
+- Edges from internal nodes to loop's output ports fire only after loop completes
 
 ---
 
-## Simple Test Example (Shell-Only, Flat parentId Model)
+## Simple Test Example (Shell-Only, Dock-Based Model)
 
 A minimal loop example using only shell nodes for quick testing during development:
 
@@ -408,61 +393,33 @@ nodes:
         - name: text
           type: string
 
-  # === Loop Container ===
+  # === Loop Container with Dock ===
   - id: count-loop
     type: loop
     position: { x: 250, y: 100 }
-    style: { width: 450, height: 350 }
+    style: { width: 350, height: 250 }
     data:
       label: Count to 5
       nodeType: loop
       maxIterations: 10
-
-  # === Child Nodes (inside loop) ===
-  - id: loop-input
-    type: interface-input
-    parentId: count-loop
-    extent: parent
-    position: { x: 20, y: 50 }
-    data:
-      nodeType: interface-input
-      label: Input
+      # External input
+      inputs:
+        - { name: target, type: string }
+      # External output (fires after loop)
       outputs:
-        - name: target
-          type: string
-        - name: iteration
-          type: number
-        # prev.count auto-generated from interface-output
+        - { name: final_count, type: number }
+      # Dock slots
+      dockSlots:
+        - { name: iteration, type: iteration, valueType: number }
+        - { name: continue, type: continue, valueType: boolean }
+        - { name: count, type: feedback, valueType: number }
 
-  - id: loop-output
-    type: interface-output
-    parentId: count-loop
-    extent: parent
-    position: { x: 300, y: 200 }
-    data:
-      nodeType: interface-output
-      label: Output
-      inputs:
-        - name: count
-          type: number
-
-  - id: loop-continue
-    type: interface-continue
-    parentId: count-loop
-    extent: parent
-    position: { x: 20, y: 200 }
-    data:
-      nodeType: interface-continue
-      label: Continue?
-      inputs:
-        - name: continue
-          type: boolean
-
+  # === Child Node (inside loop) ===
   - id: counter
     type: shell
     parentId: count-loop
     extent: parent
-    position: { x: 180, y: 50 }
+    position: { x: 50, y: 50 }
     data:
       nodeType: shell
       label: Increment Counter
@@ -495,27 +452,31 @@ nodes:
             pattern: 'CONTINUE=(true|false)'
 
 edges:
-  # External: Trigger → Loop (connects to loop's input port)
+  # External: Trigger → Loop input
   - { source: trigger, target: count-loop, sourceHandle: "output:text", targetHandle: "input:target" }
 
-  # Internal: Input → Counter
-  - { source: loop-input, target: counter, sourceHandle: "output:target", targetHandle: "input:target" }
-  - { source: loop-input, target: counter, sourceHandle: "output:prev.count", targetHandle: "input:prev_count" }
+  # Loop input → Counter
+  - { source: count-loop, target: counter, sourceHandle: "input:target", targetHandle: "input:target" }
 
-  # Internal: Counter → Output
-  - { source: counter, target: loop-output, sourceHandle: "output:count", targetHandle: "input:count" }
+  # Dock: count.prev → Counter
+  - { source: count-loop, target: counter, sourceHandle: "dock:count:prev", targetHandle: "input:prev_count" }
 
-  # Internal: Counter → Continue
-  - { source: counter, target: loop-continue, sourceHandle: "output:should_continue", targetHandle: "input:continue" }
+  # Counter → Dock slots
+  - { source: counter, target: count-loop, sourceHandle: "output:count", targetHandle: "dock:count:current" }
+  - { source: counter, target: count-loop, sourceHandle: "output:should_continue", targetHandle: "dock:continue:input" }
+
+  # External output (fires after loop completes)
+  - { source: counter, target: count-loop, sourceHandle: "output:count", targetHandle: "output:final_count" }
 ```
 
 This example:
 - Trigger starts workflow; connects to loop's external input port
 - Run via CLI: `shodan run counter-loop.yaml --input "5"`
 - Uses shell nodes only (no API keys needed)
-- All nodes are flat in the `nodes` array - child nodes have `parentId: count-loop`
-- All edges are flat in the `edges` array - executor filters by parentId to find inner edges
-- Uses `interface-input.prev.count` to access previous iteration's count
+- **No interface nodes** - dock slots handle iteration data
+- Dock's `count.prev` outputs previous iteration's count (null on first iteration)
+- Dock's `count.current` receives current iteration's count
+- External output edge fires only after loop completes
 
 ---
 
@@ -526,27 +487,37 @@ This example:
 ```
 1. Initialize
    - iteration = 0
-   - Resolve outer inputs from incoming edges
+   - feedbackValues = {} (empty map for each feedback slot)
+   - Resolve outer inputs from incoming edges to loop
 
-2. Prepare interface-input
+2. Prepare dock outputs
    - iteration++
-   - Populate outputs from outer edges (task, guidelines, etc.)
-   - Set iteration = current iteration number
-   - Set prev.* = interface-output values from previous iteration (null if iteration == 1)
+   - iteration slot outputs: iteration number
+   - For each feedback slot:
+     - prev port outputs: feedbackValues[slot] (null if iteration == 1)
 
 3. Execute inner workflow
-   - Run topological sort and execute all nodes
-   - interface-output collects values
-   - interface-continue receives boolean
+   - Run topological sort and execute all nodes inside loop
+   - Nodes receive values from dock's output ports (iteration, feedback.prev)
+   - Nodes send values to dock's input ports (feedback.current, continue)
 
 4. Check continuation
-   - Read interface-continue.continue value
+   - Read continue slot input value
+   - Store feedback slot inputs: feedbackValues[slot] = input value
    - If true AND iteration < maxIterations: goto step 2
    - If false OR iteration >= maxIterations: goto step 5
 
 5. Finalize
-   - Loop's output ports ← interface-output values from last iteration
+   - Fire all deferred edges (internal node → external node)
+   - Loop's output ports receive values from connected internal nodes
 ```
+
+### Deferred Edge Execution
+
+Edges from internal nodes to external nodes (or to loop's output ports) are **deferred**:
+- During iteration, these edges are tracked but not executed
+- After the loop completes (continue=false or maxIterations reached), all deferred edges fire
+- This allows internal workflow to complete fully before outputs are sent downstream
 
 ### Error Handling
 
@@ -557,41 +528,105 @@ This example:
 ### Validation
 
 The executor must validate:
-- Exactly one `interface-input` node exists
-- Exactly one `interface-output` node exists
-- Exactly one `interface-continue` node exists
-- `interface-continue` has an incoming edge to its `continue` input
+- Loop has a `dockSlots` array with required slots
+- `iteration` slot exists (type: iteration)
+- `continue` slot exists (type: continue)
+- `continue` slot has an incoming edge from internal workflow
 
 ---
 
 ## UI Considerations
 
-### Loop Node Display
+### Loop Node Display - Dock-Based Design
 
-Unlike components, loops show their inner workflow directly:
+The loop uses a **dock-based UI** instead of separate interface nodes. This simplifies the model:
+- No separate child nodes to manage
+- Cleaner visual design with more space for workflow
+- Bidirectional slots handle both input and output in one place
+
+**Visual Layout:**
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ 🔁 Loop: Code Review                              [max: 5]     │
-│ ○ task                                        approved ●       │
-│ ○ guidelines                                  final_code ●     │
 ├─────────────────────────────────────────────────────────────────┤
-│ ┌─────────────────────────────────────────────────────────────┐ │
-│ │                                                             │ │
-│ │   ⊕ Input ──▶ 🤖 Coder ──▶ 🤖 Review ──▶ ⊕ Output          │ │
-│ │       │                         │                           │ │
-│ │       └─────────────────────────┼──▶ NOT ──▶ ⊕ Continue     │ │
-│ │                                 │                           │ │
-│ └─────────────────────────────────────────────────────────────┘ │
 │                                                                 │
-│ During execution: "Iteration 3/5"                               │
+│   [Coder] ─────────────▶ [Reviewer]                             │
+│      ▲         code           │                                 │
+│      │                        │ feedback, approved              │
+│      │                        ▼                                 │
+├──────┼────────────────────────┼─────────────────────────────────┤
+│      │                        │                                 │
+│  ┌───┴──────┐   ┌─────────────▼──────────┐   ┌────────────┐     │
+│  │iteration │   │       feedback         │   │  continue  │     │
+│  │   ●→     │   │  ●→              →●    │   │    →●      │     │
+│  └──────────┘   └────────────────────────┘   └─────▲──────┘     │
+│   (output)       (prev out)    (curr in)      (input) │         │
+│                                                   NOT(approved) │
+├─────────────────────────────────────────────────────────────────┤
+│                    Iteration 3/5                                │
 └─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼ (after loop completes)
+                        [External Node]
 ```
 
-- Inner workflow is always visible (not hidden like components)
-- Interface nodes (⊕) have distinct styling
-- Iteration progress shown during execution
-- Max iterations displayed in header
+**Dock Slot Types:**
+
+| Slot Type | Ports | Description |
+|-----------|-------|-------------|
+| `iteration` | `●→` (output only) | Provides current iteration number (1-based) |
+| `continue` | `→●` (input only) | Receives boolean to control looping |
+| Feedback slots | `●→` + `→●` (bidirectional) | Left: prev value, Right: current value |
+
+**Key Concepts:**
+
+1. **Bidirectional feedback slots**: A single slot like `feedback` has two ports:
+   - Left port (`●→`): OUTPUT - provides value from **previous** iteration to internal nodes
+   - Right port (`→●`): INPUT - receives value from **current** iteration
+
+2. **No result dock needed**: Internal nodes wire directly to external nodes. These edges only fire after the loop completes.
+
+3. **Arrow indicators**:
+   - `●→` = Output port (data flows OUT to internal nodes)
+   - `→●` = Input port (data flows IN from internal nodes)
+
+### Data Flow Example: Code Review Loop
+
+```
+Iteration 1:
+  iteration dock (●→) provides: 1
+  feedback dock (●→) provides: null (no previous)
+
+  Coder receives: task, feedback=null
+  Coder outputs: code
+
+  Reviewer receives: code
+  Reviewer outputs: approved=false, feedback="add error handling"
+
+  feedback dock (→●) receives: "add error handling"
+  continue dock (→●) receives: true (NOT approved)
+
+  → Loop continues
+
+Iteration 2:
+  iteration dock (●→) provides: 2
+  feedback dock (●→) provides: "add error handling" (from prev iteration)
+
+  Coder receives: task, feedback="add error handling"
+  Coder outputs: improved_code
+
+  Reviewer receives: improved_code
+  Reviewer outputs: approved=true, feedback="looks good"
+
+  feedback dock (→●) receives: "looks good"
+  continue dock (→●) receives: false (NOT approved = false)
+
+  → Loop stops
+
+After loop:
+  Edges from internal nodes to external nodes fire with final values
+```
 
 ### Configuration Panel
 
@@ -601,46 +636,40 @@ Unlike components, loops show their inner workflow directly:
 ├─────────────────────────────────────────────────┤
 │ Max Iterations: [5    ]                         │
 ├─────────────────────────────────────────────────┤
-│ Inner Workflow:                                 │
-│   ○ Inline (edit in canvas)                     │
-│   ○ Reference: [________________] [Browse...]   │
-├─────────────────────────────────────────────────┤
-│ Inputs (from interface-input):                  │
-│   • task (string, required)                     │
-│   • guidelines (string)                         │
-├─────────────────────────────────────────────────┤
-│ Outputs (from interface-output):                │
-│   • approved (boolean)                          │
-│   • final_code (string)                         │
+│ Dock Slots:                                     │
+│   iteration (output) - built-in                 │
+│   continue (input) - built-in                   │
+│   ─────────────────────────────────────         │
+│   + Add feedback slot                           │
+│   [feedback] (bidirectional) [×]                │
+│   [code] (bidirectional) [×]                    │
 └─────────────────────────────────────────────────┘
 ```
 
-- No mappings UI needed - wiring is visual in the inner workflow
-- Inputs/outputs derived from interface nodes
-- Config panel is simpler than before
+- Built-in slots: `iteration` and `continue`
+- User can add custom bidirectional feedback slots
+- Each feedback slot appears in the dock with both ports
 
 ---
 
 ## Relationship to Components
 
-**A Loop is a Component with iteration semantics.** The inner workflow is treated exactly like a component's internal workflow, with the addition of:
-- **Iteration**: Re-executes the inner workflow multiple times
-- **Feedback**: Previous iteration outputs can feed into the next iteration via `inputMappings`
-- **Termination**: `continueWhile` condition evaluated after each iteration
+**A Loop is a visual container with iteration semantics.** Unlike components which abstract away their internals, loops show their contents directly:
 
 | Aspect | Component | Loop |
 |--------|-----------|------|
-| Contains workflow | Yes | Yes |
-| Has I/O interface | Yes | Yes |
+| Contains workflow | Yes (hidden) | Yes (visible) |
+| Has I/O interface | Interface nodes | **Dock slots** + standard ports |
 | Executes once | Yes | No (iterates) |
-| Previous outputs → next inputs | No | Yes (`inputMappings` with `iterations: subsequent`) |
-| Termination condition | No | Yes (`continueWhile`) |
+| Previous outputs → next inputs | No | Yes (dock feedback slots) |
+| Termination condition | No | Yes (dock continue slot) |
+| Visual representation | Single node | Container with dock bar |
 
-**Implementation sharing** - Loops should reuse component infrastructure:
-- Workflow embedding (`inlineWorkflow`) and referencing (`workflowRef`)
-- I/O port display and configuration
-- Drill-down navigation to view/edit inner workflow
-- Input/output mapping UI (extended with iteration controls)
+**Key differences from components:**
+- Loop contents are always visible (no drill-down needed)
+- Dock-based iteration control instead of interface nodes
+- Feedback slots handle prev/current values automatically
+- External output edges are deferred until loop completes
 
 ---
 
@@ -651,19 +680,20 @@ Loop implementation files in the monorepo structure:
 ```
 src/
 ├── core/src/
-│   ├── loop-types.ts       # LoopNodeData, InterfaceContinueNodeData ✅
-│   ├── workflow-types.ts   # WorkflowNode, WorkflowEdge, WorkflowSchema, InlineWorkflow ✅
+│   ├── loop-types.ts       # LoopNodeData, DockSlot types (needs update for dock)
+│   ├── workflow-types.ts   # WorkflowNode, WorkflowEdge, WorkflowSchema ✅
 │   └── index.ts            # Re-exports all types ✅
 ├── server/src/engine/
-│   └── loop-executor.ts    # Loop execution logic, iteration management ✅
+│   └── loop-executor.ts    # Loop execution logic (needs update for dock model)
 ├── designer/src/
 │   ├── nodes/
-│   │   ├── BaseNode.tsx    # Extended with loop, interface-continue types ✅
-│   │   ├── nodes.css       # Loop and interface node styling ✅
+│   │   ├── LoopContainerNode.tsx  # Loop container with dock bar (needs dock UI)
+│   │   ├── BaseNode.tsx    # Extended with loop type ✅
+│   │   ├── nodes.css       # Loop container styling ✅
 │   │   └── index.ts        # Node type registry ✅
 │   ├── index.css           # CSS variables for loop colors ✅
 │   └── components/
-│       ├── ConfigPanel.tsx # LoopConfig + InterfaceConfig (interface-continue) ✅
+│       ├── ConfigPanel.tsx # LoopConfig with dock slot management (needs update)
 │       └── Sidebar.tsx     # Loop node in palette ✅
 └── cli/
     └── (no changes needed - uses server executor)
@@ -677,11 +707,11 @@ The loop system uses the same template syntax as the I/O system. All values are 
 
 | Source | How to Access | Example |
 |--------|---------------|---------|
-| Outer inputs | Wire from `interface-input` outputs | `interface-input.task → coder.task` |
-| Iteration number | Wire from `interface-input.iteration` | Can be used in prompts via edge |
-| Previous iteration | Wire from `interface-input.prev.*` | `interface-input.prev.feedback → coder.feedback` |
+| Outer inputs | Wire from loop's input ports | `loop:input:task → coder:input:task` |
+| Iteration number | Wire from dock's iteration slot | `loop:dock:iteration:output → node:input:iter` |
+| Previous iteration | Wire from dock's feedback prev port | `loop:dock:feedback:prev → coder:input:feedback` |
 
-**No special loop template syntax** - everything is explicit wiring through interface nodes.
+**No special loop template syntax** - everything is explicit wiring through dock slots and standard ports.
 
 ---
 
@@ -689,8 +719,9 @@ The loop system uses the same template syntax as the I/O system. All values are 
 
 > **Prerequisite**: The I/O system (Phases 1-5) and Component system (Phase 6) must be complete. This provides:
 > - Typed input/output ports on nodes
-> - Interface nodes (`interface-input`, `interface-output`)
 > - Edge-based data flow between nodes
+>
+> **Note**: Phases 1-2 were implemented with interface nodes. Starting Phase 3, we pivoted to a **dock-based** approach which is simpler and doesn't require managing child interface nodes.
 
 ### Phase 0: Type Definitions ✅
 - [x] Add `LoopNodeData` interface to `@shodan/core` (`src/core/src/loop-types.ts`)
@@ -758,37 +789,33 @@ The loop system uses the same template syntax as the I/O system. All values are 
 **Phase 3a completion notes:**
 - Created `LoopContainerNode.tsx` with `NodeResizer` for resizable frame
 - Purple dashed border container with header showing loop icon, label, and max iterations badge
-- Modified `onDrop` handler in `App.tsx` to auto-create 3 interface nodes when loop is dropped
-- Interface nodes have `parentId` and `extent: 'parent'` set automatically
-- Parent node is always added first in the array, followed by child nodes
 - Added comprehensive CSS styling for loop container (`.loop-container`, `.loop-header`, etc.)
 
-**Data Structure Changes:**
+**Design Pivot:** After Phase 3a, we pivoted from interface nodes to a **dock-based** approach:
+- Instead of auto-creating interface nodes inside the loop, the loop container has a "dock" bar at the bottom
+- Dock contains slots for iteration, continue, and user-defined feedback values
+- This simplifies the model - no child nodes to manage, cleaner visual design
+- The `onDrop` handler now creates just the loop container (no interface nodes)
+
+**Data Structure (Dock-Based):**
 ```typescript
-// Loop container node
+// Loop container node with dock slots
 {
   id: 'loop-1',
   type: 'loop',
   position: { x: 100, y: 100 },
-  style: { width: 500, height: 400 },  // Container dimensions
+  style: { width: 500, height: 400 },
   data: {
     nodeType: 'loop',
     label: 'Code Review Loop',
     maxIterations: 5,
-  }
-}
-
-// Child interface node (auto-created)
-{
-  id: 'loop-1-input',
-  type: 'interface-input',
-  parentId: 'loop-1',              // Links to parent
-  extent: 'parent',                 // Constrained to parent
-  position: { x: 20, y: 50 },       // Relative to parent
-  data: {
-    nodeType: 'interface-input',
-    label: 'Input',
-    outputs: [...]
+    inputs: [...],   // External input ports
+    outputs: [...],  // External output ports (fire after loop)
+    dockSlots: [
+      { name: 'iteration', type: 'iteration', valueType: 'number' },
+      { name: 'continue', type: 'continue', valueType: 'boolean' },
+      { name: 'feedback', type: 'feedback', valueType: 'string' },
+    ]
   }
 }
 ```
@@ -804,7 +831,7 @@ The loop system uses the same template syntax as the I/O system. All values are 
 - [ ] Auto-set `parentId` and convert position to relative coordinates
 - [ ] Handle dragging node out of loop (remove `parentId`, convert to absolute)
 - [ ] Visual feedback when dragging over loop (highlight drop zone)
-- [ ] Prevent interface nodes from being dragged out of their parent loop
+- [ ] Keep dropped nodes above dock area (leave space at bottom for dock)
 - [ ] Update edge connections when nodes move into/out of loops
 
 **Drop Detection Logic:**
@@ -822,6 +849,10 @@ const onNodeDragStop = (event, node) => {
         x: node.position.x - loop.position.x,
         y: node.position.y - loop.position.y
       };
+      // Ensure node is above dock area
+      const dockHeight = 80;
+      const maxY = (loop.style?.height || 400) - dockHeight - node.height;
+      node.position.y = Math.min(node.position.y, maxY);
     }
   }
 };
@@ -829,68 +860,68 @@ const onNodeDragStop = (event, node) => {
 
 ---
 
-### Phase 3c: Visual Frame and Interface Node Layout
+### Phase 3c: Dock Rendering and Slot Management
 
-**Goal:** Clear visual indication of loop boundary with organized interface node placement.
+**Goal:** Render the dock bar at the bottom of the loop container with slots for iteration control.
 
 **Visual Design:**
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ 🔁 Code Review Loop                                   [max: 5]  │
+│ 🔁 Code Review Loop                              [max: 5]       │
 ├─────────────────────────────────────────────────────────────────┤
+│  ○ task                                        final_code ●     │
+│  ○ guidelines                                                   │
 │                                                                 │
-│  ┌─────────────┐                                                │
-│  │ ⊕ Input     │─────────────────────┐                         │
-│  │   task ●    │                     │                         │
-│  │   prev.* ●  │                     ▼                         │
-│  │   iter ●    │              ┌──────────────┐                 │
-│  └─────────────┘              │  [User adds  │                 │
-│                               │   nodes here]│                 │
-│                               └──────┬───────┘                 │
-│                                      │                         │
-│  ┌─────────────┐              ┌──────▼───────┐                 │
-│  │ ⊕ Continue  │◀─────────────│ ⊕ Output     │                 │
-│  │ ○ continue  │              │ ○ result     │                 │
-│  └─────────────┘              └──────────────┘                 │
+│    ┌──────────────┐              ┌──────────────┐               │
+│    │  🤖 Coder    │─────────────▶│  🤖 Reviewer │               │
+│    └──────────────┘              └──────────────┘               │
 │                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌────────────┐   ┌──────────────────────────┐   ┌──────────┐   │
+│  │ iteration  │   │        feedback          │   │ continue │   │
+│  │    ●→      │   │   ●→               →●    │   │   →●     │   │
+│  └────────────┘   └──────────────────────────┘   └──────────┘   │
+├─────────────────────────────────────────────────────────────────┤
+│                    Iteration 3/5                                │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 **Tasks:**
-- [ ] Loop header bar with icon, label, and max iterations badge
-- [ ] Dashed or double border to distinguish from regular nodes
-- [ ] Resize handles on loop container
-- [ ] Minimum size enforcement (must fit interface nodes)
-- [ ] Interface nodes positioned at semantic locations:
-  - Input: top-left (data flows in)
-  - Output: bottom-right (data flows out)
-  - Continue: bottom-left (loop control)
-- [ ] Visual guides/snap lines for alignment inside loop
-- [ ] Different background color/pattern for loop interior
+- [ ] Dock bar component at bottom of loop container
+- [ ] Render dock slots based on `dockSlots` array in node data
+- [ ] Built-in slots: `iteration` (output) and `continue` (input)
+- [ ] User-defined feedback slots with bidirectional ports
+- [ ] Arrow indicators for port direction:
+  - `●→` for output ports (data flows out to internal nodes)
+  - `→●` for input ports (data flows in from internal nodes)
+- [ ] Handles for dock ports (for edge connections)
+- [ ] Slot configuration in config panel (add/remove feedback slots)
+- [ ] Status bar showing current iteration during execution
 
 ---
 
-### Phase 3d: Executor Support for Flat parentId Model ✅
+### Phase 3d: Executor Support for Dock-Based Model
 
-**Goal:** Update the loop executor to find inner nodes/edges by filtering on `parentId` instead of reading `inlineWorkflow`.
+**Goal:** Update the loop executor to work with dock slots instead of interface nodes.
 
-**Tasks:**
+**Status:** Partially complete (parentId filtering works), needs update for dock-based model.
+
+**Completed Tasks (parentId model):**
 - [x] Remove `inlineWorkflow` and `workflowRef` from `LoopNodeData` type
 - [x] Update `executeLoop()` to filter nodes by `parentId`
 - [x] Update `executeLoop()` to filter edges where both endpoints are inside loop
-- [x] Validate required interface nodes exist (interface-input, interface-output, interface-continue)
-- [x] Show validation warnings if required nodes are missing
 - [x] Update workflow YAML schema to support `parentId` and `extent` on nodes
 
-**Phase 3d completion notes:**
-- Updated `loop-executor.ts` with `getLoopInnerWorkflow()` function that filters by `parentId`
-- Updated `executeLoop()` signature to accept `loopNode`, `allNodes`, `allEdges`
-- Updated `executor.ts` to pass nodes/edges to the loop executor
-- Removed `inlineWorkflow` from core types (`loop-types.ts`, `workflow-types.ts`)
-- Added `parentId`, `extent`, `style` to `WorkflowNode` type
-- Updated test workflow `test-loop-counter.yaml` to flat parentId format
+**Remaining Tasks (dock-based model):**
+- [ ] Add `dockSlots` field to `LoopNodeData` type
+- [ ] Update executor to read dock slot definitions from loop node
+- [ ] Implement dock slot value management (feedbackValues map)
+- [ ] Handle `dock:*` handle IDs in edge resolution
+- [ ] Implement deferred edge execution (internal→external fires after loop)
+- [ ] Remove interface node validation (no longer needed)
+- [ ] Update test workflows to use dock-based format
 
-**Executor Logic:**
+**Executor Logic (Dock-Based):**
 ```typescript
 const executeLoop = async (
   loopNode: WorkflowNode,
@@ -898,25 +929,52 @@ const executeLoop = async (
   allEdges: WorkflowEdge[],
   context: ExecutionContext
 ) => {
+  const dockSlots = loopNode.data.dockSlots || [];
+  const feedbackValues: Record<string, unknown> = {};
+
   // Get child nodes by filtering on parentId
   const innerNodes = allNodes.filter(n => n.parentId === loopNode.id);
 
-  // Get inner edges (both endpoints inside loop)
+  // Categorize edges
   const innerNodeIds = new Set(innerNodes.map(n => n.id));
   const innerEdges = allEdges.filter(e =>
     innerNodeIds.has(e.source) && innerNodeIds.has(e.target)
   );
+  const dockEdges = allEdges.filter(e =>
+    e.sourceHandle?.startsWith('dock:') || e.targetHandle?.startsWith('dock:')
+  );
+  const deferredEdges = allEdges.filter(e =>
+    innerNodeIds.has(e.source) && !innerNodeIds.has(e.target) &&
+    !e.targetHandle?.startsWith('dock:')
+  );
 
-  // Validate required interface nodes
-  const interfaceInput = innerNodes.find(n => n.data.nodeType === 'interface-input');
-  const interfaceOutput = innerNodes.find(n => n.data.nodeType === 'interface-output');
-  const interfaceContinue = innerNodes.find(n => n.data.nodeType === 'interface-continue');
+  // Iteration loop
+  let iteration = 0;
+  let shouldContinue = true;
 
-  if (!interfaceInput || !interfaceOutput || !interfaceContinue) {
-    throw new Error('Loop missing required interface nodes');
+  while (shouldContinue && iteration < loopNode.data.maxIterations) {
+    iteration++;
+
+    // 1. Prepare dock outputs (iteration, feedback.prev)
+    const dockOutputs = {
+      'dock:iteration:output': iteration,
+      ...Object.fromEntries(
+        dockSlots
+          .filter(s => s.type === 'feedback')
+          .map(s => [`dock:${s.name}:prev`, feedbackValues[s.name] ?? null])
+      )
+    };
+
+    // 2. Execute inner workflow with dock outputs available
+
+    // 3. Collect dock inputs (feedback.current, continue)
+    // Store feedback values for next iteration
+    // Read continue value
+
+    shouldContinue = /* continue dock input value */;
   }
 
-  // Execute iterations using innerNodes and innerEdges...
+  // 4. Fire deferred edges (internal → external)
 };
 ```
 
@@ -924,23 +982,28 @@ const executeLoop = async (
 
 ### Phase 3e: Loop I/O Ports on Container
 
-**Goal:** Loop container shows input/output ports based on interface nodes inside.
+**Goal:** Loop container shows external input/output ports (standard ports) plus dock slot ports.
 
 **Tasks:**
-- [ ] Loop container has input handles on left (from interface-input outputs)
-- [ ] Loop container has output handles on right (from interface-output inputs)
-- [ ] Ports update automatically when interface nodes change
-- [ ] External nodes can connect to loop's ports
-- [ ] Connections to loop ports map to interface node connections internally
+- [ ] Loop container has external input handles on left (from `data.inputs`)
+- [ ] Loop container has external output handles on right (from `data.outputs`)
+- [ ] Dock slot handles rendered at bottom (dock bar area)
+- [ ] Handle ID format distinguishes external ports from dock ports:
+  - External: `input:{name}`, `output:{name}`
+  - Dock: `dock:{name}:prev`, `dock:{name}:current`, `dock:iteration:output`, `dock:continue:input`
+- [ ] External output edges are deferred (fire only after loop completes)
 
 **Visual:**
 ```
-                    ┌─────────────────────────────────────┐
-     ○ task ────────│ 🔁 Code Review Loop                 │──────── approved ●
-     ○ guidelines ──│                                     │──────── final_code ●
-                    │   [interface-input]──▶[...]──▶[interface-output]
-                    │                         │
-                    │                    [interface-continue]
+                                                                      ┌── (deferred)
+     ○ task ────────┌─────────────────────────────────────┐           ▼
+     ○ guidelines ──│ 🔁 Code Review Loop                 │──────── final_code ●
+                    │                                     │
+                    │   [Coder] ──────▶ [Reviewer]        │
+                    │       ▲                │            │
+                    │       │                ▼            │
+                    ├───────┼────────────────┼────────────┤
+                    │  [iter ●→]  [feedback ●→ →●]  [continue →●]
                     └─────────────────────────────────────┘
 ```
 
@@ -948,10 +1011,12 @@ const executeLoop = async (
 
 ### Phase 4: Polish
 - [ ] Iteration history view (see each iteration's outputs in logs)
-- [ ] Validation error messages for missing interface nodes (visual indicators)
+- [ ] Validation error messages for missing dock connections (visual indicators)
 - [ ] Copy/paste nodes into loops
 - [ ] Undo/redo support for loop operations
-- [ ] Support `workflowRef` (reference external workflow file as loop body) - lower priority since inline is default
+- [ ] Dock slot configuration UI (add/remove/rename feedback slots)
+- [ ] Type selection for feedback slots (string, number, json, etc.)
+- [ ] Visual indicators when dock slots have required connections missing
 
 ---
 
@@ -970,3 +1035,11 @@ const executeLoop = async (
    - Pro: Cleaner than shell workarounds
    - Con: Scope creep
    - Decision: Start with shell-based logic; add built-ins if patterns emerge
+
+5. **Dock slot types**: Should feedback slots support different value types (string, number, json, array)?
+   - Current design: Yes, `valueType` field on DockSlot
+   - Need to determine how type checking works for dock connections
+
+6. **Multiple feedback slots**: How many feedback slots should a loop support?
+   - Current design: No limit, user adds as needed
+   - Consider: Should there be a default "result" slot for simple cases?

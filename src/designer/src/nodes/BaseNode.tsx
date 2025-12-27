@@ -1,6 +1,6 @@
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import type { PortDefinition, ValueType } from '@shodan/core';
+import type { PortDefinition, ValueType, DockSlot } from '@shodan/core';
 import './nodes.css';
 
 export type NodeType = 'agent' | 'shell' | 'script' | 'trigger' | 'workdir' | 'component' | 'interface-input' | 'interface-output' | 'loop' | 'interface-continue';
@@ -48,6 +48,7 @@ export interface BaseNodeData extends Record<string, unknown> {
   workflowPath?: string;  // Path to component workflow file
   // Loop fields
   maxIterations?: number;  // Safety limit for loops (default: 10)
+  dockSlots?: DockSlot[];  // Dock slots for iteration control
   // Execution state
   executionStatus?: ExecutionStatus;
   executionOutput?: string;
