@@ -616,18 +616,22 @@ Unlike components, loops show their inner workflow directly:
 
 ## Project Structure
 
-Loop implementation files will be organized in the monorepo structure:
+Loop implementation files in the monorepo structure:
 
 ```
 src/
 ├── core/src/
-│   └── loop-types.ts       # LoopNodeData, InputMapping, OutputMapping interfaces
+│   ├── loop-types.ts       # LoopNodeData, InterfaceContinueNodeData ✅
+│   ├── workflow-types.ts   # WorkflowNode, WorkflowEdge, WorkflowSchema, InlineWorkflow ✅
+│   └── index.ts            # Re-exports all types ✅
 ├── server/src/engine/
-│   └── loop-executor.ts    # Loop execution logic, iteration management
+│   └── loop-executor.ts    # Loop execution logic, iteration management (Phase 1)
 ├── designer/src/
-│   ├── nodes/LoopNode.tsx  # Loop node UI component (or extend BaseNode)
+│   ├── nodes/
+│   │   ├── BaseNode.tsx    # Extended with loop, interface-continue types ✅
+│   │   └── index.ts        # Node type registry ✅
 │   └── components/
-│       └── LoopConfigPanel.tsx  # Loop-specific configuration UI
+│       └── LoopConfigPanel.tsx  # Loop-specific configuration UI (Phase 2)
 └── cli/
     └── (no changes needed - uses server executor)
 ```
@@ -655,11 +659,11 @@ The loop system uses the same template syntax as the I/O system. All values are 
 > - Interface nodes (`interface-input`, `interface-output`)
 > - Edge-based data flow between nodes
 
-### Phase 0: Type Definitions
-- [ ] Add `LoopNodeData` interface to `@shodan/core`
-- [ ] Add `InterfaceContinueNodeData` interface
-- [ ] Add `loop` and `interface-continue` to node type unions
-- [ ] Update workflow schema types if needed
+### Phase 0: Type Definitions ✅
+- [x] Add `LoopNodeData` interface to `@shodan/core` (`src/core/src/loop-types.ts`)
+- [x] Add `InterfaceContinueNodeData` interface (`src/core/src/loop-types.ts`)
+- [x] Add `loop` and `interface-continue` to node type unions (`src/designer/src/nodes/index.ts`, `BaseNode.tsx`)
+- [x] Update workflow schema types - moved to `@shodan/core` (`src/core/src/workflow-types.ts`)
 
 ### Phase 1: Core Loop Execution
 - [ ] Loop node executor implementation
