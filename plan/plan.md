@@ -46,6 +46,17 @@
 - [x] **Nested component support**: Components can contain other components (3+ levels deep tested)
 - [x] **Edge restoration fix**: Reloads from YAML when navigating back via breadcrumb (fixes React Flow handle registration issue)
 
+### Loop Primitive (Phases 0-3) - COMPLETE
+- [x] **Data model**: `LoopNodeData` with dock slots (iteration, continue, feedback types)
+- [x] **Loop container node**: ReactFlow group node with child containment (`parentId`, `extent: 'parent'`)
+- [x] **Dock slots UI**: Visual dock component showing iteration output, continue input, feedback bidirectional
+- [x] **Handle ID conventions**: `dock:{name}:output`, `dock:{name}:input`, `dock:{name}:prev`, `dock:{name}:current`
+- [x] **Internal handles**: `:internal` suffix for UI-generated edges from loop inputs to inner nodes
+- [x] **Loop executor**: `loop-executor.ts` with iteration control, feedback value passing, edge categorization
+- [x] **Nested loop support**: Parent/child loops with proper edge filtering and execution isolation
+- [x] **Executor integration**: Main executor detects loop nodes, delegates to loop executor, handles outputs
+- [x] **Example workflows**: `test-loop-dock.yaml` (simple counter), `test-loop-nested.yaml` (i/j nested loops)
+
 ## Known Issues / Technical Debt
 
 ### React Flow Handle Registration Bug (Workaround Applied)
@@ -64,7 +75,16 @@ When restoring nodes from cached state (navigation stack), React Flow sometimes 
 
 ## Pending
 
-- Fix outdated paths in CLAUDE.md
+### Loop Primitive Phase 4 (Polish) - Backlog
+- [ ] **Iteration history view**: Show history of all iterations with expandable details
+- [ ] **Dock slot configuration UI**: Add/remove/rename feedback slots in ConfigPanel
+- [ ] **Type selection for feedback slots**: UI to configure `valueType` for feedback slots
+- [ ] **Visual validation indicators**: Highlight missing required connections (e.g., continue slot unconnected)
+- [ ] **Copy/paste support**: Copy nodes into/out of loop containers
+- [ ] **Undo/redo support**: Proper undo/redo for loop operations (add child, move, resize)
+- [ ] **Arrow indicators for port direction**: Visual cues showing input vs output direction on dock slots
+
+### Other
 - Rebrand to robomesh.ai
 - Implement component library plan (component-library.md)
 - Fix agent models - we might want to make an API request and query each tool respectively?

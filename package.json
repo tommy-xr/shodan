@@ -4,7 +4,7 @@
   "private": true,
   "description": "AI Agentic Orchestration Tool",
   "bin": {
-    "shodan": "src/cli/dist/index.js"
+    "shodan": "packages/cli/dist/index.js"
   },
   "scripts": {
     "dev": "concurrently -n server,designer -c blue,magenta \"pnpm run -F @shodan/server dev\" \"pnpm run -F @shodan/designer dev\"",
@@ -14,10 +14,10 @@
     "test:workflows": "pnpm run -F @shodan/server test:workflows"
   },
   "workspaces": [
-    "src/core",
-    "src/server",
-    "src/designer",
-    "src/cli"
+    "packages/core",
+    "packages/server",
+    "packages/designer",
+    "packages/cli"
   ],
   "devDependencies": {
     "concurrently": "^9.1.0"

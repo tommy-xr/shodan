@@ -1,5 +1,5 @@
 packages:
-  - src/core
-  - src/server
-  - src/designer
-  - src/cli
+  - packages/core
+  - packages/server
+  - packages/designer
+  - packages/cli
