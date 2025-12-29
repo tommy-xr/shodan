@@ -84,8 +84,22 @@ When restoring nodes from cached state (navigation stack), React Flow sometimes 
 - [ ] **Undo/redo support**: Proper undo/redo for loop operations (add child, move, resize)
 - [ ] **Arrow indicators for port direction**: Visual cues showing input vs output direction on dock slots
 
+### Constants Node (see constants.md)
+- [ ] Core types (`ConstantNodeData` in `packages/core`)
+- [ ] Executor support for `constant` node
+- [ ] Designer UI (`ConstantNode.tsx` - circular shape, gray)
+- [ ] "Logic" category in Sidebar
+- [ ] ConfigPanel: type dropdown + value input
+- [ ] Example workflow (`test-constant.yaml`)
+
+### Logic Operators (see operators.md)
+**Phase 2**: Boolean logic (`not`, `and`, `or`) - purple rectangular nodes
+**Phase 3**: Comparisons (`equals`, `not-equals`, `greater-than`, etc.) - orange
+**Phase 4**: Utilities (`switch`, `coalesce`, arithmetic, string ops)
+
 ### Other
-- Rebrand to robomesh.ai
+- Add CI badge
+- Add screenshot of tool
 - Implement component library plan (component-library.md)
 - Fix agent models - we might want to make an API request and query each tool respectively?
 - Coercing agent output to JSON to fit output requirements - can we rely on the agents to do that, or does it require a GPT call to coalesce?
