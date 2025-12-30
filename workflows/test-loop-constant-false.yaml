@@ -1,0 +1,67 @@
+version: 2
+metadata:
+  name: Loop with Constant False
+  description: Loop stops after first iteration
+
+nodes:
+  - id: trigger
+    type: trigger
+    position: { x: 50, y: 150 }
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+
+  - id: loop
+    type: loop
+    position: { x: 200, y: 100 }
+    style: { width: 400, height: 250 }
+    data:
+      nodeType: loop
+      label: Run Once
+      maxIterations: 10
+      dockSlots:
+        - name: iteration
+          type: iteration
+          valueType: number
+        - name: continue
+          type: continue
+          valueType: boolean
+
+  - id: stop-now
+    type: constant
+    parentId: loop
+    position: { x: 50, y: 50 }
+    data:
+      nodeType: constant
+      label: Stop
+      valueType: boolean
+      value: false
+      outputs:
+        - name: value
+          type: boolean
+
+  - id: log
+    type: shell
+    parentId: loop
+    position: { x: 200, y: 50 }
+    data:
+      nodeType: shell
+      label: Log Iteration
+      script: echo "Iteration {{ inputs.i }}"
+      inputs:
+        - name: i
+          type: number
+
+edges:
+  - id: iter-to-log
+    source: loop
+    target: log
+    sourceHandle: "dock:iteration:output"
+    targetHandle: "input:i"
+
+  - id: const-to-continue
+    source: stop-now
+    target: loop
+    sourceHandle: "output:value"
+    targetHandle: "dock:continue:input"

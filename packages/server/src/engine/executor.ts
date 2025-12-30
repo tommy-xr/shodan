@@ -1,6 +1,6 @@
 import { spawn } from 'child_process';
 import { executeAgent, type RunnerType } from './agents/index.js';
-import type { PortDefinition, ValueType, WorkflowNode, WorkflowEdge, WorkflowSchema, LoopNodeData } from '@shodan/core';
+import type { PortDefinition, ValueType, WorkflowNode, WorkflowEdge, WorkflowSchema, LoopNodeData, ConstantNodeData, ConstantValueType } from '@shodan/core';
 import { isLoopNodeData } from '@shodan/core';
 import { loadWorkflow, getWorkflowDirectory } from './workflow-loader.js';
 import { executeLoop } from './loop-executor.js';
@@ -377,19 +377,39 @@ function processNodeTemplates(
  * Find trigger nodes
  */
 function findTriggerNodes(nodes: WorkflowNode[], edges: WorkflowEdge[]): string[] {
-  const hasIncoming = new Set(edges.map(e => e.target));
+  // Filter out dock input edges - these are internal feedback loops, not sequential dependencies
+  // Same logic as buildAdjacencyMap
+  const sequentialEdges = edges.filter(e => {
+    const targetHandle = e.targetHandle || '';
+    if (targetHandle.startsWith('dock:') &&
+        (targetHandle.endsWith(':input') || targetHandle.endsWith(':current'))) {
+      return false;
+    }
+    return true;
+  });
 
+  const hasIncoming = new Set(sequentialEdges.map(e => e.target));
+
+  // Find all trigger nodes
   const triggers = nodes.filter(n =>
     n.data.nodeType === 'trigger' || n.type === 'trigger'
   );
 
-  if (triggers.length > 0) {
-    return triggers.map(t => t.id);
+  // Find all source nodes (nodes with no incoming edges)
+  // This includes constants and other pure value nodes
+  // Exclude nodes with parentId - they run within their container
+  const sourceNodes = nodes.filter(n => !hasIncoming.has(n.id) && !n.parentId);
+
+  // Combine triggers and source nodes, deduplicating
+  const startNodeIds = new Set<string>();
+  for (const t of triggers) {
+    startNodeIds.add(t.id);
+  }
+  for (const s of sourceNodes) {
+    startNodeIds.add(s.id);
   }
 
-  return nodes
-    .filter(n => !hasIncoming.has(n.id))
-    .map(n => n.id);
+  return Array.from(startNodeIds);
 }
 
 /**
@@ -453,7 +473,14 @@ function ensureNodeIO(node: WorkflowNode): WorkflowNode {
   const inputs: PortDefinition[] = [];
   const outputs: PortDefinition[] = [];
 
-  if (nodeType === 'trigger') {
+  if (nodeType === 'constant') {
+    // Constant nodes have no inputs, one output whose type matches valueType
+    const constantData = node.data as unknown as ConstantNodeData;
+    const valueType = constantData.valueType || 'any';
+    outputs.push(
+      { name: 'value', type: valueType as ValueType, description: 'Constant value' }
+    );
+  } else if (nodeType === 'trigger') {
     // Triggers have no inputs, only outputs
     outputs.push(
       { name: 'timestamp', type: 'string', description: 'ISO timestamp when trigger fired' },
@@ -539,6 +566,12 @@ function buildOutputValues(
         // Custom output with extraction
         sourceData = result.stdout || result.rawOutput || '';
         outputs[outputDef.name] = extractOutput(sourceData, outputDef.extract);
+      }
+    } else if (nodeType === 'constant') {
+      // Constant node: output is the typed value from structuredOutput
+      if (outputDef.name === 'value' && result.structuredOutput) {
+        const structured = result.structuredOutput as { value: unknown };
+        outputs.value = structured.value;
       }
     } else if (nodeType === 'trigger') {
       // Trigger outputs come from context.triggerInputs
@@ -699,6 +732,50 @@ async function executeNode(
       status: 'completed',
       output: 'Trigger activated',
       rawOutput: '', // Triggers don't have rawOutput from execution
+      startTime,
+      endTime: new Date().toISOString(),
+    };
+  }
+
+  if (nodeType === 'constant') {
+    const constantData = node.data as unknown as ConstantNodeData;
+    const { valueType, value } = constantData;
+
+    // Runtime type validation
+    if (valueType === 'boolean' && typeof value !== 'boolean') {
+      return {
+        nodeId: node.id,
+        status: 'failed',
+        error: `Expected boolean, got ${typeof value}`,
+        startTime,
+        endTime: new Date().toISOString(),
+      };
+    }
+    if (valueType === 'number' && typeof value !== 'number') {
+      return {
+        nodeId: node.id,
+        status: 'failed',
+        error: `Expected number, got ${typeof value}`,
+        startTime,
+        endTime: new Date().toISOString(),
+      };
+    }
+    if (valueType === 'string' && typeof value !== 'string') {
+      return {
+        nodeId: node.id,
+        status: 'failed',
+        error: `Expected string, got ${typeof value}`,
+        startTime,
+        endTime: new Date().toISOString(),
+      };
+    }
+
+    return {
+      nodeId: node.id,
+      status: 'completed',
+      output: `Constant: ${JSON.stringify(value)}`,
+      rawOutput: String(value),
+      structuredOutput: { value },  // Store typed value for proper output extraction
       startTime,
       endTime: new Date().toISOString(),
     };

@@ -27,6 +27,10 @@ const paletteItems: PaletteItem[] = [
   { type: 'loop', label: 'Loop', icon: '🔁' },
 ];
 
+const logicItems: PaletteItem[] = [
+  { type: 'constant', label: 'Constant', icon: '◆' },
+];
+
 interface SidebarProps {
   nodes: Node<BaseNodeData>[];
   edges: Edge[];
@@ -180,6 +184,21 @@ export function Sidebar({
       <div className="palette">
         <h2>Nodes</h2>
         {paletteItems.map((item) => (
+          <div
+            key={item.type}
+            className="palette-item"
+            draggable
+            onDragStart={(e) => onDragStart(e, item.type)}
+          >
+            <div className={`palette-icon ${item.type}`}>{item.icon}</div>
+            <span className="palette-label">{item.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="palette">
+        <h2>Logic</h2>
+        {logicItems.map((item) => (
           <div
             key={item.type}
             className="palette-item"

@@ -3,7 +3,7 @@ import type { NodeProps } from '@xyflow/react';
 import type { PortDefinition, ValueType, DockSlot } from '@shodan/core';
 import './nodes.css';
 
-export type NodeType = 'agent' | 'shell' | 'script' | 'trigger' | 'workdir' | 'component' | 'interface-input' | 'interface-output' | 'loop' | 'interface-continue';
+export type NodeType = 'agent' | 'shell' | 'script' | 'trigger' | 'workdir' | 'component' | 'interface-input' | 'interface-output' | 'loop' | 'interface-continue' | 'constant';
 export type ExecutionStatus = 'idle' | 'pending' | 'running' | 'completed' | 'failed';
 
 // Color mapping for port types
@@ -70,6 +70,7 @@ const nodeIcons: Record<NodeType, string> = {
   'interface-output': '⊕',
   loop: '🔁',
   'interface-continue': '⊕',
+  constant: '◆',
 };
 
 const nodeLabels: Record<NodeType, string> = {
@@ -83,6 +84,7 @@ const nodeLabels: Record<NodeType, string> = {
   'interface-output': 'Output',
   loop: 'Loop',
   'interface-continue': 'Continue',
+  constant: 'Constant',
 };
 
 const runnerLabels: Record<string, string> = {
@@ -170,6 +172,15 @@ function getDefaultIO(nodeType: NodeType): { inputs: PortDefinition[]; outputs: 
         { name: 'continue', type: 'boolean', required: true, description: 'Whether to continue iterating' }
       ],
       outputs: []
+    };
+  } else if (nodeType === 'constant') {
+    // Constant nodes have no inputs, one output
+    // The actual type is determined by valueType in the node data
+    return {
+      inputs: [],
+      outputs: [
+        { name: 'value', type: 'any', description: 'Constant value' }
+      ]
     };
   } else {
     return {

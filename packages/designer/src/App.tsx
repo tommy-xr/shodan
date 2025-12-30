@@ -272,6 +272,22 @@ function Flow() {
         };
 
         newNodes = [loopNode];
+      } else if (type === 'constant') {
+        // Initialize constant nodes with default type and value
+        newNodes = [{
+          id: getNodeId(),
+          type,
+          position: finalPosition,
+          parentId,
+          extent,
+          data: {
+            label: 'Constant',
+            nodeType: type,
+            valueType: 'string',
+            value: '',
+            outputs: [{ name: 'value', type: 'string' }],
+          },
+        }];
       } else {
         newNodes = [{
           id: getNodeId(),

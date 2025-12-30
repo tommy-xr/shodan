@@ -541,3 +541,70 @@
   font-weight: 600;
   animation: iteration-pulse 1.5s ease-in-out infinite;
 }
+
+/* ================================
+   Constant Node Styles
+   ================================ */
+
+.constant-node {
+  position: relative;
+  min-width: 80px;
+  max-width: 180px;
+  padding: 8px 20px 8px 12px;
+  background: linear-gradient(180deg, #4b5563 0%, #374151 100%);
+  border: 2px solid #6b7280;
+  border-radius: 9999px; /* Pill shape */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.constant-node.selected {
+  box-shadow: 0 0 0 2px #9ca3af, 0 0 20px rgba(156, 163, 175, 0.5);
+}
+
+.constant-value {
+  font-size: 0.85rem;
+  font-family: ui-monospace, monospace;
+  color: var(--text-primary, #f3f4f6);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+.constant-label {
+  font-size: 0.65rem;
+  color: var(--text-secondary, #9ca3af);
+  margin-top: 2px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+/* Constant node execution states */
+.constant-node.exec-pending {
+  border-color: #fbbf24 !important;
+  box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);
+}
+
+.constant-node.exec-running {
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 20px rgba(96, 165, 250, 0.5);
+}
+
+.constant-node.exec-completed {
+  border-color: #34d399 !important;
+  box-shadow: 0 0 15px rgba(52, 211, 153, 0.4);
+}
+
+.constant-node.exec-failed {
+  border-color: #f87171 !important;
+  box-shadow: 0 0 15px rgba(248, 113, 113, 0.4);
+}

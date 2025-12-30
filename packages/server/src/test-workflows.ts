@@ -268,6 +268,78 @@ describe('Loop Execution', () => {
   });
 });
 
+describe('Constant Node', () => {
+  test('test-constant.yaml - constant values pass through to shell nodes', async () => {
+    const schema = await loadWorkflow('test-constant.yaml');
+    const result = await executeWorkflowSchema(schema);
+
+    assert.strictEqual(result.success, true, 'Workflow should succeed');
+
+    // Find the echo-all shell node result
+    const echoResult = result.results.find(r => r.nodeId === 'echo-all');
+    assert.ok(echoResult, 'Should have echo-all result');
+    assert.strictEqual(echoResult.status, 'completed', 'Echo node should complete');
+
+    // Verify all three constant types were passed correctly
+    assert.ok(
+      echoResult.rawOutput?.includes('String: Hello, Shodan!'),
+      `Should have string constant, got: ${echoResult.rawOutput}`
+    );
+    assert.ok(
+      echoResult.rawOutput?.includes('Number: 42'),
+      `Should have number constant, got: ${echoResult.rawOutput}`
+    );
+    assert.ok(
+      echoResult.rawOutput?.includes('Boolean: true'),
+      `Should have boolean constant, got: ${echoResult.rawOutput}`
+    );
+  });
+
+  test('test-loop-constant-true.yaml - constant true runs loop to max iterations', async () => {
+    const schema = await loadWorkflow('test-loop-constant-true.yaml');
+    const result = await executeWorkflowSchema(schema);
+
+    assert.strictEqual(result.success, true, 'Workflow should succeed');
+
+    // Find the loop node result
+    const loopResult = result.results.find(r => r.nodeId === 'loop');
+    assert.ok(loopResult, 'Should have loop result');
+    assert.strictEqual(loopResult.status, 'completed', 'Loop should complete');
+
+    // Loop should run to max iterations (3)
+    assert.ok(
+      loopResult.output?.includes('3 iterations'),
+      `Loop should run 3 iterations, got: ${loopResult.output}`
+    );
+    assert.ok(
+      loopResult.output?.includes('max iterations reached'),
+      `Loop should hit max iterations, got: ${loopResult.output}`
+    );
+  });
+
+  test('test-loop-constant-false.yaml - constant false stops loop after 1 iteration', async () => {
+    const schema = await loadWorkflow('test-loop-constant-false.yaml');
+    const result = await executeWorkflowSchema(schema);
+
+    assert.strictEqual(result.success, true, 'Workflow should succeed');
+
+    // Find the loop node result
+    const loopResult = result.results.find(r => r.nodeId === 'loop');
+    assert.ok(loopResult, 'Should have loop result');
+    assert.strictEqual(loopResult.status, 'completed', 'Loop should complete');
+
+    // Loop should stop after 1 iteration
+    assert.ok(
+      loopResult.output?.includes('1 iteration'),
+      `Loop should run only 1 iteration, got: ${loopResult.output}`
+    );
+    assert.ok(
+      !loopResult.output?.includes('max iterations'),
+      `Loop should not hit max iterations, got: ${loopResult.output}`
+    );
+  });
+});
+
 describe('Workflow Validation', () => {
   test('all workflows in directory are valid', async () => {
     const files = await fs.readdir(WORKFLOWS_DIR);

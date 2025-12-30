@@ -1,5 +1,6 @@
 import { BaseNode } from './BaseNode';
 import { LoopContainerNode } from './LoopContainerNode';
+import { ConstantNode } from './ConstantNode';
 
 export const nodeTypes = {
   agent: BaseNode,
@@ -12,6 +13,8 @@ export const nodeTypes = {
   'interface-output': BaseNode,
   loop: LoopContainerNode,
   'interface-continue': BaseNode,
+  constant: ConstantNode,
 };
 
 export type { BaseNodeData, NodeType, ExecutionStatus } from './BaseNode';
+export type { ConstantNodeData } from './ConstantNode';

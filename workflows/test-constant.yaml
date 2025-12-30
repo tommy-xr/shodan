@@ -1,0 +1,86 @@
+version: 2
+metadata:
+  name: Constant Node Test
+  description: Tests constant values passing to shell nodes
+
+nodes:
+  - id: trigger
+    type: trigger
+    position: { x: 50, y: 150 }
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+
+  - id: greeting
+    type: constant
+    position: { x: 200, y: 100 }
+    data:
+      nodeType: constant
+      label: Greeting
+      valueType: string
+      value: "Hello, Shodan!"
+      outputs:
+        - name: value
+          type: string
+
+  - id: count
+    type: constant
+    position: { x: 200, y: 200 }
+    data:
+      nodeType: constant
+      label: Count
+      valueType: number
+      value: 42
+      outputs:
+        - name: value
+          type: number
+
+  - id: enabled
+    type: constant
+    position: { x: 200, y: 300 }
+    data:
+      nodeType: constant
+      label: Enabled
+      valueType: boolean
+      value: true
+      outputs:
+        - name: value
+          type: boolean
+
+  - id: echo-all
+    type: shell
+    position: { x: 450, y: 150 }
+    data:
+      nodeType: shell
+      label: Echo Values
+      script: |
+        echo "String: {{ inputs.msg }}"
+        echo "Number: {{ inputs.num }}"
+        echo "Boolean: {{ inputs.flag }}"
+      inputs:
+        - name: msg
+          type: string
+        - name: num
+          type: number
+        - name: flag
+          type: boolean
+
+edges:
+  - id: e1
+    source: greeting
+    target: echo-all
+    sourceHandle: "output:value"
+    targetHandle: "input:msg"
+
+  - id: e2
+    source: count
+    target: echo-all
+    sourceHandle: "output:value"
+    targetHandle: "input:num"
+
+  - id: e3
+    source: enabled
+    target: echo-all
+    sourceHandle: "output:value"
+    targetHandle: "input:flag"
