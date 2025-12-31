@@ -1,3 +1,4 @@
+import dotenv from 'dotenv';
 import express, { type Express } from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -9,6 +10,10 @@ import { createComponentsRouter } from './routes/components.js';
 import { getProjectRoot, getProjectRootMarker } from './utils/project-root.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load .env from project root (found by walking up directory tree)
+const projectRoot = getProjectRoot();
+dotenv.config({ path: path.join(projectRoot, '.env') });
 
 // Re-export for CLI and other consumers
 export { executeWorkflowSchema, type NodeResult } from './engine/executor.js';

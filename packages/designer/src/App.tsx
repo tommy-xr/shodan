@@ -897,6 +897,7 @@ function Flow() {
           onPaneClick={onPaneClick}
           onMoveEnd={onMoveEnd}
           nodeTypes={nodeTypes}
+          defaultEdgeOptions={{ type: 'step' }}
           fitView={!stored?.viewport}
           deleteKeyCode={['Backspace', 'Delete']}
           proOptions={{ hideAttribution: true }}
