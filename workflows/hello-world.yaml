@@ -1,4 +1,4 @@
-version: 1
+version: 2
 metadata:
   name: Hello World
   description: A simple test workflow that echoes a greeting
@@ -11,6 +11,15 @@ nodes:
       label: Start
       nodeType: trigger
       triggerType: manual
+      outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: text
+          type: string
+        - name: params
+          type: json
 
   - id: shell_1
     type: shell

@@ -169,6 +169,11 @@ metadata:
 
 Component workflows (version 2) also include an `interface:` section defining inputs/outputs.
 
+**NOTE: Schema migration is currently disabled** during early development while the data model is being stabilized. When making schema changes:
+- Update existing workflow YAML files inline (don't rely on migrations)
+- Update example workflows in `workflows/` directory
+- When schema is stable, implement migrations in a **shared location** (e.g., `packages/core`) so both CLI/executor and UI/designer use the same upgrade logic
+
 ### Error Handling
 - Shell nodes fail on first non-zero exit code
 - Failed nodes stop downstream execution
@@ -195,3 +200,8 @@ Component workflows (version 2) also include an `interface:` section defining in
 4. Use template variables to pass outputs between nodes
 5. Validate with `pnpm run shodan -- validate workflows/your-file.yaml`
 6. Test with `pnpm run shodan -- run workflows/your-file.yaml`
+
+## Additional Documentation
+
+- **plan/plan.md**: Project roadmap with pending features and backlog
+- **KNOWN_ISSUES.md**: Known bugs and limitations with potential fixes

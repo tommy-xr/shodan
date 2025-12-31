@@ -3,7 +3,7 @@
  * Supports native structured output via response_format
  */
 
-import type { AgentRunner, AgentConfig, AgentResult } from './types.js';
+import type { AgentRunner, AgentConfig, AgentResult, ConversationMessage } from './types.js';
 
 interface OpenAIMessage {
   role: 'system' | 'user' | 'assistant';
@@ -71,12 +71,37 @@ export const openaiRunner: AgentRunner = {
       };
     }
 
-    const messages: OpenAIMessage[] = [
-      {
-        role: 'user',
-        content: config.prompt,
-      },
-    ];
+    // Build messages array, either from conversation history or fresh
+    const messages: OpenAIMessage[] = [];
+
+    // If sessionId is provided, parse it as JSON conversation history
+    // (OpenAI doesn't have server-side sessions, so we serialize the history as the sessionId)
+    let existingHistory: ConversationMessage[] = [];
+    if (config.sessionId) {
+      try {
+        existingHistory = JSON.parse(config.sessionId) as ConversationMessage[];
+        messages.push(...existingHistory.map(msg => ({
+          role: msg.role,
+          content: msg.content,
+        })));
+      } catch {
+        // Invalid sessionId JSON, start fresh
+        console.warn('Failed to parse OpenAI sessionId as conversation history, starting fresh');
+      }
+    } else if (config.conversationHistory && config.conversationHistory.length > 0) {
+      // Legacy support for direct conversationHistory
+      existingHistory = config.conversationHistory;
+      messages.push(...config.conversationHistory.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+      })));
+    }
+
+    // Add the current user prompt
+    messages.push({
+      role: 'user',
+      content: config.prompt,
+    });
 
     // Build request body
     const requestBody: OpenAIRequestBody = {
@@ -145,6 +170,29 @@ export const openaiRunner: AgentRunner = {
         }
       }
 
+      // Build updated conversation history if session management is enabled
+      let sessionId: string | undefined;
+      let updatedHistory: ConversationMessage[] | undefined;
+      if (config.createSession || config.sessionId || config.conversationHistory) {
+        // Start with existing history or empty array
+        updatedHistory = [...existingHistory];
+
+        // Add the user message we sent
+        updatedHistory.push({
+          role: 'user',
+          content: config.prompt,
+        });
+
+        // Add the assistant's response
+        updatedHistory.push({
+          role: 'assistant',
+          content: content,
+        });
+
+        // Serialize as sessionId for consistency with other runners
+        sessionId = JSON.stringify(updatedHistory);
+      }
+
       return {
         success: true,
         output: content,
@@ -153,6 +201,8 @@ export const openaiRunner: AgentRunner = {
           inputTokens: data.usage.prompt_tokens,
           outputTokens: data.usage.completion_tokens,
         } : undefined,
+        sessionId,
+        conversationHistory: updatedHistory,
       };
     } catch (err) {
       return {

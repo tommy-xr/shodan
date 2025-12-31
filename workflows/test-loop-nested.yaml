@@ -12,8 +12,14 @@ nodes:
       label: Start
       triggerType: manual
       outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
         - name: text
           type: string
+        - name: params
+          type: json
 
   # Outer loop (i = 1 to 3)
   - id: outer-loop

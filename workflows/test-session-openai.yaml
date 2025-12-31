@@ -1,0 +1,113 @@
+version: 2
+metadata:
+  name: OpenAI Session Persistence Test
+  description: Tests OpenAI conversation history for session persistence
+
+nodes:
+  - id: trigger
+    type: trigger
+    position: { x: 100, y: 150 }
+    data:
+      label: Start
+      nodeType: trigger
+      triggerType: manual
+      outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: text
+          type: string
+        - name: params
+          type: json
+
+  # First agent call - creates a session
+  - id: first_call
+    type: agent
+    position: { x: 350, y: 150 }
+    data:
+      label: First Call
+      nodeType: agent
+      runner: openai
+      model: gpt-4o-mini
+      prompt: "Remember this secret code: GREEN77. Just say 'Got it, I remember GREEN77' and nothing else."
+      inputs:
+        - name: trigger
+          type: string
+          required: false
+      outputs:
+        - name: output
+          type: string
+        - name: sessionId
+          type: string
+
+  # Second agent call - resumes the session
+  - id: second_call
+    type: agent
+    position: { x: 600, y: 150 }
+    data:
+      label: Second Call
+      nodeType: agent
+      runner: openai
+      model: gpt-4o-mini
+      prompt: "What was the secret code I told you to remember? Just say the code, nothing else."
+      inputs:
+        - name: sessionId
+          type: string
+      outputs:
+        - name: output
+          type: string
+        - name: sessionId
+          type: string
+
+  # Verify the result
+  - id: verify
+    type: shell
+    position: { x: 850, y: 150 }
+    data:
+      label: Verify
+      nodeType: shell
+      script: |
+        echo "First call output: {{ first_call.output }}"
+        echo "Second call output: {{ second_call.output }}"
+        echo ""
+        if echo "{{ second_call.output }}" | grep -qi "GREEN77"; then
+          echo "SUCCESS: Session persistence worked! Agent remembered the code."
+          exit 0
+        else
+          echo "FAILED: Agent did not remember the code from previous session."
+          exit 1
+        fi
+      inputs:
+        - name: first_output
+          type: string
+        - name: second_output
+          type: string
+
+edges:
+  # Trigger -> First call
+  - id: e1
+    source: trigger
+    target: first_call
+    sourceHandle: "output:timestamp"
+    targetHandle: "input:trigger"
+
+  # First call sessionId -> Second call sessionId
+  - id: e2
+    source: first_call
+    target: second_call
+    sourceHandle: "output:sessionId"
+    targetHandle: "input:sessionId"
+
+  # Both outputs -> Verify
+  - id: e3
+    source: first_call
+    target: verify
+    sourceHandle: "output:output"
+    targetHandle: "input:first_output"
+
+  - id: e4
+    source: second_call
+    target: verify
+    sourceHandle: "output:output"
+    targetHandle: "input:second_output"

@@ -41,52 +41,14 @@ export interface SerializedEdge {
 
 /**
  * Upgrade workflow from older schema versions to current
+ *
+ * NOTE: Schema migration is disabled during early development while the data model
+ * is still being stabilized. Workflows should be updated inline when the schema changes.
+ * Re-enable migrations once the schema is stable.
  */
 function upgradeWorkflow(workflow: WorkflowSchema): WorkflowSchema {
-  let current = workflow;
-
-  // Migrate from v1 to v2: Add default I/O ports to all nodes
-  if (current.version === 1) {
-    current = {
-      ...current,
-      version: 2,
-      nodes: current.nodes.map((node) => {
-        const nodeType = (node.data.nodeType as string) || node.type;
-
-        // All nodes get a default 'output' output port
-        const outputs = [{ name: 'output', type: 'string' as const }];
-
-        // Non-trigger nodes get a default 'input' input port
-        const inputs =
-          nodeType === 'trigger'
-            ? []
-            : [{ name: 'input', type: 'any' as const }];
-
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            inputs,
-            outputs,
-          },
-        };
-      }),
-      edges: current.edges.map((edge) => ({
-        ...edge,
-        // Source always uses 'output' handle, target uses 'input' handle
-        sourceHandle: edge.sourceHandle || 'output:output',
-        targetHandle: edge.targetHandle || 'input:input',
-      })),
-    };
-  }
-
-  if (current.version > WORKFLOW_SCHEMA_VERSION) {
-    throw new Error(
-      `Workflow version ${current.version} is newer than supported version ${WORKFLOW_SCHEMA_VERSION}. Please upgrade Shodan.`
-    );
-  }
-
-  return current;
+  // No migrations during early development - just pass through
+  return workflow;
 }
 
 /**

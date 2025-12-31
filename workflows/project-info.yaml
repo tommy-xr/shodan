@@ -1,4 +1,4 @@
-version: 1
+version: 2
 metadata:
   name: Project Info
   description: Gathers information about the current project
@@ -11,6 +11,15 @@ nodes:
       label: Start
       nodeType: trigger
       triggerType: manual
+      outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: text
+          type: string
+        - name: params
+          type: json
 
   - id: shell_branch
     type: shell

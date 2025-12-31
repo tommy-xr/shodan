@@ -589,13 +589,19 @@ function buildOutputValues(
         outputs[outputDef.name] = triggerInputs[outputDef.name];
       }
     } else if (nodeType === 'agent') {
-      // Agent nodes have response (raw), structured (parsed JSON), and exitCode
+      // Agent nodes have response (raw), structured (parsed JSON), sessionId, and exitCode
       if (outputDef.name === 'response') {
         outputs.response = result.rawOutput || '';
       } else if (outputDef.name === 'structured') {
         outputs.structured = result.structuredOutput;
       } else if (outputDef.name === 'exitCode') {
         outputs.exitCode = result.exitCode ?? 0;
+      } else if (outputDef.name === 'sessionId') {
+        // Session ID is stored in structuredOutput by the executor
+        if (result.structuredOutput && typeof result.structuredOutput === 'object') {
+          const structured = result.structuredOutput as Record<string, unknown>;
+          outputs.sessionId = structured.sessionId;
+        }
       } else {
         // Custom output - try to extract from structured output first, then raw
         if (result.structuredOutput && typeof result.structuredOutput === 'object') {
@@ -876,6 +882,14 @@ async function executeNode(
       };
     }
 
+    // Session management: check for sessionId input and sessionId output
+    const sessionIdInput = inputValues.sessionId as string | undefined;
+    const outputDefs = node.data.outputs || [];
+    const hasSessionIdOutput = outputDefs.some((o: PortDefinition) => o.name === 'sessionId');
+
+    // Create session if node has sessionId output and no sessionId input
+    const createSession = hasSessionIdOutput && !sessionIdInput;
+
     const result = await executeAgent({
       runner,
       model,
@@ -884,14 +898,25 @@ async function executeNode(
       outputSchema,
       cwd,
       inputValues,  // Pass input values for template injection
+      sessionId: sessionIdInput,   // Resume existing session if provided
+      createSession,               // Create new session if output defined but no input
     });
+
+    // Build structured output including sessionId if returned
+    const agentStructuredOutput: Record<string, unknown> = {};
+    if (result.structuredOutput) {
+      Object.assign(agentStructuredOutput, result.structuredOutput);
+    }
+    if (result.sessionId) {
+      agentStructuredOutput.sessionId = result.sessionId;
+    }
 
     return {
       nodeId: node.id,
       status: result.success ? 'completed' : 'failed',
       output: result.output,
       rawOutput: result.output,
-      structuredOutput: result.structuredOutput,  // Parsed JSON if schema was provided
+      structuredOutput: Object.keys(agentStructuredOutput).length > 0 ? agentStructuredOutput : result.structuredOutput,
       error: result.error,
       startTime,
       endTime: new Date().toISOString(),

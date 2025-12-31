@@ -357,3 +357,76 @@ describe('Workflow Validation', () => {
     }
   });
 });
+
+/**
+ * Session persistence tests - require API keys/CLIs to be available
+ * Set TEST_AGENTS=1 to run these tests
+ */
+const runAgentTests = process.env.TEST_AGENTS === '1';
+
+describe('Session Persistence', { skip: !runAgentTests }, () => {
+  test('test-session-persistence.yaml - Claude Code session persistence', async () => {
+    const schema = await loadWorkflow('test-session-persistence.yaml');
+    schema.metadata.rootDirectory = path.resolve(WORKFLOWS_DIR, '..');
+
+    const result = await executeWorkflowSchema(schema);
+
+    assert.strictEqual(result.success, true, 'Workflow should succeed');
+
+    // Find the verify node result
+    const verifyResult = result.results.find(r => r.nodeId === 'verify');
+    assert.ok(verifyResult, 'Should have verify result');
+    assert.ok(
+      verifyResult.rawOutput?.includes('SUCCESS'),
+      `Session persistence should work, got: ${verifyResult.rawOutput}`
+    );
+  });
+
+  test('test-session-codex.yaml - Codex session persistence', async () => {
+    const schema = await loadWorkflow('test-session-codex.yaml');
+    schema.metadata.rootDirectory = path.resolve(WORKFLOWS_DIR, '..');
+
+    const result = await executeWorkflowSchema(schema);
+
+    assert.strictEqual(result.success, true, 'Workflow should succeed');
+
+    // Find the verify node result
+    const verifyResult = result.results.find(r => r.nodeId === 'verify');
+    assert.ok(verifyResult, 'Should have verify result');
+    assert.ok(
+      verifyResult.rawOutput?.includes('SUCCESS'),
+      `Session persistence should work, got: ${verifyResult.rawOutput}`
+    );
+  });
+
+  test('test-session-openai.yaml - OpenAI conversation history persistence', async () => {
+    const schema = await loadWorkflow('test-session-openai.yaml');
+    schema.metadata.rootDirectory = path.resolve(WORKFLOWS_DIR, '..');
+
+    const result = await executeWorkflowSchema(schema);
+
+    assert.strictEqual(result.success, true, 'Workflow should succeed');
+
+    // Find the verify node result
+    const verifyResult = result.results.find(r => r.nodeId === 'verify');
+    assert.ok(verifyResult, 'Should have verify result');
+    assert.ok(
+      verifyResult.rawOutput?.includes('SUCCESS'),
+      `Session persistence should work, got: ${verifyResult.rawOutput}`
+    );
+  });
+
+  // TODO: Loop session persistence test is complex and needs more work
+  // test('test-session-loop.yaml - Session persistence across loop iterations', async () => {
+  //   const schema = await loadWorkflow('test-session-loop.yaml');
+  //   schema.metadata.rootDirectory = path.resolve(WORKFLOWS_DIR, '..');
+  //   const result = await executeWorkflowSchema(schema);
+  //   assert.strictEqual(result.success, true, 'Workflow should succeed');
+  //   const verifyResult = result.results.find(r => r.nodeId === 'verify');
+  //   assert.ok(verifyResult, 'Should have verify result');
+  //   assert.ok(
+  //     verifyResult.rawOutput?.includes('SUCCESS'),
+  //     `Loop session persistence should work, got: ${verifyResult.rawOutput}`
+  //   );
+  // });
+});

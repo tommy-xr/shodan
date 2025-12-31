@@ -12,8 +12,27 @@ nodes:
       label: Start
       triggerType: manual
       outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
         - name: text
           type: string
+        - name: params
+          type: json
+
+  # Constant node for target value
+  - id: target-value
+    type: constant
+    position: { x: 100, y: 200 }
+    data:
+      nodeType: constant
+      label: Target
+      valueType: number
+      value: 5
+      outputs:
+        - name: value
+          type: number
 
   # Loop container with dock slots (no interface nodes needed)
   - id: count-loop
@@ -29,8 +48,7 @@ nodes:
           type: string
           required: false
         - name: target
-          type: string
-          default: "5"
+          type: number
       outputs:
         - name: final_count
           type: number
@@ -75,7 +93,7 @@ nodes:
         fi
       inputs:
         - name: target
-          type: string
+          type: number
         - name: prev_count
           type: number
         - name: iteration
@@ -94,12 +112,18 @@ nodes:
 
 edges:
   # Trigger -> Loop (connect to ensure loop runs after trigger)
-  # Note: target input uses its default value of "5"
   - id: trigger-to-loop
     source: trigger
     target: count-loop
     sourceHandle: "output:text"
     targetHandle: "input:trigger"
+
+  # Constant -> Loop target input
+  - id: constant-to-loop
+    source: target-value
+    target: count-loop
+    sourceHandle: "output:value"
+    targetHandle: "input:target"
 
   # Loop input -> Counter (pass target from loop's internal input to inner node)
   - id: loop-target-to-counter

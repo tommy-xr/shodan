@@ -1,0 +1,205 @@
+version: 2
+metadata:
+  name: Session Persistence Loop Test
+  description: Tests agent session persistence in a loop - agent counts from 42 to 52 across iterations
+
+nodes:
+  - id: trigger
+    type: trigger
+    position: { x: 100, y: 150 }
+    data:
+      label: Start
+      nodeType: trigger
+      triggerType: manual
+      outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: text
+          type: string
+        - name: params
+          type: json
+
+  # Loop that runs 10 times with session persistence
+  - id: count-loop
+    type: loop
+    position: { x: 300, y: 50 }
+    style: { width: 500, height: 300 }
+    data:
+      label: Counting Loop
+      nodeType: loop
+      maxIterations: 10
+      inputs:
+        - name: trigger
+          type: string
+          required: false
+      outputs:
+        - name: final_output
+          type: string
+      dockSlots:
+        - name: iteration
+          type: iteration
+          valueType: number
+          label: Iteration
+        - name: continue
+          type: continue
+          valueType: boolean
+          label: Continue
+        - name: sessionId
+          type: feedback
+          valueType: string
+          label: Session ID
+
+  # Shell node that determines continue and builds prompt
+  - id: controller
+    type: shell
+    parentId: count-loop
+    extent: parent
+    position: { x: 50, y: 50 }
+    data:
+      label: Controller
+      nodeType: shell
+      script: |
+        ITER={{ inputs.iteration }}
+
+        # Build the prompt based on iteration
+        if [ "$ITER" -eq 1 ]; then
+          echo "PROMPT: Your current number is 42. Add 1 to get the next number. Just respond with the new number only."
+        else
+          echo "PROMPT: Add 1 to your current number. Just respond with the new number only."
+        fi
+
+        # Continue for iterations 1-9, stop at 10
+        if [ "$ITER" -lt 10 ]; then
+          echo "CONTINUE=true"
+        else
+          echo "CONTINUE=false"
+        fi
+      inputs:
+        - name: trigger
+          type: string
+          required: false
+        - name: iteration
+          type: number
+      outputs:
+        - name: prompt_text
+          type: string
+          extract:
+            type: regex
+            pattern: 'PROMPT: (.+)'
+        - name: should_continue
+          type: boolean
+          extract:
+            type: regex
+            pattern: 'CONTINUE=(true|false)'
+
+  # The counter agent inside the loop
+  - id: counter-agent
+    type: agent
+    parentId: count-loop
+    extent: parent
+    position: { x: 250, y: 50 }
+    data:
+      label: Counter Agent
+      nodeType: agent
+      runner: claude-code
+      model: haiku
+      prompt: "{{ inputs.prompt_text }}"
+      inputs:
+        - name: prompt_text
+          type: string
+        - name: sessionId
+          type: string
+          required: false
+      outputs:
+        - name: output
+          type: string
+        - name: sessionId
+          type: string
+
+  # Verify result at the end
+  - id: verify
+    type: shell
+    position: { x: 850, y: 150 }
+    data:
+      label: Verify Final Number
+      nodeType: shell
+      script: |
+        FINAL="{{ inputs.final_output }}"
+        echo "Final output from agent: $FINAL"
+        echo ""
+        if echo "$FINAL" | grep -q "52"; then
+          echo "SUCCESS: Agent correctly counted from 42 to 52 across 10 iterations!"
+          exit 0
+        else
+          echo "FAILED: Expected 52, got: $FINAL"
+          exit 1
+        fi
+      inputs:
+        - name: final_output
+          type: string
+
+edges:
+  # Trigger -> Loop
+  - id: trigger-to-loop
+    source: trigger
+    target: count-loop
+    sourceHandle: "output:timestamp"
+    targetHandle: "input:trigger"
+
+  # Loop input -> Controller (internal edge to start internal execution)
+  - id: loop-trigger-to-controller
+    source: count-loop
+    target: controller
+    sourceHandle: "input:trigger:internal"
+    targetHandle: "input:trigger"
+
+  # Dock: iteration -> controller
+  - id: dock-iter-to-controller
+    source: count-loop
+    target: controller
+    sourceHandle: "dock:iteration:output"
+    targetHandle: "input:iteration"
+
+  # Controller prompt -> counter-agent prompt
+  - id: controller-to-agent
+    source: controller
+    target: counter-agent
+    sourceHandle: "output:prompt_text"
+    targetHandle: "input:prompt_text"
+
+  # Dock: sessionId.prev -> counter-agent (feedback from previous iteration)
+  - id: dock-session-prev-to-agent
+    source: count-loop
+    target: counter-agent
+    sourceHandle: "dock:sessionId:prev"
+    targetHandle: "input:sessionId"
+
+  # counter-agent sessionId -> Dock: sessionId.current (store for next iteration)
+  - id: agent-to-dock-session
+    source: counter-agent
+    target: count-loop
+    sourceHandle: "output:sessionId"
+    targetHandle: "dock:sessionId:current"
+
+  # Controller continue -> Dock: continue
+  - id: controller-to-dock-continue
+    source: controller
+    target: count-loop
+    sourceHandle: "output:should_continue"
+    targetHandle: "dock:continue:input"
+
+  # counter-agent output -> Loop final_output (via internal handle)
+  - id: agent-to-loop-output
+    source: counter-agent
+    target: count-loop
+    sourceHandle: "output:output"
+    targetHandle: "output:final_output:internal"
+
+  # Loop output -> Verify
+  - id: loop-to-verify
+    source: count-loop
+    target: verify
+    sourceHandle: "output:final_output"
+    targetHandle: "input:final_output"

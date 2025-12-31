@@ -109,6 +109,9 @@ export function getLoopInnerWorkflow(
       (edge.targetHandle.endsWith(':input') || edge.targetHandle.endsWith(':current'));
     // Also handle edges from loop's input ports to inner nodes (e.g., "input:target")
     const sourceIsLoopInput = sourceIsLoop && edge.sourceHandle?.startsWith('input:');
+    // Handle edges from inner nodes to loop's internal output handles (e.g., "output:final:internal")
+    const targetIsLoopOutputInternal = targetIsLoop && edge.targetHandle?.startsWith('output:') &&
+      edge.targetHandle.endsWith(':internal');
 
     if (sourceIsInner && targetIsInner) {
       // Both ends are inner nodes
@@ -116,8 +119,8 @@ export function getLoopInnerWorkflow(
     } else if ((sourceIsDockOutput || sourceIsLoopInput) && targetIsInner) {
       // From dock output/prev OR loop input to inner node
       dockOutputEdges.push(edge);
-    } else if (sourceIsInner && targetIsDockInput) {
-      // From inner node to dock input/current
+    } else if (sourceIsInner && (targetIsDockInput || targetIsLoopOutputInternal)) {
+      // From inner node to dock input/current OR to loop's internal output
       dockInputEdges.push(edge);
     } else if (sourceIsInner && !targetIsInner && !targetIsLoop) {
       // From inner node to external node (deferred)
@@ -445,9 +448,10 @@ export async function executeLoop(
   const terminationReason: 'condition' | 'max_iterations' =
     iteration >= maxIterations ? 'max_iterations' : 'condition';
 
-  // Build final outputs from deferred edges
-  // These are edges from inner nodes to external nodes
+  // Build final outputs from deferred edges and internal output edges
   const finalOutputs: Record<string, unknown> = {};
+
+  // Deferred edges: from inner nodes to external nodes
   for (const edge of categorizedEdges.deferredEdges) {
     const sourceNodeContext = lastExecutionContext[edge.source] || {};
     const sourceHandle = edge.sourceHandle || 'output';
@@ -459,6 +463,22 @@ export async function executeLoop(
     // Key by target handle for the external node to consume
     const targetKey = edge.targetHandle || `from_${edge.source}`;
     finalOutputs[targetKey] = value;
+  }
+
+  // Internal output edges: from inner nodes to loop's output:*:internal handles
+  for (const edge of categorizedEdges.dockInputEdges) {
+    if (edge.targetHandle?.startsWith('output:') && edge.targetHandle.endsWith(':internal')) {
+      const sourceNodeContext = lastExecutionContext[edge.source] || {};
+      const sourceHandle = edge.sourceHandle || 'output';
+      const outputName = sourceHandle.startsWith('output:')
+        ? sourceHandle.slice(7)
+        : sourceHandle;
+      const value = sourceNodeContext[outputName];
+
+      // Extract the output name from "output:name:internal"
+      const loopOutputName = edge.targetHandle.slice(7, -9); // Remove "output:" and ":internal"
+      finalOutputs[loopOutputName] = value;
+    }
   }
 
   return {

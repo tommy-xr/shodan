@@ -2,9 +2,11 @@
  * Claude Code CLI runner
  * Runs the claude CLI in headless/non-interactive mode with JSON output
  * Supports structured output extraction via OpenAI when outputSchema is provided
+ * Supports session persistence via --session-id and --resume flags
  */
 
 import { spawn } from 'child_process';
+import { randomUUID } from 'crypto';
 import type { AgentRunner, AgentConfig, AgentResult } from './types.js';
 import { extractStructuredOutput } from './extraction.js';
 
@@ -50,12 +52,34 @@ export const claudeCodeRunner: AgentRunner = {
 
 async function runClaudeCli(config: AgentConfig): Promise<AgentResult> {
   return new Promise((resolve) => {
+    // Determine session ID for this run
+    let sessionId: string | undefined;
+
+    if (config.sessionId) {
+      // Resume existing session
+      sessionId = config.sessionId;
+    } else if (config.createSession) {
+      // Create new session with generated ID
+      sessionId = randomUUID();
+    }
+
     // Build the claude command arguments
     const args: string[] = [
       '--print',              // Non-interactive, print response and exit
       '--output-format', 'json',  // JSON output for reliable parsing
       '-p', config.prompt,    // Pass prompt via -p flag
     ];
+
+    // Add session management flags
+    if (sessionId) {
+      if (config.sessionId) {
+        // Resuming existing session
+        args.push('--resume', sessionId);
+      } else {
+        // Creating new session
+        args.push('--session-id', sessionId);
+      }
+    }
 
     // Add model if specified
     if (config.model) {
@@ -105,12 +129,14 @@ async function runClaudeCli(config: AgentConfig): Promise<AgentResult> {
         resolve({
           success: true,
           output: json.result?.trim() || '',
+          sessionId,  // Return session ID if session was created/resumed
         });
       } catch {
         // Fallback to raw output if JSON parsing fails
         resolve({
           success: true,
           output: stdout.trim(),
+          sessionId,  // Return session ID if session was created/resumed
         });
       }
     });
