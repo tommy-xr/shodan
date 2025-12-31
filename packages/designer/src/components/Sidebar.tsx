@@ -1,14 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { DragEvent } from 'react';
-import type { Node, Edge } from '@xyflow/react';
-import type { NodeType, BaseNodeData } from '../nodes';
-import {
-  exportToJSON,
-  exportToYAML,
-  importWorkflow,
-  downloadFile,
-  openFilePicker,
-} from '../lib/workflow';
+import type { NodeType } from '../nodes';
 import { listComponents, createComponent, type ComponentInfo } from '../lib/api';
 import { CreateComponentDialog, type NewComponentData } from './CreateComponentDialog';
 
@@ -31,31 +23,7 @@ const logicItems: PaletteItem[] = [
   { type: 'constant', label: 'Constant', icon: '◆' },
 ];
 
-interface SidebarProps {
-  nodes: Node<BaseNodeData>[];
-  edges: Edge[];
-  workflowName: string;
-  isExecuting: boolean;
-  onImport: (nodes: Node<BaseNodeData>[], edges: Edge[], name: string, rootDir?: string) => void;
-  onNewWorkflow: () => void;
-  onWorkflowNameChange: (name: string) => void;
-  onExecute: () => void;
-  onResetExecution: () => void;
-}
-
-export function Sidebar({
-  nodes,
-  edges,
-  workflowName,
-  isExecuting,
-  onImport,
-  onNewWorkflow,
-  onWorkflowNameChange,
-  onExecute,
-  onResetExecution,
-}: SidebarProps) {
-  const [exportFormat, setExportFormat] = useState<'yaml' | 'json'>('yaml');
-  const [error, setError] = useState<string | null>(null);
+export function Sidebar() {
   const [components, setComponents] = useState<ComponentInfo[]>([]);
   const [componentsError, setComponentsError] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -108,79 +76,8 @@ export function Sidebar({
     event.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleExport = () => {
-    setError(null);
-    try {
-      // Don't include rootDirectory - it's determined by project root discovery
-      const metadata = { name: workflowName };
-      if (exportFormat === 'json') {
-        const content = exportToJSON(nodes, edges, metadata);
-        downloadFile(content, `${workflowName || 'workflow'}.json`, 'application/json');
-      } else {
-        const content = exportToYAML(nodes, edges, metadata);
-        downloadFile(content, `${workflowName || 'workflow'}.yaml`, 'text/yaml');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Export failed');
-    }
-  };
-
-  const handleImport = async () => {
-    setError(null);
-    try {
-      const content = await openFilePicker('.json,.yaml,.yml');
-      const { nodes: importedNodes, edges: importedEdges, metadata } = importWorkflow(content);
-      onImport(importedNodes, importedEdges, metadata.name, metadata.rootDirectory);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Import failed');
-    }
-  };
-
   return (
     <aside className="sidebar">
-      <div className="sidebar-header">
-        <h1>Shodan</h1>
-        <p>Workflow Designer</p>
-      </div>
-
-      <div className="sidebar-section">
-        <div className="section-header">
-          <h2>Workflow</h2>
-          <button className="new-workflow-btn" onClick={onNewWorkflow} title="New Workflow">
-            + New
-          </button>
-        </div>
-        <div className="workflow-field">
-          <label>Name</label>
-          <input
-            type="text"
-            value={workflowName}
-            onChange={(e) => onWorkflowNameChange(e.target.value)}
-            placeholder="Workflow name..."
-          />
-        </div>
-      </div>
-
-      <div className="sidebar-section execution">
-        <h2>Execution</h2>
-        <div className="execution-buttons">
-          <button
-            className={`action-btn run ${isExecuting ? 'running' : ''}`}
-            onClick={onExecute}
-            disabled={isExecuting || nodes.length === 0}
-          >
-            {isExecuting ? 'Running...' : 'Run Workflow'}
-          </button>
-          <button
-            className="action-btn reset"
-            onClick={onResetExecution}
-            disabled={isExecuting}
-          >
-            Reset
-          </button>
-        </div>
-      </div>
-
       <div className="palette">
         <h2>Nodes</h2>
         {paletteItems.map((item) => (
@@ -236,36 +133,6 @@ export function Sidebar({
             <span className="palette-label">{component.name}</span>
           </div>
         ))}
-      </div>
-
-      <div className="sidebar-section import-export">
-        <h2>Import / Export</h2>
-
-        <div className="format-toggle">
-          <button
-            className={exportFormat === 'yaml' ? 'active' : ''}
-            onClick={() => setExportFormat('yaml')}
-          >
-            YAML
-          </button>
-          <button
-            className={exportFormat === 'json' ? 'active' : ''}
-            onClick={() => setExportFormat('json')}
-          >
-            JSON
-          </button>
-        </div>
-
-        <div className="action-buttons">
-          <button className="action-btn export" onClick={handleExport}>
-            Export
-          </button>
-          <button className="action-btn import" onClick={handleImport}>
-            Import
-          </button>
-        </div>
-
-        {error && <div className="error-message">{error}</div>}
       </div>
 
       {showCreateDialog && (

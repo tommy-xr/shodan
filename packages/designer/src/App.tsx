@@ -20,7 +20,7 @@ import { edgeTypes } from './edges';
 import type { AnimatedEdgeData } from './edges';
 import { Sidebar } from './components/Sidebar';
 import { ConfigPanel } from './components/ConfigPanel';
-import { Breadcrumb } from './components/Breadcrumb';
+import { Header } from './components/Header';
 import { loadFromLocalStorage, saveToLocalStorage, clearLocalStorage } from './lib/storage';
 import { getConfig, getComponentWorkflow, saveComponentWorkflow } from './lib/api';
 import { executeWorkflowStream } from './lib/execute-stream';
@@ -990,26 +990,28 @@ function Flow() {
 
   return (
     <div className="app">
-      <Sidebar
+      <Header
+        rootDirectory={rootDirectory}
+        workflowName={workflowName}
+        breadcrumbItems={breadcrumbItems}
+        onNavigateBreadcrumb={onNavigateBreadcrumb}
+        isEditingComponent={isEditingComponent}
+        onSaveComponent={isEditingComponent ? onSaveComponent : undefined}
+        isSaving={isSaving}
+        hasUnsavedChanges={hasUnsavedChanges}
+        onWorkflowNameChange={setWorkflowName}
+        onNewWorkflow={onNewWorkflow}
         nodes={nodes}
         edges={edges}
-        workflowName={workflowName}
         isExecuting={isExecuting}
-        onImport={onImport}
-        onNewWorkflow={onNewWorkflow}
-        onWorkflowNameChange={setWorkflowName}
         onExecute={onExecute}
         onResetExecution={onResetExecution}
+        onImport={onImport}
       />
-      <div className="canvas-container" ref={reactFlowWrapper}>
-        <Breadcrumb
-          items={breadcrumbItems}
-          onNavigate={onNavigateBreadcrumb}
-          onSave={isEditingComponent ? onSaveComponent : undefined}
-          isSaving={isSaving}
-          hasUnsavedChanges={hasUnsavedChanges}
-        />
-        <ReactFlow
+      <div className="app-body">
+        <Sidebar />
+        <div className="canvas-container" ref={reactFlowWrapper}>
+          <ReactFlow
           nodes={nodesWithDropState}
           edges={edgesWithData}
           edgeTypes={edgeTypes}
@@ -1032,13 +1034,14 @@ function Flow() {
           <Background color="#2d1b4e" gap={24} />
           <Controls />
         </ReactFlow>
+        </div>
+        <ConfigPanel
+          node={selectedNode}
+          rootDirectory={rootDirectory}
+          onClose={() => setSelectedNode(null)}
+          onUpdate={onUpdateNode}
+        />
       </div>
-      <ConfigPanel
-        node={selectedNode}
-        rootDirectory={rootDirectory}
-        onClose={() => setSelectedNode(null)}
-        onUpdate={onUpdateNode}
-      />
     </div>
   );
 }
