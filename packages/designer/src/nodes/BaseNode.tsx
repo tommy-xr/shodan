@@ -322,6 +322,12 @@ export function BaseNode({ data, selected }: NodeProps) {
               <span className="schema-icon">{ }</span> {schemaPreview}
             </div>
           )}
+          {/* Streaming output display */}
+          {execStatus === 'running' && nodeData.executionOutput && (
+            <div className="node-streaming-output">
+              <pre>{nodeData.executionOutput.slice(-200)}</pre>
+            </div>
+          )}
         </div>
       </div>
 

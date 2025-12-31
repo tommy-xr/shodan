@@ -17,6 +17,9 @@ export interface AgentConfig {
   sessionId?: string;       // If provided, resume this session
   createSession?: boolean;  // If true, create new session and return ID
   conversationHistory?: ConversationMessage[];  // For API-based runners (OpenAI)
+
+  // Streaming callback for real-time output
+  onOutput?: (chunk: string) => void;
 }
 
 /**

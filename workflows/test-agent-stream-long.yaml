@@ -1,0 +1,51 @@
+version: 1
+metadata:
+  name: Agent Streaming Test (Long Task)
+  description: Test agent streaming with a task that produces incremental output
+
+nodes:
+  - id: trigger
+    type: trigger
+    position: { x: 50, y: 100 }
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: text
+          type: string
+        - name: params
+          type: json
+
+  - id: agent-task
+    type: agent
+    position: { x: 250, y: 100 }
+    data:
+      nodeType: agent
+      label: File Search Agent
+      runner: claude-code
+      prompt: |
+        Search the codebase for all TypeScript files that contain the word "execute".
+        For each file found, list:
+        1. The file path
+        2. The line numbers where "execute" appears
+        3. A brief description of what that code does
+
+        Work through the files one at a time, explaining each as you go.
+      inputs:
+        - name: input
+          type: string
+      outputs:
+        - name: output
+          type: string
+
+edges:
+  - id: e1
+    source: trigger
+    target: agent-task
+    sourceHandle: output:text
+    targetHandle: input:input

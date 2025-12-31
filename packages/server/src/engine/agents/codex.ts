@@ -119,11 +119,21 @@ async function runCodexCli(config: AgentConfig): Promise<AgentResult> {
     let stderr = '';
 
     proc.stdout.on('data', (data) => {
-      stdout += data.toString();
+      const chunk = data.toString();
+      stdout += chunk;
+      // Stream output to callback if provided
+      if (config.onOutput) {
+        config.onOutput(chunk);
+      }
     });
 
     proc.stderr.on('data', (data) => {
-      stderr += data.toString();
+      const chunk = data.toString();
+      stderr += chunk;
+      // Also stream stderr as it may contain progress info
+      if (config.onOutput) {
+        config.onOutput(chunk);
+      }
     });
 
     proc.on('close', (code) => {

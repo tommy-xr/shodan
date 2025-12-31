@@ -141,6 +141,11 @@ async function runWorkflow(filePath: string, options: { cwd?: string; input?: st
         }
       }
     },
+    onNodeOutput: (nodeId, chunk) => {
+      if (options.verbose) {
+        process.stdout.write(color(chunk, COLORS.dim));
+      }
+    },
   });
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);

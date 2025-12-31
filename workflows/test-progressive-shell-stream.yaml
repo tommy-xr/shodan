@@ -1,0 +1,46 @@
+version: 1
+metadata:
+  name: Shell Streaming Test
+  description: Test real-time shell output streaming
+
+nodes:
+  - id: trigger
+    type: trigger
+    position: { x: 50, y: 100 }
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: text
+          type: string
+        - name: params
+          type: json
+
+  - id: stream-test
+    type: shell
+    position: { x: 250, y: 100 }
+    data:
+      nodeType: shell
+      label: Streaming Output
+      script: |
+        echo "Line 1: Starting..."
+        sleep 0.5
+        echo "Line 2: Processing..."
+        sleep 0.5
+        echo "Line 3: More work..."
+        sleep 0.5
+        echo "Line 4: Almost done..."
+        sleep 0.5
+        echo "Line 5: Complete!"
+
+edges:
+  - id: e1
+    source: trigger
+    target: stream-test
+    sourceHandle: output:text
+    targetHandle: input:input

@@ -412,7 +412,8 @@ function findTriggerNodes(nodes: WorkflowNode[], edges: WorkflowEdge[]): string[
  */
 function executeShellCommand(
   command: string,
-  cwd: string
+  cwd: string,
+  onOutput?: (chunk: string) => void
 ): Promise<{ output: string; stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve) => {
     const proc = spawn('sh', ['-c', command], {
@@ -424,11 +425,15 @@ function executeShellCommand(
     let stderr = '';
 
     proc.stdout.on('data', (data) => {
-      stdout += data.toString();
+      const chunk = data.toString();
+      stdout += chunk;
+      if (onOutput) onOutput(chunk);
     });
 
     proc.stderr.on('data', (data) => {
-      stderr += data.toString();
+      const chunk = data.toString();
+      stderr += chunk;
+      if (onOutput) onOutput(chunk);
     });
 
     proc.on('close', (code) => {
@@ -692,7 +697,11 @@ async function executeNode(
     for (const command of commandsToRun) {
       if (!command.trim()) continue;
 
-      const result = await executeShellCommand(command, cwd);
+      const result = await executeShellCommand(
+        command,
+        cwd,
+        options.onNodeOutput ? (chunk) => options.onNodeOutput!(node.id, chunk) : undefined
+      );
       outputs.push(`$ ${command}\n${result.output}`);
       rawOutputs.push(result.output);
       stdouts.push(result.stdout);
@@ -832,7 +841,11 @@ async function executeNode(
       };
     }
 
-    const result = await executeShellCommand(command, cwd);
+    const result = await executeShellCommand(
+      command,
+      cwd,
+      options.onNodeOutput ? (chunk) => options.onNodeOutput!(node.id, chunk) : undefined
+    );
 
     return {
       nodeId: node.id,
@@ -896,6 +909,9 @@ async function executeNode(
       inputValues,  // Pass input values for template injection
       sessionId: sessionIdInput,   // Resume existing session if provided
       createSession,               // Create new session if output defined but no input
+      onOutput: options.onNodeOutput
+        ? (chunk: string) => options.onNodeOutput!(node.id, chunk)
+        : undefined,
     });
 
     // Build structured output including sessionId if returned

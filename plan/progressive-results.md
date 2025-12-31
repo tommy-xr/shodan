@@ -15,7 +15,7 @@ Transform the workflow execution model from synchronous request-response to real
 | Phase 1 | ✅ Complete | SSE Infrastructure - event types, parser, streaming endpoint, client |
 | Phase 2 | ✅ Complete | Node Status Updates - App.tsx handlers, loop callback forwarding |
 | Phase 3 | ✅ Complete | Edge Visualization - AnimatedEdge component |
-| Phase 4 | ⏳ Optional | Agent Output Streaming - OpenAI runner streaming (requires API keys) |
+| Phase 4 | ✅ Complete | Agent Output Streaming - Claude Code & Codex runners stream stdout |
 | Phase 5 | ✅ Complete | Loop Iteration Display - iteration badge on LoopContainerNode |
 | Testing | ✅ Complete | E2E visual test workflows created |
 

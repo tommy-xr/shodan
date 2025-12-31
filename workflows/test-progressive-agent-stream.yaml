@@ -1,0 +1,38 @@
+version: 1
+metadata:
+  name: Agent Streaming Test
+  description: Test real-time agent output streaming with Claude Code
+
+nodes:
+  - id: trigger
+    type: trigger
+    position: { x: 50, y: 100 }
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: text
+          type: string
+        - name: params
+          type: json
+
+  - id: agent
+    type: agent
+    position: { x: 250, y: 100 }
+    data:
+      nodeType: agent
+      label: Claude Code
+      runner: claude-code
+      prompt: "Count from 1 to 5 slowly, with a brief explanation for each number. Format each as 'Number X: [explanation]' on its own line."
+
+edges:
+  - id: e1
+    source: trigger
+    target: agent
+    sourceHandle: output:text
+    targetHandle: input:input

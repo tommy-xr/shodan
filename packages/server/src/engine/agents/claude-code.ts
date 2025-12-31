@@ -63,12 +63,20 @@ async function runClaudeCli(config: AgentConfig): Promise<AgentResult> {
       sessionId = randomUUID();
     }
 
+    // Use stream-json format when streaming callback is provided for real-time output
+    const outputFormat = config.onOutput ? 'stream-json' : 'json';
+
     // Build the claude command arguments
     const args: string[] = [
       '--print',              // Non-interactive, print response and exit
-      '--output-format', 'json',  // JSON output for reliable parsing
+      '--output-format', outputFormat,
       '-p', config.prompt,    // Pass prompt via -p flag
     ];
+
+    // stream-json requires --verbose flag
+    if (outputFormat === 'stream-json') {
+      args.push('--verbose');
+    }
 
     // Add session management flags
     if (sessionId) {
@@ -96,11 +104,42 @@ async function runClaudeCli(config: AgentConfig): Promise<AgentResult> {
     let stderr = '';
 
     proc.stdout.on('data', (data) => {
-      stdout += data.toString();
+      const chunk = data.toString();
+      stdout += chunk;
+      // Stream output to callback if provided
+      if (config.onOutput) {
+        // For stream-json format, parse each line and extract assistant text
+        if (outputFormat === 'stream-json') {
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const event = JSON.parse(line);
+              // Extract text from assistant messages
+              if (event.type === 'assistant' && event.message?.content) {
+                for (const block of event.message.content) {
+                  if (block.type === 'text' && block.text) {
+                    config.onOutput(block.text);
+                  }
+                }
+              }
+            } catch {
+              // Not valid JSON, skip
+            }
+          }
+        } else {
+          config.onOutput(chunk);
+        }
+      }
     });
 
     proc.stderr.on('data', (data) => {
-      stderr += data.toString();
+      const chunk = data.toString();
+      stderr += chunk;
+      // Also stream stderr as it may contain progress info
+      if (config.onOutput) {
+        config.onOutput(chunk);
+      }
     });
 
     proc.on('close', (code) => {
@@ -113,31 +152,73 @@ async function runClaudeCli(config: AgentConfig): Promise<AgentResult> {
         return;
       }
 
-      // Parse JSON output
-      try {
-        const json = JSON.parse(stdout) as ClaudeJsonOutput;
+      // Parse output based on format
+      if (outputFormat === 'stream-json') {
+        // Parse JSONL stream format - extract text from assistant messages
+        const lines = stdout.split('\n');
+        const textParts: string[] = [];
+        let hasError = false;
+        let errorMessage = '';
 
-        if (json.is_error || json.error) {
-          resolve({
-            success: false,
-            output: '',
-            error: json.error || 'Claude Code returned an error',
-          });
-          return;
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const event = JSON.parse(line);
+            if (event.type === 'assistant' && event.message?.content) {
+              for (const block of event.message.content) {
+                if (block.type === 'text' && block.text) {
+                  textParts.push(block.text);
+                }
+              }
+            } else if (event.type === 'result' && event.is_error) {
+              hasError = true;
+              errorMessage = event.error || 'Claude Code returned an error';
+            }
+          } catch {
+            // Skip non-JSON lines
+          }
         }
 
-        resolve({
-          success: true,
-          output: json.result?.trim() || '',
-          sessionId,  // Return session ID if session was created/resumed
-        });
-      } catch {
-        // Fallback to raw output if JSON parsing fails
-        resolve({
-          success: true,
-          output: stdout.trim(),
-          sessionId,  // Return session ID if session was created/resumed
-        });
+        if (hasError) {
+          resolve({
+            success: false,
+            output: textParts.join(''),
+            error: errorMessage,
+          });
+        } else {
+          resolve({
+            success: true,
+            output: textParts.join('').trim(),
+            sessionId,
+          });
+        }
+      } else {
+        // Parse single JSON output
+        try {
+          const json = JSON.parse(stdout) as ClaudeJsonOutput;
+
+          if (json.is_error || json.error) {
+            resolve({
+              success: false,
+              output: '',
+              error: json.error || 'Claude Code returned an error',
+            });
+            return;
+          }
+
+          resolve({
+            success: true,
+            output: json.result?.trim() || '',
+            sessionId,  // Return session ID if session was created/resumed
+          });
+        } catch {
+          // Fallback to raw output if JSON parsing fails
+          resolve({
+            success: true,
+            output: stdout.trim(),
+            sessionId,  // Return session ID if session was created/resumed
+          });
+        }
       }
     });
 
