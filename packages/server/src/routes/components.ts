@@ -2,7 +2,7 @@ import { Router } from 'express';
 import fs from 'fs/promises';
 import path from 'path';
 import yaml from 'js-yaml';
-import type { PortDefinition, WorkflowSchema } from '@shodan/core';
+import type { PortDefinition, WorkflowSchema } from '@robomesh/core';
 
 interface CreateComponentRequest {
   name: string;

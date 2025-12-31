@@ -30,7 +30,7 @@ nodes:
       label: Say Hello
       nodeType: shell
       commands:
-        - echo "Hello from Shodan!"
+        - echo "Hello from Robomesh!"
       inputs:
         - name: input
           type: any

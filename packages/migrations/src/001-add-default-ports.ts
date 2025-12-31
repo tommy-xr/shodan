@@ -5,8 +5,8 @@
  * See README.md for detailed explanation of why this migration is needed.
  */
 
-import type { WorkflowSchema, WorkflowNode } from '@shodan/core';
-import { getNodePortDefaults } from '@shodan/core';
+import type { WorkflowSchema, WorkflowNode } from '@robomesh/core';
+import { getNodePortDefaults } from '@robomesh/core';
 
 export const MIGRATION_ID = '001-add-default-ports';
 export const MIGRATION_DATE = '2024-12-31';

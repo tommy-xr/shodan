@@ -1,5 +1,5 @@
 /**
- * @shodan/core - Shared types and utilities for Shodan
+ * @robomesh/core - Shared types and utilities for Robomesh
  */
 
 export * from './io-types.js';

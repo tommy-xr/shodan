@@ -5,7 +5,7 @@
  * real-time updates as workflow nodes execute.
  */
 
-import type { ExecutionEvent, NodeResult } from '@shodan/core';
+import type { ExecutionEvent, NodeResult } from '@robomesh/core';
 import { SSEParser } from './sse-parser';
 import type { ExecuteRequest } from './api';
 

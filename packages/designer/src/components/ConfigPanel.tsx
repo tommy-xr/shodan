@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Node } from '@xyflow/react';
 import type { BaseNodeData, NodeType } from '../nodes';
-import type { PortDefinition } from '@shodan/core';
+import type { PortDefinition } from '@robomesh/core';
 import { ListEditor } from './ListEditor';
 import { FilePicker } from './FilePicker';
 import { PortEditor } from './PortEditor';

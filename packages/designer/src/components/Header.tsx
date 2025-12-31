@@ -273,7 +273,7 @@ export function Header({
     <header className="header">
       <div className="header-left">
         <div className="header-brand">
-          <h1>Shodan</h1>
+          <h1>Robomesh</h1>
         </div>
 
         <div className="header-menu-container" ref={menuRef}>

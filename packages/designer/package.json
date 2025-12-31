@@ -1,5 +1,5 @@
 {
-  "name": "@shodan/designer",
+  "name": "@robomesh/designer",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@shodan/core": "workspace:*",
+    "@robomesh/core": "workspace:*",
     "@xyflow/react": "^12.10.0",
     "js-yaml": "^4.1.1",
     "react": "^19.2.0",

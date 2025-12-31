@@ -22,8 +22,8 @@ import type {
   LoopNodeData,
   DockSlot,
   NodeResult,
-} from '@shodan/core';
-import { LOOP_NODE_DEFAULTS } from '@shodan/core';
+} from '@robomesh/core';
+import { LOOP_NODE_DEFAULTS } from '@robomesh/core';
 import type { ExecuteOptions, ExecuteResult } from './executor.js';
 
 /**

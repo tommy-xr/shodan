@@ -1,4 +1,4 @@
-# shodan
+# Robomesh
 AI Agentic Orchestration Tool - easily define, visualize, and debug workflows spanning multiple coding agents
 
 ## Developer Setup
@@ -30,7 +30,7 @@ pnpm run build
 ### CLI
 ```bash
 # Validate workflows
-pnpm run shodan -- validate workflows/*.yaml
+pnpm run robomesh -- validate workflows/*.yaml
 
 # Run workflow tests
 pnpm run test:workflows

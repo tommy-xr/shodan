@@ -7,7 +7,7 @@ import react from '@vitejs/plugin-react'
 function findProjectRoot(startDir: string): string {
   let dir = resolve(startDir)
   while (dir !== '/') {
-    if (existsSync(join(dir, '.shodan')) || existsSync(join(dir, '.git'))) {
+    if (existsSync(join(dir, '.robomesh')) || existsSync(join(dir, '.git'))) {
       return dir
     }
     const parent = dirname(dir)

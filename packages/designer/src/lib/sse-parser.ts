@@ -5,7 +5,7 @@
  * are only parsed when complete.
  */
 
-import type { ExecutionEvent } from '@shodan/core';
+import type { ExecutionEvent } from '@robomesh/core';
 
 export class SSEParser {
   private buffer = '';

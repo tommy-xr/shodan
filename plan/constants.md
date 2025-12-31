@@ -163,7 +163,7 @@ nodes:
       nodeType: constant
       label: Greeting
       valueType: string
-      value: "Hello, Shodan!"
+      value: "Hello, Robomesh!"
       outputs:
         - name: value
           type: string
@@ -232,7 +232,7 @@ edges:
 
 **Expected output:**
 ```
-String: Hello, Shodan!
+String: Hello, Robomesh!
 Number: 42
 Boolean: true
 ```
@@ -395,13 +395,13 @@ edges:
 
 ### CLI tests
 ```bash
-pnpm run shodan -- run workflows/test-constant.yaml
+pnpm run robomesh -- run workflows/test-constant.yaml
 # Expected: String/Number/Boolean values printed
 
-pnpm run shodan -- run workflows/test-loop-constant-true.yaml
+pnpm run robomesh -- run workflows/test-loop-constant-true.yaml
 # Expected: 3 iterations (hits maxIterations)
 
-pnpm run shodan -- run workflows/test-loop-constant-false.yaml
+pnpm run robomesh -- run workflows/test-loop-constant-false.yaml
 # Expected: 1 iteration (stops immediately)
 ```
 
