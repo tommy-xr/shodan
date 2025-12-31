@@ -95,32 +95,102 @@
   border-color: var(--accent);
 }
 
-.palette {
-  padding: 16px;
-  flex: 1;
-  overflow-y: auto;
+/* Accordion Sections */
+.accordion-section {
   border-bottom: 1px solid var(--border);
 }
 
-.palette h2 {
+.accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.accordion-header:hover {
+  background: var(--bg-tertiary);
+}
+
+.accordion-arrow {
   font-size: 0.7rem;
+  color: var(--text-secondary);
+  width: 12px;
+}
+
+.accordion-title {
+  font-size: 0.75rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.accordion-count {
+  font-size: 0.65rem;
   color: var(--text-secondary);
-  margin-bottom: 12px;
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+.accordion-action {
+  margin-left: auto;
+}
+
+.accordion-add-btn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.accordion-add-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.accordion-content {
+  overflow: hidden;
+}
+
+.accordion-section:not(.open) .accordion-content {
+  display: none;
+}
+
+/* Palette Items */
+.palette-items {
+  padding: 8px 12px 12px;
 }
 
 .palette-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: 6px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   cursor: grab;
   transition: all 0.15s ease;
+}
+
+.palette-item:last-child {
+  margin-bottom: 0;
 }
 
 .palette-item:hover {
@@ -133,13 +203,13 @@
 }
 
 .palette-icon {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 12px;
   flex-shrink: 0;
 }
 
@@ -163,20 +233,22 @@
   background: var(--node-workdir);
   box-shadow: 0 0 8px var(--node-workdir);
 }
+.palette-icon.loop {
+  background: var(--node-loop, #f59e0b);
+  box-shadow: 0 0 8px var(--node-loop, #f59e0b);
+}
+.palette-icon.constant {
+  background: var(--node-constant, #6366f1);
+  box-shadow: 0 0 8px var(--node-constant, #6366f1);
+}
 .palette-icon.component {
   background: var(--node-component, #8b5cf6);
   box-shadow: 0 0 8px var(--node-component, #8b5cf6);
 }
 
 .palette-label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 500;
-}
-
-/* Components Palette */
-.components-palette {
-  flex: 0 0 auto;
-  max-height: 200px;
 }
 
 .palette-item.component {
@@ -196,7 +268,7 @@
   font-size: 0.75rem;
   color: var(--text-secondary);
   font-style: italic;
-  padding: 12px 8px;
+  padding: 8px;
   text-align: center;
 }
 

@@ -23,10 +23,53 @@ const logicItems: PaletteItem[] = [
   { type: 'constant', label: 'Constant', icon: '◆' },
 ];
 
+interface AccordionSectionProps {
+  title: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  count?: number;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}
+
+function AccordionSection({ title, isOpen, onToggle, count, action, children }: AccordionSectionProps) {
+  return (
+    <div className={`accordion-section ${isOpen ? 'open' : ''}`}>
+      <button className="accordion-header" onClick={onToggle}>
+        <span className="accordion-arrow">{isOpen ? '▾' : '▸'}</span>
+        <span className="accordion-title">{title}</span>
+        {count !== undefined && <span className="accordion-count">{count}</span>}
+        {action && (
+          <span className="accordion-action" onClick={(e) => e.stopPropagation()}>
+            {action}
+          </span>
+        )}
+      </button>
+      <div className="accordion-content">
+        {isOpen && children}
+      </div>
+    </div>
+  );
+}
+
 export function Sidebar() {
   const [components, setComponents] = useState<ComponentInfo[]>([]);
   const [componentsError, setComponentsError] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+
+  // Accordion state - all open by default
+  const [openSections, setOpenSections] = useState({
+    nodes: true,
+    logic: true,
+    components: true,
+  });
+
+  const toggleSection = (section: keyof typeof openSections) => {
+    setOpenSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
 
   // Load available components
   const loadComponents = () => {
@@ -78,62 +121,84 @@ export function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="palette">
-        <h2>Nodes</h2>
-        {paletteItems.map((item) => (
-          <div
-            key={item.type}
-            className="palette-item"
-            draggable
-            onDragStart={(e) => onDragStart(e, item.type)}
-          >
-            <div className={`palette-icon ${item.type}`}>{item.icon}</div>
-            <span className="palette-label">{item.label}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="palette">
-        <h2>Logic</h2>
-        {logicItems.map((item) => (
-          <div
-            key={item.type}
-            className="palette-item"
-            draggable
-            onDragStart={(e) => onDragStart(e, item.type)}
-          >
-            <div className={`palette-icon ${item.type}`}>{item.icon}</div>
-            <span className="palette-label">{item.label}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="palette components-palette">
-        <div className="section-header">
-          <h2>Components</h2>
-          <button className="new-workflow-btn" onClick={() => setShowCreateDialog(true)} title="New Component">
-            + New
-          </button>
+      <AccordionSection
+        title="Nodes"
+        isOpen={openSections.nodes}
+        onToggle={() => toggleSection('nodes')}
+        count={paletteItems.length}
+      >
+        <div className="palette-items">
+          {paletteItems.map((item) => (
+            <div
+              key={item.type}
+              className="palette-item"
+              draggable
+              onDragStart={(e) => onDragStart(e, item.type)}
+            >
+              <div className={`palette-icon ${item.type}`}>{item.icon}</div>
+              <span className="palette-label">{item.label}</span>
+            </div>
+          ))}
         </div>
-        {componentsError && (
-          <div className="palette-error">{componentsError}</div>
-        )}
-        {components.length === 0 && !componentsError && (
-          <div className="palette-empty">No components found</div>
-        )}
-        {components.map((component) => (
-          <div
-            key={component.path}
-            className="palette-item component"
-            draggable
-            onDragStart={(e) => onComponentDragStart(e, component)}
-            title={component.description || component.name}
+      </AccordionSection>
+
+      <AccordionSection
+        title="Logic"
+        isOpen={openSections.logic}
+        onToggle={() => toggleSection('logic')}
+        count={logicItems.length}
+      >
+        <div className="palette-items">
+          {logicItems.map((item) => (
+            <div
+              key={item.type}
+              className="palette-item"
+              draggable
+              onDragStart={(e) => onDragStart(e, item.type)}
+            >
+              <div className={`palette-icon ${item.type}`}>{item.icon}</div>
+              <span className="palette-label">{item.label}</span>
+            </div>
+          ))}
+        </div>
+      </AccordionSection>
+
+      <AccordionSection
+        title="Components"
+        isOpen={openSections.components}
+        onToggle={() => toggleSection('components')}
+        count={components.length}
+        action={
+          <button
+            className="accordion-add-btn"
+            onClick={() => setShowCreateDialog(true)}
+            title="New Component"
           >
-            <div className="palette-icon component">📦</div>
-            <span className="palette-label">{component.name}</span>
-          </div>
-        ))}
-      </div>
+            +
+          </button>
+        }
+      >
+        <div className="palette-items">
+          {componentsError && (
+            <div className="palette-error">{componentsError}</div>
+          )}
+          {components.length === 0 && !componentsError && (
+            <div className="palette-empty">No components found</div>
+          )}
+          {components.map((component) => (
+            <div
+              key={component.path}
+              className="palette-item component"
+              draggable
+              onDragStart={(e) => onComponentDragStart(e, component)}
+              title={component.description || component.name}
+            >
+              <div className="palette-icon component">📦</div>
+              <span className="palette-label">{component.name}</span>
+            </div>
+          ))}
+        </div>
+      </AccordionSection>
 
       {showCreateDialog && (
         <CreateComponentDialog
