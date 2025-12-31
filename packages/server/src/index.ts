@@ -16,8 +16,8 @@ const projectRoot = getProjectRoot();
 dotenv.config({ path: path.join(projectRoot, '.env') });
 
 // Re-export for CLI and other consumers
-export { executeWorkflowSchema, type NodeResult } from './engine/executor.js';
-export type { WorkflowSchema, WorkflowNode, WorkflowEdge } from '@shodan/core';
+export { executeWorkflowSchema } from './engine/executor.js';
+export type { WorkflowSchema, WorkflowNode, WorkflowEdge, NodeResult, NodeStatus } from '@shodan/core';
 export { getProjectRoot } from './utils/project-root.js';
 
 export interface ServerConfig {

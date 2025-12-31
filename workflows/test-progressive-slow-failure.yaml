@@ -1,0 +1,65 @@
+version: 1
+metadata:
+  name: Slow Failure Test
+  description: Workflow that fails mid-execution for visual UX testing
+nodes:
+  - id: trigger
+    type: trigger
+    position: { x: 50, y: 100 }
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: text
+          type: string
+        - name: params
+          type: json
+  - id: step1
+    type: shell
+    position: { x: 200, y: 100 }
+    data:
+      nodeType: shell
+      label: Step 1 (OK)
+      script: |
+        echo "Step 1 running..."
+        sleep 1
+        echo "Step 1 success"
+  - id: step2
+    type: shell
+    position: { x: 400, y: 100 }
+    data:
+      nodeType: shell
+      label: Step 2 (FAIL)
+      script: |
+        echo "Step 2 running..."
+        sleep 1.5
+        echo "Step 2 failing!" >&2
+        exit 1
+  - id: step3
+    type: shell
+    position: { x: 600, y: 100 }
+    data:
+      nodeType: shell
+      label: Step 3 (skip)
+      script: echo "This should never run"
+edges:
+  - id: e1
+    source: trigger
+    target: step1
+    sourceHandle: output:text
+    targetHandle: input:input
+  - id: e2
+    source: step1
+    target: step2
+    sourceHandle: output:stdout
+    targetHandle: input:input
+  - id: e3
+    source: step2
+    target: step3
+    sourceHandle: output:stdout
+    targetHandle: input:input

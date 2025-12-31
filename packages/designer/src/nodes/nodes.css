@@ -367,7 +367,18 @@
 }
 
 .loop-iteration-badge.running {
+  background: rgba(251, 191, 36, 0.4);
   animation: iteration-pulse 1.5s ease-in-out infinite;
+}
+
+.loop-iteration-badge.completed {
+  background: rgba(34, 197, 94, 0.4);
+  color: #22c55e;
+}
+
+.loop-iteration-badge.failed {
+  background: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
 }
 
 .loop-status-icon {

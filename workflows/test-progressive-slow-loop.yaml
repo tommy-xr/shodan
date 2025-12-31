@@ -1,0 +1,88 @@
+version: 2
+metadata:
+  name: Slow Loop Test
+  description: Loop with sleep per iteration for visual UX testing
+
+nodes:
+  - id: trigger
+    type: trigger
+    position: { x: 50, y: 150 }
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: text
+          type: string
+        - name: params
+          type: json
+
+  - id: loop
+    type: loop
+    position: { x: 200, y: 50 }
+    style: { width: 450, height: 250 }
+    data:
+      nodeType: loop
+      label: Slow Loop
+      maxIterations: 5
+      inputs:
+        - name: input
+          type: string
+      dockSlots:
+        - name: iteration
+          type: iteration
+          valueType: number
+        - name: continue
+          type: continue
+          valueType: boolean
+
+  - id: work
+    type: shell
+    parentId: loop
+    position: { x: 50, y: 50 }
+    data:
+      nodeType: shell
+      label: Do Work (1s)
+      script: |
+        echo "Iteration {{ inputs.i }}: working..."
+        sleep 1
+        echo "Iteration {{ inputs.i }}: done"
+      inputs:
+        - name: i
+          type: number
+
+  - id: keep-going
+    type: constant
+    parentId: loop
+    position: { x: 250, y: 50 }
+    data:
+      nodeType: constant
+      label: Continue
+      valueType: boolean
+      value: true
+      outputs:
+        - name: value
+          type: boolean
+
+edges:
+  - id: trigger-to-loop
+    source: trigger
+    target: loop
+    sourceHandle: "output:text"
+    targetHandle: "input:input"
+
+  - id: iter-to-work
+    source: loop
+    target: work
+    sourceHandle: "dock:iteration:output"
+    targetHandle: "input:i"
+
+  - id: const-to-continue
+    source: keep-going
+    target: loop
+    sourceHandle: "output:value"
+    targetHandle: "dock:continue:input"

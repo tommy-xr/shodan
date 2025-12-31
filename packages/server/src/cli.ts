@@ -3,8 +3,8 @@
 import fs from 'fs/promises';
 import path from 'path';
 import yaml from 'js-yaml';
-import type { WorkflowSchema } from '@shodan/core';
-import { executeWorkflowSchema, type NodeResult } from './engine/executor.js';
+import type { WorkflowSchema, NodeResult } from '@shodan/core';
+import { executeWorkflowSchema } from './engine/executor.js';
 import { getProjectRoot } from './utils/project-root.js';
 
 // Use INIT_CWD if available (set by npm to the original working directory)

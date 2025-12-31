@@ -21,9 +21,10 @@ import type {
   WorkflowEdge,
   LoopNodeData,
   DockSlot,
+  NodeResult,
 } from '@shodan/core';
 import { LOOP_NODE_DEFAULTS } from '@shodan/core';
-import type { NodeResult, ExecuteOptions, ExecuteResult } from './executor.js';
+import type { ExecuteOptions, ExecuteResult } from './executor.js';
 
 /**
  * Validation error for loop nodes
@@ -304,11 +305,10 @@ export async function executeLoop(
     edges: WorkflowEdge[],
     options: ExecuteOptions
   ) => Promise<ExecuteResult>,
-  options: {
-    onIterationStart?: (iteration: number) => void;
-    onIterationComplete?: (result: IterationResult) => void;
-  } = {}
+  parentOptions: ExecuteOptions = {}
 ): Promise<LoopExecutionResult> {
+  // Extract iteration callbacks from parent options
+  const { onIterationStart, onIterationComplete } = parentOptions;
   const maxIterations = loopNodeData.maxIterations ?? LOOP_NODE_DEFAULTS.maxIterations;
   const dockSlots = loopNodeData.dockSlots || [];
 
@@ -359,8 +359,9 @@ export async function executeLoop(
   while (shouldContinue && iteration < maxIterations) {
     iteration++;
 
-    if (options.onIterationStart) {
-      options.onIterationStart(iteration);
+    // Fire iteration start callback
+    if (onIterationStart) {
+      onIterationStart(loopNode.id, iteration);
     }
 
     // Build dock outputs for this iteration
@@ -385,6 +386,8 @@ export async function executeLoop(
     // Use innerNode IDs as start nodes (not the main workflow's trigger)
     const innerNodeIds = innerNodes.map(n => n.id);
     const workflowResult = await executeWorkflowFn(nodes, edges, {
+      // Forward streaming callbacks from parent
+      ...parentOptions,
       rootDirectory,
       workflowInputs: iterationInputs,
       startNodeIds: innerNodeIds,  // Start from the loop's direct children
@@ -424,8 +427,9 @@ export async function executeLoop(
 
     iterations.push(iterationResult);
 
-    if (options.onIterationComplete) {
-      options.onIterationComplete(iterationResult);
+    // Fire iteration complete callback
+    if (onIterationComplete) {
+      onIterationComplete(loopNode.id, iteration, iterationResult.success);
     }
 
     // If workflow failed, stop immediately

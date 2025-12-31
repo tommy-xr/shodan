@@ -1,25 +1,9 @@
 import { spawn } from 'child_process';
 import { executeAgent, type RunnerType } from './agents/index.js';
-import type { PortDefinition, ValueType, WorkflowNode, WorkflowEdge, WorkflowSchema, LoopNodeData, ConstantNodeData, ConstantValueType } from '@shodan/core';
+import type { PortDefinition, ValueType, WorkflowNode, WorkflowEdge, WorkflowSchema, LoopNodeData, ConstantNodeData, ConstantValueType, NodeResult, NodeStatus } from '@shodan/core';
 import { isLoopNodeData } from '@shodan/core';
 import { loadWorkflow, getWorkflowDirectory } from './workflow-loader.js';
 import { executeLoop } from './loop-executor.js';
-
-export type NodeStatus = 'pending' | 'running' | 'completed' | 'failed';
-
-export interface NodeResult {
-  nodeId: string;
-  status: NodeStatus;
-  output?: string;
-  rawOutput?: string; // Clean output without command prefixes, used for templating
-  stdout?: string;    // Standard output (for shell/script nodes)
-  stderr?: string;    // Standard error (for shell/script nodes)
-  structuredOutput?: unknown; // Parsed JSON for agent nodes with outputSchema
-  error?: string;
-  exitCode?: number;
-  startTime?: string;
-  endTime?: string;
-}
 
 export interface ExecuteResult {
   success: boolean;
@@ -45,8 +29,13 @@ export interface ExecuteOptions {
   triggerInputs?: Record<string, unknown>;  // Inputs to pass to trigger nodes (e.g., from CLI --input)
   workflowInputs?: Record<string, unknown>;  // Inputs when workflow is run as component
   dockContext?: DockContext;                 // Dock context for loop inner workflow execution
+  // Streaming callbacks for progressive results
   onNodeStart?: (nodeId: string, node: WorkflowNode) => void;
   onNodeComplete?: (nodeId: string, result: NodeResult) => void;
+  onNodeOutput?: (nodeId: string, chunk: string) => void;
+  onEdgeExecuted?: (edgeId: string, sourceNodeId: string, data: unknown) => void;
+  onIterationStart?: (loopId: string, iteration: number) => void;
+  onIterationComplete?: (loopId: string, iteration: number, success: boolean) => void;
 }
 
 /**
@@ -109,8 +98,9 @@ function resolveInputs(
   node: WorkflowNode,
   edges: WorkflowEdge[],
   context: ExecutionContext
-): { success: boolean; inputValues: Record<string, unknown>; error?: string } {
+): { success: boolean; inputValues: Record<string, unknown>; resolvedEdges: WorkflowEdge[]; error?: string } {
   const inputValues: Record<string, unknown> = {};
+  const resolvedEdges: WorkflowEdge[] = [];
   const inputs = node.data.inputs || [];
 
   // Collect all incoming edges, but avoid duplicates between regular edges and dock edges
@@ -146,6 +136,7 @@ function resolveInputs(
       return {
         success: false,
         inputValues: {},
+        resolvedEdges: [],
         error: `Multiple edges connected to input '${inputName}'`,
       };
     }
@@ -163,6 +154,7 @@ function resolveInputs(
         return {
           success: false,
           inputValues: {},
+          resolvedEdges: [],
           error: `Required input '${inputDef.name}' is not connected`,
         };
       }
@@ -188,6 +180,7 @@ function resolveInputs(
       // Get value from dock context
       const dockValue = context.dockContext.dockOutputs[sourceHandle];
       inputValues[inputDef.name] = dockValue;
+      resolvedEdges.push(edge);
       continue;
     }
 
@@ -201,6 +194,7 @@ function resolveInputs(
       return {
         success: false,
         inputValues: {},
+        resolvedEdges: [],
         error: `Source node '${edge.source}' output '${outputName}' not found`,
       };
     }
@@ -214,9 +208,10 @@ function resolveInputs(
     // TODO: Look up source node's output definition to get actual type
 
     inputValues[inputDef.name] = value;
+    resolvedEdges.push(edge);
   }
 
-  return { success: true, inputValues };
+  return { success: true, inputValues, resolvedEdges };
 }
 
 /**
@@ -646,7 +641,8 @@ async function executeNode(
   rootDirectory: string,
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
-  context: ExecutionContext
+  context: ExecutionContext,
+  options: ExecuteOptions = {}
 ): Promise<NodeResult> {
   const startTime = new Date().toISOString();
   const nodeType = node.data.nodeType || node.type;
@@ -1059,14 +1055,7 @@ async function executeNode(
         inputValues,               // outerInputs - inputs from connected edges
         cwd,                       // rootDirectory
         executeWorkflow,           // executeWorkflowFn - for inner workflow execution
-        {
-          onIterationStart: (iteration) => {
-            // Could add logging or callbacks here
-          },
-          onIterationComplete: (result) => {
-            // Could add logging or callbacks here
-          },
-        }
+        options                    // parentOptions - forward streaming callbacks
       );
 
       if (!loopResult.success) {
@@ -1124,7 +1113,7 @@ export async function executeWorkflow(
   edges: WorkflowEdge[],
   options: ExecuteOptions = {}
 ): Promise<ExecuteResult> {
-  const { rootDirectory, startNodeId, startNodeIds, loopId, triggerInputs, workflowInputs, dockContext, onNodeStart, onNodeComplete } = options;
+  const { rootDirectory, startNodeId, startNodeIds, loopId, triggerInputs, workflowInputs, dockContext, onNodeStart, onNodeComplete, onNodeOutput, onEdgeExecuted, onIterationStart, onIterationComplete } = options;
 
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   const adjacency = buildAdjacencyMap(edges);
@@ -1204,12 +1193,20 @@ export async function executeWorkflow(
     const nodeWithIO = ensureNodeIO(node);
 
     // Resolve inputs from connected edges
-    const { success: inputsResolved, inputValues, error: inputError } = resolveInputs(
+    const { success: inputsResolved, inputValues, resolvedEdges, error: inputError } = resolveInputs(
       nodeId,
       nodeWithIO,
       edges,
       context
     );
+
+    // Fire edge executed events for successfully resolved edges
+    if (onEdgeExecuted && resolvedEdges.length > 0) {
+      for (const edge of resolvedEdges) {
+        const sourceOutputs = context.outputs.get(edge.source);
+        onEdgeExecuted(edge.id, edge.source, sourceOutputs);
+      }
+    }
 
     if (!inputsResolved) {
       // Input resolution failed
@@ -1238,7 +1235,7 @@ export async function executeWorkflow(
 
     // Process templates with resolved input values
     const processedNode = processNodeTemplates(nodeWithIO, context, inputValues);
-    const result = await executeNode(processedNode, rootDirectory || process.cwd(), nodes, edges, context);
+    const result = await executeNode(processedNode, rootDirectory || process.cwd(), nodes, edges, context, options);
     results.push(result);
 
     if (onNodeComplete) {

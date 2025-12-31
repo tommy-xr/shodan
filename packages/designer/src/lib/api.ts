@@ -1,5 +1,10 @@
 // API client for communicating with Shodan server
 
+import type { NodeResult, NodeStatus } from '@shodan/core';
+
+// Re-export for convenience
+export type { NodeResult, NodeStatus };
+
 const serverPort = import.meta.env.VITE_SERVER_PORT || '3000';
 const API_BASE = import.meta.env.VITE_API_URL || `http://localhost:${serverPort}/api`;
 
@@ -66,18 +71,6 @@ export async function searchFiles(rootDir: string, pattern: string): Promise<Sea
 }
 
 // Execution types
-export type NodeStatus = 'pending' | 'running' | 'completed' | 'failed';
-
-export interface NodeResult {
-  nodeId: string;
-  status: NodeStatus;
-  output?: string;
-  error?: string;
-  exitCode?: number;
-  startTime?: string;
-  endTime?: string;
-}
-
 export interface ExecuteResponse {
   success: boolean;
   results: NodeResult[];

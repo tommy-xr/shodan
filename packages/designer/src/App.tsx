@@ -15,11 +15,14 @@ import '@xyflow/react/dist/style.css';
 
 import { nodeTypes } from './nodes';
 import type { BaseNodeData, NodeType } from './nodes';
+import { edgeTypes } from './edges';
+import type { AnimatedEdgeData } from './edges';
 import { Sidebar } from './components/Sidebar';
 import { ConfigPanel } from './components/ConfigPanel';
 import { Breadcrumb } from './components/Breadcrumb';
 import { loadFromLocalStorage, saveToLocalStorage, clearLocalStorage } from './lib/storage';
-import { executeWorkflow, getConfig, getComponentWorkflow, saveComponentWorkflow } from './lib/api';
+import { getConfig, getComponentWorkflow, saveComponentWorkflow } from './lib/api';
+import { executeWorkflowStream } from './lib/execute-stream';
 import type { ComponentWorkflow } from './lib/api';
 import type { ExecutionStatus } from './nodes';
 import './App.css';
@@ -62,6 +65,7 @@ function Flow() {
   const [workflowName, setWorkflowName] = useState(stored?.workflowName || 'Untitled Workflow');
   const [rootDirectory, setRootDirectory] = useState(stored?.rootDirectory || '');
   const [isExecuting, setIsExecuting] = useState(false);
+  const [edgeExecutionData, setEdgeExecutionData] = useState<Map<string, { count: number; animating: boolean }>>(new Map());
   const [navigationStack, setNavigationStack] = useState<NavigationItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -712,6 +716,8 @@ function Flow() {
         .then((config) => setRootDirectory(config.projectRoot))
         .catch(() => {});
       setSelectedNode(null);
+      // Clear edge execution data from previous workflow
+      setEdgeExecutionData(new Map());
       // Fit view after import with a small delay to let React render
       setTimeout(() => fitView({ padding: 0.2 }), 50);
     },
@@ -728,6 +734,7 @@ function Flow() {
     setWorkflowName('Untitled Workflow');
     setRootDirectory('');
     setSelectedNode(null);
+    setEdgeExecutionData(new Map());
     nodeId = 0;
   }, [nodes.length, setNodes, setEdges]);
 
@@ -757,7 +764,7 @@ function Flow() {
 
     setIsExecuting(true);
 
-    // Set all nodes to pending
+    // Set all nodes to pending and reset edge counts
     setNodes((nds) =>
       nds.map((node) => ({
         ...node,
@@ -769,66 +776,159 @@ function Flow() {
         },
       }))
     );
+    setEdgeExecutionData(new Map());
 
-    try {
-      // Prepare request
-      const request = {
-        nodes: nodes.map((n) => ({
-          id: n.id,
-          type: n.type || 'agent',
-          position: n.position,
-          data: n.data as Record<string, unknown>,
-          // Include loop container properties
-          parentId: n.parentId,
-          extent: n.extent === 'parent' ? ('parent' as const) : undefined,
-          style: n.style as { width?: number; height?: number },
-        })),
-        edges: edges.map((e) => ({
-          id: e.id,
-          source: e.source,
-          target: e.target,
-          sourceHandle: e.sourceHandle,
-          targetHandle: e.targetHandle,
-        })),
-        rootDirectory: rootDirectory || undefined,
-      };
+    // Prepare request
+    const request = {
+      nodes: nodes.map((n) => ({
+        id: n.id,
+        type: n.type || 'agent',
+        position: n.position,
+        data: n.data as Record<string, unknown>,
+        // Include loop container properties
+        parentId: n.parentId,
+        extent: n.extent === 'parent' ? ('parent' as const) : undefined,
+        style: n.style as { width?: number; height?: number },
+      })),
+      edges: edges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle,
+        targetHandle: e.targetHandle,
+      })),
+      rootDirectory: rootDirectory || undefined,
+    };
 
-      const response = await executeWorkflow(request);
-
-      // Update node statuses based on results
-      for (const result of response.results) {
-        const status: ExecutionStatus =
-          result.status === 'pending' ? 'pending' :
-          result.status === 'running' ? 'running' :
-          result.status === 'completed' ? 'completed' : 'failed';
-
-        updateNodeStatus(
-          result.nodeId,
-          status,
-          result.output,
-          result.error
+    // Use streaming execution for real-time updates
+    executeWorkflowStream(request, {
+      onNodeStart: (nodeId) => {
+        setNodes((nds) =>
+          nds.map((node) =>
+            node.id === nodeId
+              ? { ...node, data: { ...node.data, executionStatus: 'running' as ExecutionStatus } }
+              : node
+          )
         );
-      }
-    } catch (err) {
-      console.error('Execution failed:', err);
-      // Mark all pending nodes as failed
-      setNodes((nds) =>
-        nds.map((node) => ({
-          ...node,
-          data: {
-            ...node.data,
-            executionStatus:
-              node.data.executionStatus === 'pending' ? 'failed' : node.data.executionStatus,
-            executionError:
-              node.data.executionStatus === 'pending'
-                ? (err instanceof Error ? err.message : 'Execution failed')
-                : node.data.executionError,
-          },
-        }))
-      );
-    } finally {
-      setIsExecuting(false);
-    }
+      },
+      onNodeComplete: (nodeId, result) => {
+        const status: ExecutionStatus =
+          result.status === 'completed' ? 'completed' : 'failed';
+        updateNodeStatus(nodeId, status, result.output, result.error);
+      },
+      onNodeOutput: (nodeId, chunk) => {
+        // Append streaming output to node
+        setNodes((nds) =>
+          nds.map((node) =>
+            node.id === nodeId
+              ? {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    executionOutput: (node.data.executionOutput || '') + chunk,
+                  },
+                }
+              : node
+          )
+        );
+      },
+      onEdgeExecuted: (edgeId) => {
+        // Increment edge count and trigger animation
+        setEdgeExecutionData((prev) => {
+          const next = new Map(prev);
+          const current = next.get(edgeId) || { count: 0, animating: false };
+          next.set(edgeId, { count: current.count + 1, animating: true });
+          return next;
+        });
+
+        // Clear animation after duration
+        setTimeout(() => {
+          setEdgeExecutionData((prev) => {
+            const next = new Map(prev);
+            const current = next.get(edgeId);
+            if (current) {
+              next.set(edgeId, { ...current, animating: false });
+            }
+            return next;
+          });
+        }, 400);
+      },
+      onIterationStart: (loopId, iteration) => {
+        setNodes((nds) =>
+          nds.map((node) =>
+            node.id === loopId
+              ? {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    currentIteration: iteration,
+                    iterationStatus: 'running',
+                  },
+                }
+              : node
+          )
+        );
+      },
+      onIterationComplete: (loopId, iteration, _success) => {
+        setNodes((nds) =>
+          nds.map((node) =>
+            node.id === loopId
+              ? {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    currentIteration: iteration,
+                  },
+                }
+              : node
+          )
+        );
+      },
+      onComplete: (success, error) => {
+        setIsExecuting(false);
+        if (!success && error) {
+          console.error('Workflow execution failed:', error);
+          // Mark remaining pending nodes as failed
+          setNodes((nds) =>
+            nds.map((node) => ({
+              ...node,
+              data: {
+                ...node.data,
+                executionStatus:
+                  node.data.executionStatus === 'pending'
+                    ? ('failed' as ExecutionStatus)
+                    : node.data.executionStatus,
+                executionError:
+                  node.data.executionStatus === 'pending' ? error : node.data.executionError,
+                // Finalize loop states
+                iterationStatus:
+                  node.data.nodeType === 'loop' && node.data.iterationStatus === 'running'
+                    ? 'failed'
+                    : node.data.iterationStatus,
+              },
+            }))
+          );
+        } else {
+          // Finalize loop states on success
+          setNodes((nds) =>
+            nds.map((node) => ({
+              ...node,
+              data: {
+                ...node.data,
+                iterationStatus:
+                  node.data.nodeType === 'loop' && node.data.iterationStatus === 'running'
+                    ? 'completed'
+                    : node.data.iterationStatus,
+                finalIteration:
+                  node.data.nodeType === 'loop' && node.data.iterationStatus === 'running'
+                    ? node.data.currentIteration
+                    : node.data.finalIteration,
+              },
+            }))
+          );
+        }
+      },
+    });
   }, [isExecuting, nodes, edges, rootDirectory, setNodes, updateNodeStatus]);
 
   const onResetExecution = useCallback(() => {
@@ -843,6 +943,8 @@ function Flow() {
         },
       }))
     );
+    // Reset edge execution data
+    setEdgeExecutionData(new Map());
   }, [setNodes]);
 
   // Compute nodes with drop target state for visual feedback
@@ -861,6 +963,21 @@ function Flow() {
       return node;
     });
   }, [nodes, dragOverLoopId]);
+
+  // Add execution data to edges for animation
+  const edgesWithData = useMemo(() => {
+    return edges.map((edge) => {
+      const execData = edgeExecutionData.get(edge.id);
+      return {
+        ...edge,
+        type: 'animated',
+        data: {
+          executionCount: execData?.count || 0,
+          isAnimating: execData?.animating || false,
+        } as AnimatedEdgeData,
+      };
+    });
+  }, [edges, edgeExecutionData]);
 
   return (
     <div className="app">
@@ -885,7 +1002,8 @@ function Flow() {
         />
         <ReactFlow
           nodes={nodesWithDropState}
-          edges={edges}
+          edges={edgesWithData}
+          edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}

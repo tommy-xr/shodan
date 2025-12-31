@@ -52,6 +52,7 @@ Schema migration (`upgradeWorkflow`) is disabled during early development. When 
 - [ ] Gate node for multi-stage validation with upstream retry
 
 ### Other
+- Some workflows missing edges (the loop ones particularly)
 - Implement plan/retry-gate.md
 - Save and view workflow results
 - Add CI badge

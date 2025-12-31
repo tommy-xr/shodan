@@ -1,0 +1,89 @@
+version: 1
+metadata:
+  name: Slow Parallel Test
+  description: Parallel branches with varying sleeps for visual UX testing
+nodes:
+  - id: trigger
+    type: trigger
+    position: { x: 50, y: 150 }
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: text
+          type: string
+        - name: params
+          type: json
+  - id: fast
+    type: shell
+    position: { x: 200, y: 50 }
+    data:
+      nodeType: shell
+      label: Fast (0.5s)
+      script: |
+        echo "Fast branch..."
+        sleep 0.5
+        echo "Fast done"
+  - id: medium
+    type: shell
+    position: { x: 200, y: 150 }
+    data:
+      nodeType: shell
+      label: Medium (1.5s)
+      script: |
+        echo "Medium branch..."
+        sleep 1.5
+        echo "Medium done"
+  - id: slow
+    type: shell
+    position: { x: 200, y: 250 }
+    data:
+      nodeType: shell
+      label: Slow (3s)
+      script: |
+        echo "Slow branch..."
+        sleep 3
+        echo "Slow done"
+  - id: merge
+    type: shell
+    position: { x: 450, y: 150 }
+    data:
+      nodeType: shell
+      label: Merge
+      script: echo "All branches complete!"
+edges:
+  - id: e1
+    source: trigger
+    target: fast
+    sourceHandle: output:text
+    targetHandle: input:input
+  - id: e2
+    source: trigger
+    target: medium
+    sourceHandle: output:text
+    targetHandle: input:input
+  - id: e3
+    source: trigger
+    target: slow
+    sourceHandle: output:text
+    targetHandle: input:input
+  - id: e4
+    source: fast
+    target: merge
+    sourceHandle: output:stdout
+    targetHandle: input:input
+  - id: e5
+    source: medium
+    target: merge
+    sourceHandle: output:stdout
+    targetHandle: input:input
+  - id: e6
+    source: slow
+    target: merge
+    sourceHandle: output:stdout
+    targetHandle: input:input

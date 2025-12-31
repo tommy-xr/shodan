@@ -11,8 +11,8 @@ import assert from 'node:assert';
 import fs from 'fs/promises';
 import path from 'path';
 import yaml from 'js-yaml';
-import type { WorkflowSchema } from '@shodan/core';
-import { executeWorkflowSchema, type ExecuteOptions, type ExecuteResult, type NodeResult } from './engine/executor.js';
+import type { WorkflowSchema, NodeResult } from '@shodan/core';
+import { executeWorkflowSchema, type ExecuteOptions, type ExecuteResult } from './engine/executor.js';
 import { loadWorkflow } from './engine/workflow-loader.js';
 
 const WORKFLOWS_DIR = path.resolve(import.meta.dirname, '../../../workflows');

@@ -29,8 +29,10 @@ const typeColors: Record<ValueType, string> = {
 export function LoopContainerNode({ data, selected }: NodeProps) {
   const nodeData = data as BaseNodeData;
   const execStatus = nodeData.executionStatus || 'idle';
+  const iterStatus = nodeData.iterationStatus as string | undefined;
   const maxIterations = nodeData.maxIterations || 10;
-  const currentIteration = nodeData.currentIteration;
+  const currentIteration = nodeData.currentIteration as number | undefined;
+  const finalIteration = nodeData.finalIteration as number | undefined;
   const isDropTarget = nodeData.isDropTarget || false;
 
   // Get I/O definitions for external ports
@@ -45,15 +47,19 @@ export function LoopContainerNode({ data, selected }: NodeProps) {
   const portHeight = 24;
   const portStartOffset = headerHeight + 20;
 
-  // Iteration display
+  // Iteration display - show during execution or after completion
   const getIterationDisplay = () => {
-    if (execStatus === 'running' && currentIteration) {
-      return `Iteration ${currentIteration}/${maxIterations}`;
+    if (iterStatus === 'running' && currentIteration) {
+      return `${currentIteration}/${maxIterations}`;
+    }
+    if ((iterStatus === 'completed' || iterStatus === 'failed') && finalIteration) {
+      return `${finalIteration}/${maxIterations}`;
     }
     return null;
   };
 
   const iterationDisplay = getIterationDisplay();
+  const showIterationBadge = iterStatus && iterStatus !== 'idle';
 
   // Render a dock slot with its handle(s)
   const renderDockSlot = (slot: DockSlot) => {
@@ -136,16 +142,18 @@ export function LoopContainerNode({ data, selected }: NodeProps) {
             <span className="loop-label">{nodeData.label || 'Loop'}</span>
           </div>
           <div className="loop-header-right">
-            {iterationDisplay ? (
-              <span className="loop-iteration-badge running">
+            {showIterationBadge && iterationDisplay ? (
+              <span className={`loop-iteration-badge ${iterStatus}`}>
                 {iterationDisplay}
+                {iterStatus === 'completed' && ' ✓'}
+                {iterStatus === 'failed' && ' ✗'}
               </span>
             ) : (
               <span className="loop-max-badge">
                 max: {maxIterations}
               </span>
             )}
-            {execStatus !== 'idle' && (
+            {execStatus !== 'idle' && !showIterationBadge && (
               <span className={`loop-status-icon ${execStatus}`}>
                 {execStatus === 'running' && '▶'}
                 {execStatus === 'completed' && '✓'}
@@ -168,13 +176,6 @@ export function LoopContainerNode({ data, selected }: NodeProps) {
             {dockSlots.map((slot) => renderDockSlot(slot))}
           </div>
         </div>
-
-        {/* Status bar */}
-        {iterationDisplay && (
-          <div className="loop-status-bar">
-            {iterationDisplay}
-          </div>
-        )}
 
         {/* Port labels for external I/O */}
         {inputs.map((input, index) => {
