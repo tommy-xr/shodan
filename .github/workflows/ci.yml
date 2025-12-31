@@ -31,7 +31,7 @@ jobs:
         run: pnpm run build
 
       - name: Validate workflows
-        run: pnpm run shodan -- validate workflows/*.yaml
+        run: pnpm run robomesh -- validate workflows/*.yaml
 
       - name: Test workflow execution
         run: pnpm run test:workflows

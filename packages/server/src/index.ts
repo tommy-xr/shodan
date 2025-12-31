@@ -17,7 +17,7 @@ dotenv.config({ path: path.join(projectRoot, '.env') });
 
 // Re-export for CLI and other consumers
 export { executeWorkflowSchema } from './engine/executor.js';
-export type { WorkflowSchema, WorkflowNode, WorkflowEdge, NodeResult, NodeStatus } from '@shodan/core';
+export type { WorkflowSchema, WorkflowNode, WorkflowEdge, NodeResult, NodeStatus } from '@robomesh/core';
 export { getProjectRoot } from './utils/project-root.js';
 
 export interface ServerConfig {
@@ -77,7 +77,7 @@ if (isMainModule) {
   const discoveredMarker = getProjectRootMarker(discoveredRoot);
 
   app.listen(config.port, () => {
-    console.log(`Shodan server running at http://localhost:${config.port}`);
+    console.log(`Robomesh server running at http://localhost:${config.port}`);
     console.log(`  API: http://localhost:${config.port}/api`);
     console.log(`  Project root: ${discoveredRoot} (${discoveredMarker || 'fallback'})`);
     if (config.designerPath) {

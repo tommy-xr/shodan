@@ -2,7 +2,7 @@
  * Input/Output System Types
  *
  * This file defines the core types for the unified input/output system
- * for Shodan workflow nodes.
+ * for Robomesh workflow nodes.
  */
 
 /**

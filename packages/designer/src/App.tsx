@@ -12,7 +12,7 @@ import {
 } from '@xyflow/react';
 import type { Connection, Node, Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { getNodePortDefaults } from '@shodan/core';
+import { getNodePortDefaults } from '@robomesh/core';
 
 import { nodeTypes } from './nodes';
 import type { BaseNodeData, NodeType } from './nodes';

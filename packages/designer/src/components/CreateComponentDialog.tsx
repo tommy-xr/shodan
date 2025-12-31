@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { PortDefinition, ValueType } from '@shodan/core';
+import type { PortDefinition, ValueType } from '@robomesh/core';
 
 interface CreateComponentDialogProps {
   onClose: () => void;

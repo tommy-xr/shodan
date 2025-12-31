@@ -9,7 +9,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import yaml from 'js-yaml';
 import { glob } from 'glob';
-import type { WorkflowSchema } from '@shodan/core';
+import type { WorkflowSchema } from '@robomesh/core';
 
 // Import migrations
 import * as migration001 from './001-add-default-ports.js';
@@ -59,7 +59,7 @@ async function main() {
   const defaultWorkflowsDir = path.join(projectRoot, 'workflows');
   const workflowsDir = args.find(a => !a.startsWith('--')) || defaultWorkflowsDir;
 
-  console.log(color('\nShodan Workflow Migrations', COLORS.bright, COLORS.cyan));
+  console.log(color('\nRobomesh Workflow Migrations', COLORS.bright, COLORS.cyan));
   console.log(color('==========================\n', COLORS.dim));
 
   if (dryRun) {

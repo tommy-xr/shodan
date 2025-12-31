@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
 import { executeAgent, type RunnerType } from './agents/index.js';
-import type { PortDefinition, ValueType, WorkflowNode, WorkflowEdge, WorkflowSchema, LoopNodeData, ConstantNodeData, ConstantValueType, NodeResult, NodeStatus } from '@shodan/core';
-import { isLoopNodeData } from '@shodan/core';
+import type { PortDefinition, ValueType, WorkflowNode, WorkflowEdge, WorkflowSchema, LoopNodeData, ConstantNodeData, ConstantValueType, NodeResult, NodeStatus } from '@robomesh/core';
+import { isLoopNodeData } from '@robomesh/core';
 import { loadWorkflow, getWorkflowDirectory } from './workflow-loader.js';
 import { executeLoop } from './loop-executor.js';
 

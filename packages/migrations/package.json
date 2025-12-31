@@ -1,14 +1,14 @@
 {
-  "name": "@shodan/migrations",
+  "name": "@robomesh/migrations",
   "version": "0.1.0",
-  "description": "Schema migration scripts for Shodan workflows",
+  "description": "Schema migration scripts for Robomesh workflows",
   "type": "module",
   "scripts": {
     "migrate": "tsx src/run-migrations.ts",
     "migrate:dry-run": "tsx src/run-migrations.ts --dry-run"
   },
   "dependencies": {
-    "@shodan/core": "workspace:*",
+    "@robomesh/core": "workspace:*",
     "js-yaml": "^4.1.0",
     "glob": "^11.0.0"
   },

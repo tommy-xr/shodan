@@ -1,6 +1,6 @@
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import type { ValueType } from '@shodan/core';
+import type { ValueType } from '@robomesh/core';
 import './nodes.css';
 
 export type ConstantValueType = 'boolean' | 'number' | 'string';

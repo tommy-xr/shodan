@@ -3,9 +3,9 @@
 import fs from 'fs/promises';
 import path from 'path';
 import yaml from 'js-yaml';
-import { executeWorkflowSchema, type WorkflowSchema, type NodeResult } from '@robomesh/server';
-import { getProjectRoot } from '@robomesh/server';
-import { validateWorkflow as validateWorkflowSchema, formatValidationIssues } from '@robomesh/core';
+import type { WorkflowSchema, NodeResult } from '@robomesh/core';
+import { executeWorkflowSchema } from './engine/executor.js';
+import { getProjectRoot } from './utils/project-root.js';
 
 // Use INIT_CWD if available (set by npm to the original working directory)
 const originalCwd = process.env.INIT_CWD || process.cwd();
@@ -35,16 +35,13 @@ ${color('Usage:', COLORS.bright)}
   robomesh help                             Show this help
 
 ${color('Options:', COLORS.bright)}
-  --cwd <dir>         Override working directory
-  --input <text>      Pass text input to trigger node
-  --quiet             Only show errors and final result
-  --verbose           Show detailed output for each node
-  --no-validation     Skip schema validation (not recommended)
+  --cwd <dir>       Override working directory
+  --quiet           Only show errors and final result
+  --verbose         Show detailed output for each node
 
 ${color('Examples:', COLORS.bright)}
   robomesh run ./workflows/build.yaml
   robomesh run ./workflows/deploy.yaml --cwd /path/to/project
-  robomesh run ./workflows/process.yaml --input "Hello World"
   robomesh validate ./workflows/*.yaml
 `);
 }
@@ -90,7 +87,7 @@ async function loadWorkflow(filePath: string): Promise<WorkflowSchema> {
   return schema;
 }
 
-async function runWorkflow(filePath: string, options: { cwd?: string; input?: string; quiet?: boolean; verbose?: boolean; skipValidation?: boolean }) {
+async function runWorkflow(filePath: string, options: { cwd?: string; quiet?: boolean; verbose?: boolean }) {
   console.log(color(`\n▶ Running workflow: ${filePath}`, COLORS.bright));
 
   const schema = await loadWorkflow(filePath);
@@ -100,37 +97,16 @@ async function runWorkflow(filePath: string, options: { cwd?: string; input?: st
     schema.metadata.rootDirectory = path.resolve(originalCwd, options.cwd);
   }
 
-  // Run schema validation (unless skipped)
-  if (!options.skipValidation) {
-    const validation = validateWorkflowSchema(schema);
-
-    // All issues (errors and warnings) are treated as errors by default
-    if (validation.issues.length > 0) {
-      console.error(color('\n✗ Workflow validation failed:', COLORS.red, COLORS.bright));
-      console.error(formatValidationIssues(validation.issues));
-      console.error('');
-      console.error(color('Use --no-validation to skip (not recommended)', COLORS.dim));
-      return 1;
-    }
-  }
-
   console.log(color(`  Workflow: ${schema.metadata.name}`, COLORS.dim));
   if (schema.metadata.rootDirectory) {
     console.log(color(`  Directory: ${schema.metadata.rootDirectory}`, COLORS.dim));
   }
   console.log(color(`  Nodes: ${schema.nodes.length}`, COLORS.dim));
-  if (options.input) {
-    console.log(color(`  Input: ${options.input}`, COLORS.dim));
-  }
   console.log('');
 
   const startTime = Date.now();
 
-  // Build trigger inputs if --input provided
-  const triggerInputs = options.input ? { text: options.input } : undefined;
-
   const result = await executeWorkflowSchema(schema, {
-    triggerInputs,
     onNodeStart: (nodeId, node) => {
       if (!options.quiet) {
         const label = node.data.label || nodeId;
@@ -157,11 +133,6 @@ async function runWorkflow(filePath: string, options: { cwd?: string; input?: st
         }
       }
     },
-    onNodeOutput: (nodeId, chunk) => {
-      if (options.verbose) {
-        process.stdout.write(color(chunk, COLORS.dim));
-      }
-    },
   });
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
@@ -184,20 +155,9 @@ async function runWorkflow(filePath: string, options: { cwd?: string; input?: st
   return result.success ? 0 : 1;
 }
 
-async function validateWorkflowFile(filePath: string): Promise<boolean> {
+async function validateWorkflow(filePath: string): Promise<boolean> {
   try {
     const schema = await loadWorkflow(filePath);
-
-    // Run schema validation
-    const validation = validateWorkflowSchema(schema);
-
-    // All issues (errors and warnings) fail validation
-    if (validation.issues.length > 0) {
-      console.log(color(`✗ ${filePath}`, COLORS.red), color(`(${schema.metadata.name}) - ${validation.issues.length} issue(s)`, COLORS.dim));
-      console.log(formatValidationIssues(validation.issues));
-      return false;
-    }
-
     console.log(color(`✓ ${filePath}`, COLORS.green), color(`(${schema.metadata.name})`, COLORS.dim));
     return true;
   } catch (err) {
@@ -226,10 +186,8 @@ async function main() {
 
     const options = {
       cwd: args.includes('--cwd') ? args[args.indexOf('--cwd') + 1] : undefined,
-      input: args.includes('--input') ? args[args.indexOf('--input') + 1] : undefined,
       quiet: args.includes('--quiet') || args.includes('-q'),
       verbose: args.includes('--verbose') || args.includes('-v'),
-      skipValidation: args.includes('--no-validation'),
     };
 
     try {
@@ -242,7 +200,7 @@ async function main() {
   }
 
   if (command === 'validate') {
-    const files = args.slice(1).filter(f => !f.startsWith('--'));
+    const files = args.slice(1);
     if (files.length === 0) {
       console.error(color('Error: Please specify workflow file(s) to validate', COLORS.red));
       process.exit(1);
@@ -252,7 +210,7 @@ async function main() {
 
     let allValid = true;
     for (const file of files) {
-      const valid = await validateWorkflowFile(file);
+      const valid = await validateWorkflow(file);
       if (!valid) allValid = false;
     }
 

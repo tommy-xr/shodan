@@ -1,6 +1,6 @@
-// API client for communicating with Shodan server
+// API client for communicating with Robomesh server
 
-import type { NodeResult, NodeStatus } from '@shodan/core';
+import type { NodeResult, NodeStatus } from '@robomesh/core';
 
 // Re-export for convenience
 export type { NodeResult, NodeStatus };

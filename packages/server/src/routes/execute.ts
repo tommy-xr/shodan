@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { WorkflowNode, WorkflowEdge, ExecutionEvent } from '@shodan/core';
+import type { WorkflowNode, WorkflowEdge, ExecutionEvent } from '@robomesh/core';
 import { executeWorkflow, type ExecuteResult } from '../engine/executor.js';
 
 export interface ExecuteRequest {

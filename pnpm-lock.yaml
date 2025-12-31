@@ -14,10 +14,10 @@ importers:
 
   packages/cli:
     dependencies:
-      '@shodan/core':
+      '@robomesh/core':
         specifier: workspace:*
         version: link:../core
-      '@shodan/server':
+      '@robomesh/server':
         specifier: workspace:*
         version: link:../server
       js-yaml:
@@ -45,7 +45,7 @@ importers:
 
   packages/designer:
     dependencies:
-      '@shodan/core':
+      '@robomesh/core':
         specifier: workspace:*
         version: link:../core
       '@xyflow/react':
@@ -103,7 +103,7 @@ importers:
 
   packages/migrations:
     dependencies:
-      '@shodan/core':
+      '@robomesh/core':
         specifier: workspace:*
         version: link:../core
       glob:
@@ -128,7 +128,7 @@ importers:
 
   packages/server:
     dependencies:
-      '@shodan/core':
+      '@robomesh/core':
         specifier: workspace:*
         version: link:../core
       cors:

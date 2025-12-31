@@ -1,7 +1,7 @@
 /**
  * Loop System Types
  *
- * This file defines the core types for the loop primitive in Shodan workflows.
+ * This file defines the core types for the loop primitive in Robomesh workflows.
  * Loops use a dock-based UI for iteration control, with slots for:
  * - iteration: outputs current iteration number
  * - continue: receives boolean to control looping

@@ -35,7 +35,7 @@ nodes:
       nodeType: constant
       label: Greeting
       valueType: string
-      value: Hello, Shodan!
+      value: "Hello, Robomesh!"
       outputs:
         - name: value
           type: string

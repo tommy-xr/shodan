@@ -1,19 +1,19 @@
 {
-  "name": "@shodan/cli",
+  "name": "@robomesh/cli",
   "version": "0.1.0",
-  "description": "Shodan CLI for running workflows",
+  "description": "Robomesh CLI for running workflows",
   "type": "module",
   "bin": {
-    "shodan": "dist/index.js"
+    "robomesh": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch index.ts",
-    "shodan": "tsx index.ts"
+    "robomesh": "tsx index.ts"
   },
   "dependencies": {
-    "@shodan/core": "workspace:*",
-    "@shodan/server": "workspace:*",
+    "@robomesh/core": "workspace:*",
+    "@robomesh/server": "workspace:*",
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {

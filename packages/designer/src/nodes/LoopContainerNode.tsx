@@ -1,6 +1,6 @@
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import type { PortDefinition, ValueType, DockSlot } from '@shodan/core';
+import type { PortDefinition, ValueType, DockSlot } from '@robomesh/core';
 import type { BaseNodeData } from './BaseNode';
 import './nodes.css';
 

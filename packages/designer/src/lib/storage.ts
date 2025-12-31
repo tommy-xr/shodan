@@ -1,7 +1,7 @@
 import type { Node, Edge, Viewport } from '@xyflow/react';
 import type { BaseNodeData } from '../nodes';
 
-const STORAGE_KEY = 'shodan-workflow';
+const STORAGE_KEY = 'robomesh-workflow';
 
 export interface StoredWorkflow {
   nodes: Node<BaseNodeData>[];

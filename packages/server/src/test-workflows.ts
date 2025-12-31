@@ -11,7 +11,7 @@ import assert from 'node:assert';
 import fs from 'fs/promises';
 import path from 'path';
 import yaml from 'js-yaml';
-import type { WorkflowSchema, NodeResult } from '@shodan/core';
+import type { WorkflowSchema, NodeResult } from '@robomesh/core';
 import { executeWorkflowSchema, type ExecuteOptions, type ExecuteResult } from './engine/executor.js';
 import { loadWorkflow } from './engine/workflow-loader.js';
 
@@ -81,7 +81,7 @@ describe('Workflow Execution', () => {
     assert.strictEqual(result.success, true);
 
     const shell = getNode(result, 'shell_1');
-    assertOutputContains(shell, 'Hello from Shodan!', 'output');
+    assertOutputContains(shell, 'Hello from Robomesh!', 'output');
   });
 
   test('git-branch-info.yaml runs successfully', async () => {
@@ -197,7 +197,7 @@ describe('Constant Node', () => {
 
     const echo = getNode(result, 'echo-all');
     assertNodeCompleted(echo);
-    assertOutputContains(echo, 'String: Hello, Shodan!');
+    assertOutputContains(echo, 'String: Hello, Robomesh!');
     assertOutputContains(echo, 'Number: 42');
     assertOutputContains(echo, 'Boolean: true');
   });

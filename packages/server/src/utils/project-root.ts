@@ -4,7 +4,7 @@ import { dirname, join, resolve } from 'path';
 /**
  * Primary marker - highest priority, searched first across all directories
  */
-const PRIMARY_MARKER = '.shodan';
+const PRIMARY_MARKER = '.robomesh';
 
 /**
  * Fallback markers - only used if primary marker not found anywhere
@@ -36,14 +36,14 @@ function findMarkerUpward(startDir: string, marker: string): string | null {
 
 /**
  * Walk up the directory tree to find a project root.
- * Prioritizes .shodan folder - searches all directories for it first.
- * Falls back to .git or package.json only if .shodan not found.
+ * Prioritizes .robomesh folder - searches all directories for it first.
+ * Falls back to .git or package.json only if .robomesh not found.
  */
 export function findProjectRoot(startDir: string = process.cwd()): string | null {
-  // First, search for .shodan anywhere up the tree
-  const shodanRoot = findMarkerUpward(startDir, PRIMARY_MARKER);
-  if (shodanRoot) {
-    return shodanRoot;
+  // First, search for .robomesh anywhere up the tree
+  const robomeshRoot = findMarkerUpward(startDir, PRIMARY_MARKER);
+  if (robomeshRoot) {
+    return robomeshRoot;
   }
 
   // Fall back to other markers

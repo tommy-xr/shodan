@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Shodan is an AI agentic orchestration tool that allows you to define, visualize, and debug workflows spanning multiple coding agents. The project consists of five workspaces under `packages/`:
+Robomesh is an AI agentic orchestration tool that allows you to define, visualize, and debug workflows spanning multiple coding agents. The project consists of five workspaces under `packages/`:
 - **core**: Shared TypeScript types for workflows, nodes, I/O ports, and validation
 - **server**: Node.js/Express backend that executes workflows and provides APIs
 - **designer**: React-based visual workflow designer using ReactFlow
@@ -48,20 +48,20 @@ pnpm run -F designer build  # Vite build
 pnpm run test:workflows
 
 # Use CLI directly (from root)
-pnpm run shodan -- run workflows/hello-world.yaml
-pnpm run shodan -- validate workflows/*.yaml
+pnpm run robomesh -- run workflows/hello-world.yaml
+pnpm run robomesh -- validate workflows/*.yaml
 
 # Use CLI from server workspace
-pnpm run -F server shodan -- run workflows/hello-world.yaml
+pnpm run -F server robomesh -- run workflows/hello-world.yaml
 ```
 
 ### Migrations
 ```bash
 # Preview what migrations would change (dry run)
-pnpm run -F @shodan/migrations migrate:dry-run
+pnpm run -F @robomesh/migrations migrate:dry-run
 
 # Apply migrations to all workflows
-pnpm run -F @shodan/migrations migrate
+pnpm run -F @robomesh/migrations migrate
 ```
 
 Migrations are used when the workflow schema changes in a way that requires updating existing YAML files. Each migration is a separate file in `packages/migrations/src/` with documentation explaining why it was needed. See `packages/migrations/README.md` for details.
@@ -117,7 +117,7 @@ Agent execution is abstracted through the runner pattern (`packages/server/src/e
 
 The system uses a priority-based project root discovery mechanism (`packages/server/src/utils/project-root.ts`):
 
-1. **Primary marker**: `.shodan` directory (highest priority)
+1. **Primary marker**: `.robomesh` directory (highest priority)
 2. **Fallback markers**: `.git` directory or `package.json` file
 3. **Search strategy**: Walks up directory tree from starting point
 
@@ -210,8 +210,8 @@ Component workflows (version 2) also include an `interface:` section defining in
 2. Define nodes with unique IDs and appropriate types
 3. Connect nodes with edges (source/target IDs)
 4. Use template variables to pass outputs between nodes
-5. Validate with `pnpm run shodan -- validate workflows/your-file.yaml`
-6. Test with `pnpm run shodan -- run workflows/your-file.yaml`
+5. Validate with `pnpm run robomesh -- validate workflows/your-file.yaml`
+6. Test with `pnpm run robomesh -- run workflows/your-file.yaml`
 
 ## Additional Documentation
 
