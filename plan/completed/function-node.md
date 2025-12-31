@@ -11,7 +11,6 @@ Implemented a new `function` node type that executes pure TypeScript functions w
 - **Executor** (`packages/server/src/engine/executor.ts`) - Function node execution with esbuild for TS transpilation
 - **Designer UI** - BaseNode updates, ConfigPanel with inline/file mode toggle, I/O editor, Sidebar entry
 - **Validation** (`packages/core/src/validation.ts`) - Added function/constant to dynamic port types
-- **Built-in operators** (`scripts/logic/`) - not, and, or, equals, greater-than, less-than
 - **Test workflows** - test-function-inline.yaml, test-function-logic.yaml
 - **Test suite** - Added to test-workflows.ts (20 tests, all passing)
 
@@ -117,24 +116,9 @@ Function nodes execute arbitrary TypeScript/JavaScript with full Node.js process
 
 ---
 
-## Built-in Logic Operators
-
-Created `scripts/logic/` directory with reusable operators:
-
-| File | Description |
-|------|-------------|
-| `not.ts` | Boolean negation |
-| `and.ts` | Boolean AND |
-| `or.ts` | Boolean OR |
-| `equals.ts` | Equality comparison |
-| `greater-than.ts` | Numeric greater than |
-| `less-than.ts` | Numeric less than |
-
----
-
 ## Test Workflows
 
 - `workflows/test-function-inline.yaml` - Tests inline code (10 + 3 = 13)
-- `workflows/test-function-logic.yaml` - Tests file-based operators (true AND false = false)
+- `workflows/test-function-logic.yaml` - Tests logic operators with inline code (true AND false = false)
 
 Both are included in the test suite (`pnpm run test:workflows`).

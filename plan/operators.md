@@ -10,15 +10,12 @@ Dedicated logic operator nodes (`not`, `and`, `or`, etc.) that appear in the sid
 
 **Remaining work**:
 - [ ] Add `not`, `and`, `or` to sidebar under "Logic" category
-- [ ] Hard-coded inline code and I/O (not editable in ConfigPanel)
+- [ ] Pre-configured inline code and I/O defaults
 - [ ] Consider compact visual styling (smaller nodes, symbols like `¬`, `∧`, `∨`)
 
 ## Implementation Approach
 
-Operators are function nodes with:
-- **Inline code** (not file references)
-- **Fixed inputs/outputs** (not editable by user)
-- **Distinct nodeType** or flag to identify as built-in operator
+Operators are just function nodes with pre-configured defaults. Users can still edit them if needed.
 
 ### Example: AND operator
 
@@ -27,7 +24,6 @@ type: function
 data:
   nodeType: function
   label: AND
-  builtIn: true  # Flag to hide code/I/O editing in ConfigPanel
   code: "return { result: inputs.a && inputs.b }"
   inputs:
     - name: a
@@ -46,7 +42,7 @@ Add to `packages/designer/src/components/Sidebar.tsx`:
 ```typescript
 const logicItems = [
   { type: 'function', label: 'Function', icon: 'ƒ' },
-  // Built-in operators (sealed, not editable):
+  // Pre-configured operators:
   { type: 'function', label: 'NOT', icon: '¬', preset: 'not' },
   { type: 'function', label: 'AND', icon: '∧', preset: 'and' },
   { type: 'function', label: 'OR', icon: '∨', preset: 'or' },
@@ -59,31 +55,23 @@ const logicItems = [
 const operatorPresets = {
   not: {
     label: 'NOT',
-    builtIn: true,
     code: 'return { result: !inputs.value }',
     inputs: [{ name: 'value', type: 'boolean' }],
     outputs: [{ name: 'result', type: 'boolean' }],
   },
   and: {
     label: 'AND',
-    builtIn: true,
     code: 'return { result: inputs.a && inputs.b }',
     inputs: [{ name: 'a', type: 'boolean' }, { name: 'b', type: 'boolean' }],
     outputs: [{ name: 'result', type: 'boolean' }],
   },
   or: {
     label: 'OR',
-    builtIn: true,
     code: 'return { result: inputs.a || inputs.b }',
     inputs: [{ name: 'a', type: 'boolean' }, { name: 'b', type: 'boolean' }],
     outputs: [{ name: 'result', type: 'boolean' }],
   },
 };
-```
-
-### ConfigPanel behavior
-
-When `data.builtIn === true`, hide the code editor and I/O configuration sections. Just show the node label (possibly read-only).
 
 ## Future phases
 

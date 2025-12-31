@@ -1,7 +1,7 @@
 version: 2
 metadata:
   name: Function Node Test (Logic Operators)
-  description: Tests boolean logic operators from file
+  description: Tests boolean logic operators with inline code
 
 nodes:
   - id: trigger
@@ -51,7 +51,7 @@ nodes:
     data:
       nodeType: function
       label: AND
-      file: scripts/logic/and.ts
+      code: "return { result: inputs.a && inputs.b }"
       inputs:
         - name: a
           type: boolean

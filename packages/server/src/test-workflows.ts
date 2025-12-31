@@ -239,8 +239,8 @@ describe('Function Node', () => {
     assertOutputContains(log, 'Sum: 13', 'output');
   });
 
-  test('test-function-logic.yaml - file-based function execution', async () => {
-    const result = await runWorkflow('test-function-logic.yaml', { rootDirectory: PROJECT_ROOT });
+  test('test-function-logic.yaml - logic operators with inline code', async () => {
+    const result = await runWorkflow('test-function-logic.yaml');
     assert.strictEqual(result.success, true);
 
     const andOp = getNode(result, 'and-op');
