@@ -59,7 +59,6 @@ Schema migration (`upgradeWorkflow`) is disabled during early development. When 
 - When the workflow is running, and a new workflow is imported, the current running session isn't stopped
 - Implement plan/retry-gate.md
 - Save and view workflow results
-- Add CI badge
 - Add screenshot of tool
 - Add refactor -> extract tool. Highlight an area, pull the inputs/outputs, and extract to a component
 - Fix agent models - we might want to make an API request and query each tool respectively?
@@ -78,3 +77,6 @@ Schema migration (`upgradeWorkflow`) is disabled during early development. When 
 - Component versioning/history
 - 90 degree edges?
 - Auto-layout?
+- Workspace / orchestration of multiple flows:
+	- Get trigger conditions working
+	- Record results for a 'run'
