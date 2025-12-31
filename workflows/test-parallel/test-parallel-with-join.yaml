@@ -1,0 +1,128 @@
+version: 1
+metadata:
+  name: Parallel with Join Test
+  description: Test parallel execution with a downstream join node that waits for both branches.
+
+nodes:
+  - id: trigger
+    type: trigger
+    position:
+      x: 50
+      "y": 150
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: text
+          type: string
+        - name: params
+          type: json
+
+  - id: branch-a
+    type: shell
+    position:
+      x: 300
+      "y": 50
+    data:
+      nodeType: shell
+      label: Branch A
+      script: |
+        echo "Branch A starting"
+        sleep 1
+        echo "RESULT_A"
+      inputs:
+        - name: input
+          type: string
+          required: false
+      outputs:
+        - name: output
+          type: string
+        - name: stdout
+          type: string
+        - name: stderr
+          type: string
+        - name: exitCode
+          type: number
+
+  - id: branch-b
+    type: shell
+    position:
+      x: 300
+      "y": 250
+    data:
+      nodeType: shell
+      label: Branch B
+      script: |
+        echo "Branch B starting"
+        sleep 1
+        echo "RESULT_B"
+      inputs:
+        - name: input
+          type: string
+          required: false
+      outputs:
+        - name: output
+          type: string
+        - name: stdout
+          type: string
+        - name: stderr
+          type: string
+        - name: exitCode
+          type: number
+
+  - id: join
+    type: shell
+    position:
+      x: 550
+      "y": 150
+    data:
+      nodeType: shell
+      label: Join
+      script: |
+        echo "Received from A: {{ branch-a.stdout }}"
+        echo "Received from B: {{ branch-b.stdout }}"
+        echo "Join complete"
+      inputs:
+        - name: input
+          type: any
+          required: false
+        - name: inputA
+          type: string
+        - name: inputB
+          type: string
+      outputs:
+        - name: output
+          type: string
+        - name: stdout
+          type: string
+        - name: stderr
+          type: string
+        - name: exitCode
+          type: number
+
+edges:
+  - id: e1
+    source: trigger
+    target: branch-a
+    sourceHandle: output:timestamp
+    targetHandle: input:input
+  - id: e2
+    source: trigger
+    target: branch-b
+    sourceHandle: output:timestamp
+    targetHandle: input:input
+  - id: e3
+    source: branch-a
+    target: join
+    sourceHandle: output:stdout
+    targetHandle: input:inputA
+  - id: e4
+    source: branch-b
+    target: join
+    sourceHandle: output:stdout
+    targetHandle: input:inputB

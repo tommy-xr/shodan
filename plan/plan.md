@@ -75,4 +75,10 @@ Schema migration (`upgradeWorkflow`) is disabled during early development. When 
 - UX: Move workflow name, +new, and execution into header, to free up header (probably import/export via a drop down menu too)
 - [x] Rebrand to robomesh.ai
 
-- Is it possible to parallelize the workflow? For example, for test-agent-stream-long.yaml, could we run the Codex and Claude agents _in parallel_?
+- Deploy to robomesh.ai, w/o ability to run workflows
+- Set up to run locally - whats the best way to open UI from CLI?
+- Workspace / orchestration of multiple flows:
+	- Get trigger conditions working
+	- Record results for a 'run'
+
+

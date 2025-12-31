@@ -1,0 +1,145 @@
+version: 1
+metadata:
+  name: Parallel Failure Continue Test
+  description: Test that continueOnFailure true (default) allows workflow to continue despite failures.
+
+nodes:
+  - id: trigger
+    type: trigger
+    position:
+      x: 50
+      "y": 150
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: text
+          type: string
+        - name: params
+          type: json
+
+  - id: success-node
+    type: shell
+    position:
+      x: 300
+      "y": 50
+    data:
+      nodeType: shell
+      label: Success Node
+      script: |
+        echo "Success node starting"
+        sleep 1
+        echo "SUCCESS_OUTPUT"
+      inputs:
+        - name: input
+          type: string
+          required: false
+      outputs:
+        - name: output
+          type: string
+        - name: stdout
+          type: string
+        - name: stderr
+          type: string
+        - name: exitCode
+          type: number
+
+  - id: fail-node
+    type: shell
+    position:
+      x: 300
+      "y": 200
+    data:
+      nodeType: shell
+      label: Fail Node (continue)
+      continueOnFailure: true
+      script: |
+        echo "Fail node starting"
+        exit 1
+      inputs:
+        - name: input
+          type: string
+          required: false
+      outputs:
+        - name: output
+          type: string
+        - name: stdout
+          type: string
+        - name: stderr
+          type: string
+        - name: exitCode
+          type: number
+
+  - id: downstream-success
+    type: shell
+    position:
+      x: 550
+      "y": 50
+    data:
+      nodeType: shell
+      label: Downstream of Success
+      script: |
+        echo "Received: {{ success-node.stdout }}"
+        echo "This SHOULD execute"
+      inputs:
+        - name: input
+          type: string
+      outputs:
+        - name: output
+          type: string
+        - name: stdout
+          type: string
+        - name: stderr
+          type: string
+        - name: exitCode
+          type: number
+
+  - id: downstream-fail
+    type: shell
+    position:
+      x: 550
+      "y": 200
+    data:
+      nodeType: shell
+      label: Downstream of Fail
+      script: |
+        echo "This should NOT execute (parent failed)"
+      inputs:
+        - name: input
+          type: string
+      outputs:
+        - name: output
+          type: string
+        - name: stdout
+          type: string
+        - name: stderr
+          type: string
+        - name: exitCode
+          type: number
+
+edges:
+  - id: e1
+    source: trigger
+    target: success-node
+    sourceHandle: output:timestamp
+    targetHandle: input:input
+  - id: e2
+    source: trigger
+    target: fail-node
+    sourceHandle: output:timestamp
+    targetHandle: input:input
+  - id: e3
+    source: success-node
+    target: downstream-success
+    sourceHandle: output:stdout
+    targetHandle: input:input
+  - id: e4
+    source: fail-node
+    target: downstream-fail
+    sourceHandle: output:stdout
+    targetHandle: input:input

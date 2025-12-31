@@ -129,19 +129,27 @@ async function runWorkflow(filePath: string, options: { cwd?: string; input?: st
   // Build trigger inputs if --input provided
   const triggerInputs = options.input ? { text: options.input } : undefined;
 
+  // Track running nodes for parallel execution display
+  const runningNodes = new Set<string>();
+  const nodeLabels = new Map<string, string>();
+
   const result = await executeWorkflowSchema(schema, {
     triggerInputs,
     onNodeStart: (nodeId, node) => {
+      const label = (node.data.label as string) || nodeId;
+      nodeLabels.set(nodeId, label);
+      runningNodes.add(nodeId);
+
       if (!options.quiet) {
-        const label = node.data.label || nodeId;
         console.log(color(`  ● ${label}`, COLORS.yellow), color('running...', COLORS.dim));
       }
     },
     onNodeComplete: (nodeId, result) => {
+      runningNodes.delete(nodeId);
+
       if (!options.quiet) {
         const icon = result.status === 'completed' ? color('✓', COLORS.green) : color('✗', COLORS.red);
-        const node = schema.nodes.find(n => n.id === nodeId);
-        const label = node?.data.label || nodeId;
+        const label = nodeLabels.get(nodeId) || nodeId;
 
         // Move cursor up and rewrite the line
         process.stdout.write('\x1b[1A\x1b[2K');
@@ -159,7 +167,18 @@ async function runWorkflow(filePath: string, options: { cwd?: string; input?: st
     },
     onNodeOutput: (nodeId, chunk) => {
       if (options.verbose) {
-        process.stdout.write(color(chunk, COLORS.dim));
+        const label = nodeLabels.get(nodeId) || nodeId;
+        // Prefix output with node label when multiple nodes are running
+        if (runningNodes.size > 1) {
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.trim()) {
+              process.stdout.write(color(`[${label}] ${line}\n`, COLORS.dim));
+            }
+          }
+        } else {
+          process.stdout.write(color(chunk, COLORS.dim));
+        }
       }
     },
   });

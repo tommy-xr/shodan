@@ -1,0 +1,119 @@
+version: 1
+metadata:
+  name: Parallel Shell Test
+  description: Verify parallel execution of independent shell nodes. Sequential would take ~6s, parallel ~2s.
+
+nodes:
+  - id: trigger
+    type: trigger
+    position:
+      x: 50
+      "y": 200
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: text
+          type: string
+        - name: params
+          type: json
+
+  - id: shell-1
+    type: shell
+    position:
+      x: 300
+      "y": 50
+    data:
+      nodeType: shell
+      label: Sleep 2s (A)
+      script: |
+        echo "Starting A at $(date +%s)"
+        sleep 2
+        echo "Finished A at $(date +%s)"
+      inputs:
+        - name: input
+          type: string
+          required: false
+      outputs:
+        - name: output
+          type: string
+        - name: stdout
+          type: string
+        - name: stderr
+          type: string
+        - name: exitCode
+          type: number
+
+  - id: shell-2
+    type: shell
+    position:
+      x: 300
+      "y": 200
+    data:
+      nodeType: shell
+      label: Sleep 2s (B)
+      script: |
+        echo "Starting B at $(date +%s)"
+        sleep 2
+        echo "Finished B at $(date +%s)"
+      inputs:
+        - name: input
+          type: string
+          required: false
+      outputs:
+        - name: output
+          type: string
+        - name: stdout
+          type: string
+        - name: stderr
+          type: string
+        - name: exitCode
+          type: number
+
+  - id: shell-3
+    type: shell
+    position:
+      x: 300
+      "y": 350
+    data:
+      nodeType: shell
+      label: Sleep 2s (C)
+      script: |
+        echo "Starting C at $(date +%s)"
+        sleep 2
+        echo "Finished C at $(date +%s)"
+      inputs:
+        - name: input
+          type: string
+          required: false
+      outputs:
+        - name: output
+          type: string
+        - name: stdout
+          type: string
+        - name: stderr
+          type: string
+        - name: exitCode
+          type: number
+
+edges:
+  - id: e1
+    source: trigger
+    target: shell-1
+    sourceHandle: output:timestamp
+    targetHandle: input:input
+  - id: e2
+    source: trigger
+    target: shell-2
+    sourceHandle: output:timestamp
+    targetHandle: input:input
+  - id: e3
+    source: trigger
+    target: shell-3
+    sourceHandle: output:timestamp
+    targetHandle: input:input

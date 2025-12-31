@@ -166,7 +166,10 @@ describe('Phase 2: I/O System', () => {
     assertNodeFailed(missingInput);
     assert.ok(missingInput.error?.includes('required_data'));
 
-    assertNodeNotExecuted(result, 'shell-sibling');
+    // With parallel execution, sibling nodes in the same batch execute concurrently.
+    // The workflow terminates after the batch completes, not during execution.
+    // So shell-sibling executes (it's in the same batch as shell-missing-input).
+    assertNodeCompleted(getNode(result, 'shell-sibling'));
   });
 });
 
@@ -220,6 +223,84 @@ describe('Constant Node', () => {
     assertNodeCompleted(loop);
     assertOutputContains(loop, '1 iteration', 'output');
     assertOutputNotContains(loop, 'max iterations', 'output');
+  });
+});
+
+describe('Parallel Execution', () => {
+  test('test-parallel/test-parallel-shell.yaml - executes independent nodes concurrently', async () => {
+    const startTime = Date.now();
+    const nodeStartTimes: Record<string, number> = {};
+
+    const result = await runWorkflow('test-parallel/test-parallel-shell.yaml', {
+      onNodeStart: (nodeId) => {
+        nodeStartTimes[nodeId] = Date.now() - startTime;
+      },
+    });
+
+    assert.strictEqual(result.success, true, 'Workflow should succeed');
+
+    // All three shell nodes should have started within ~100ms of each other
+    const shell1Start = nodeStartTimes['shell-1'];
+    const shell2Start = nodeStartTimes['shell-2'];
+    const shell3Start = nodeStartTimes['shell-3'];
+
+    assert.ok(shell1Start !== undefined, 'shell-1 should have started');
+    assert.ok(shell2Start !== undefined, 'shell-2 should have started');
+    assert.ok(shell3Start !== undefined, 'shell-3 should have started');
+
+    // Verify parallelism: nodes should start within 200ms of each other
+    const maxDiff = Math.max(
+      Math.abs(shell1Start - shell2Start),
+      Math.abs(shell2Start - shell3Start),
+      Math.abs(shell1Start - shell3Start)
+    );
+    assert.ok(maxDiff < 200, `Nodes should start nearly simultaneously, diff was ${maxDiff}ms`);
+
+    // Total time should be ~2s (parallel) not ~6s (sequential)
+    const totalTime = Date.now() - startTime;
+    assert.ok(totalTime < 4000, `Should complete in ~2s (parallel), took ${totalTime}ms`);
+  });
+
+  test('test-parallel/test-parallel-with-join.yaml - join waits for parallel branches', async () => {
+    const result = await runWorkflow('test-parallel/test-parallel-with-join.yaml');
+    assert.strictEqual(result.success, true, 'Workflow should succeed');
+
+    const join = getNode(result, 'join');
+    assertNodeCompleted(join);
+    assertOutputContains(join, 'RESULT_A', 'stdout');
+    assertOutputContains(join, 'RESULT_B', 'stdout');
+    assertOutputContains(join, 'Join complete', 'stdout');
+  });
+
+  test('test-parallel/test-parallel-failure.yaml - continueOnFailure:false stops workflow', async () => {
+    const result = await runWorkflow('test-parallel/test-parallel-failure.yaml');
+    assert.strictEqual(result.success, false, 'Workflow should fail');
+
+    // All three nodes in the first batch should execute (they run in parallel)
+    assertNodeCompleted(getNode(result, 'success-node'));
+    assertNodeFailed(getNode(result, 'fail-node'));
+    assertNodeCompleted(getNode(result, 'another-node'));
+
+    // Downstream of the failed node should NOT execute
+    assertNodeNotExecuted(result, 'downstream-of-fail');
+  });
+
+  test('test-parallel/test-parallel-failure-continue.yaml - continueOnFailure:true continues', async () => {
+    const result = await runWorkflow('test-parallel/test-parallel-failure-continue.yaml');
+    assert.strictEqual(result.success, false, 'Overall workflow should fail (one node failed)');
+
+    // Both first-level nodes should have executed
+    assertNodeCompleted(getNode(result, 'success-node'));
+    assertNodeFailed(getNode(result, 'fail-node'));
+
+    // Downstream of success should execute
+    const downstreamSuccess = getNode(result, 'downstream-success');
+    assertNodeCompleted(downstreamSuccess);
+    assertOutputContains(downstreamSuccess, 'This SHOULD execute', 'stdout');
+
+    // Downstream of fail should also execute (continueOnFailure: true means workflow continues)
+    const downstreamFail = getNode(result, 'downstream-fail');
+    assertNodeCompleted(downstreamFail);
   });
 });
 

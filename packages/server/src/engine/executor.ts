@@ -29,6 +29,9 @@ export interface ExecuteOptions {
   triggerInputs?: Record<string, unknown>;  // Inputs to pass to trigger nodes (e.g., from CLI --input)
   workflowInputs?: Record<string, unknown>;  // Inputs when workflow is run as component
   dockContext?: DockContext;                 // Dock context for loop inner workflow execution
+  // Parallel execution options
+  maxConcurrent?: number;           // Maximum nodes to execute concurrently (default: 3)
+  continueOnFailDefault?: boolean;  // Default behavior when a node fails (default: true)
   // Streaming callbacks for progressive results
   onNodeStart?: (nodeId: string, node: WorkflowNode) => void;
   onNodeComplete?: (nodeId: string, result: NodeResult) => void;
@@ -36,6 +39,9 @@ export interface ExecuteOptions {
   onEdgeExecuted?: (edgeId: string, sourceNodeId: string, data: unknown) => void;
   onIterationStart?: (loopId: string, iteration: number) => void;
   onIterationComplete?: (loopId: string, iteration: number, success: boolean) => void;
+  // Batch execution callbacks (for parallel execution monitoring)
+  onBatchStart?: (nodeIds: string[], batchNumber: number) => void;
+  onBatchComplete?: (nodeIds: string[], batchNumber: number, durationMs: number) => void;
 }
 
 /**
@@ -74,6 +80,50 @@ function buildAdjacencyMap(edges: WorkflowEdge[]): Map<string, string[]> {
     adjacency.get(edge.source)!.push(edge.target);
   }
   return adjacency;
+}
+
+/**
+ * Check if a node is ready to execute (all dependencies satisfied)
+ * A node is ready when all its incoming edges have their source nodes completed
+ */
+function isNodeReady(
+  nodeId: string,
+  edges: WorkflowEdge[],
+  context: ExecutionContext,
+  dockContext?: DockContext
+): boolean {
+  // Get all incoming edges for this node
+  const incomingEdges = edges.filter(e => {
+    if (e.target !== nodeId) return false;
+
+    // Exclude dock feedback edges - these don't block execution
+    const handle = e.targetHandle || '';
+    if (handle.startsWith('dock:') &&
+        (handle.endsWith(':input') || handle.endsWith(':current'))) {
+      return false;
+    }
+    return true;
+  });
+
+  // Check if all source nodes have completed (have outputs in context)
+  return incomingEdges.every(e => {
+    // Check regular context outputs
+    if (context.outputs.has(e.source)) {
+      return true;
+    }
+    // Check dock context outputs (for loop inner nodes)
+    if (dockContext) {
+      let sourceHandle = e.sourceHandle || 'output:output';
+      // Strip :internal suffix if present (used for loop internal edges)
+      if (sourceHandle.endsWith(':internal')) {
+        sourceHandle = sourceHandle.slice(0, -9);
+      }
+      if (sourceHandle in dockContext.dockOutputs) {
+        return true;
+      }
+    }
+    return false;
+  });
 }
 
 /**
@@ -1122,14 +1172,32 @@ async function executeNode(
 }
 
 /**
- * Execute a workflow
+ * Execute a workflow with parallel execution support
  */
 export async function executeWorkflow(
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
   options: ExecuteOptions = {}
 ): Promise<ExecuteResult> {
-  const { rootDirectory, startNodeId, startNodeIds, loopId, triggerInputs, workflowInputs, dockContext, onNodeStart, onNodeComplete, onNodeOutput, onEdgeExecuted, onIterationStart, onIterationComplete } = options;
+  const {
+    rootDirectory,
+    startNodeId,
+    startNodeIds,
+    loopId,
+    triggerInputs,
+    workflowInputs,
+    dockContext,
+    maxConcurrent = 3,
+    continueOnFailDefault = false,
+    onNodeStart,
+    onNodeComplete,
+    onNodeOutput,
+    onEdgeExecuted,
+    onIterationStart,
+    onIterationComplete,
+    onBatchStart,
+    onBatchComplete,
+  } = options;
 
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   const adjacency = buildAdjacencyMap(edges);
@@ -1165,41 +1233,48 @@ export async function executeWorkflow(
   const executionOrder: string[] = [];
   const visited = new Set<string>();
   let overallSuccess = true;
+  let terminateWorkflow = false;
+  let batchNumber = 0;
 
-  const queue = [...startNodes];
+  // Queue of nodes to potentially execute
+  let queue = [...startNodes];
 
-  while (queue.length > 0) {
-    const nodeId = queue.shift()!;
-
-    if (visited.has(nodeId)) continue;
-    visited.add(nodeId);
-
+  /**
+   * Check if a node should be skipped (parent constraint, loop constraint, etc.)
+   * Returns { skip: true, traverse: true } if should skip but continue traversing downstream
+   * Returns { skip: true, traverse: false } if should skip entirely
+   * Returns { skip: false } if should execute
+   */
+  function shouldSkipNode(nodeId: string): { skip: boolean; traverse?: boolean } {
     const node = nodeMap.get(nodeId);
-    if (!node) continue;
+    if (!node) return { skip: true, traverse: false };
 
     // Skip the loop node itself when executing inside that loop
-    // This prevents the loop from re-executing itself when downstream edges lead back to it
     if (loopId && nodeId === loopId) {
-      // Don't execute the loop container from within its own inner workflow
-      continue;
+      return { skip: true, traverse: false };
     }
 
-    // Skip nodes that have a parentId - they are children of container nodes (like loops)
-    // and should only be executed by their parent, not by the main workflow
-    // Exception: when we're inside a loop (indicated by loopId being set), allow execution
-    // ONLY if the node's parentId matches the loop we're executing
+    // Skip nodes that have a parentId unless we're executing inside that parent
     if (node.parentId) {
       const isOurChild = loopId && node.parentId === loopId;
       if (!isOurChild) {
-        // This node belongs to a different parent (or we're not in a loop)
-        // Don't execute it, but do continue traversing
-        const downstream = adjacency.get(nodeId) || [];
-        queue.push(...downstream);
-        continue;
+        return { skip: true, traverse: true };
       }
     }
 
-    executionOrder.push(nodeId);
+    return { skip: false };
+  }
+
+  /**
+   * Execute a single node and return its result
+   */
+  async function executeOneNode(nodeId: string): Promise<{
+    nodeId: string;
+    result: NodeResult;
+    outputValues: Record<string, unknown>;
+    shouldTerminate: boolean;
+  }> {
+    const node = nodeMap.get(nodeId)!;
 
     if (onNodeStart) {
       onNodeStart(nodeId, node);
@@ -1233,52 +1308,147 @@ export async function executeWorkflow(
         startTime: new Date().toISOString(),
         endTime: new Date().toISOString(),
       };
-      results.push(result);
 
       if (onNodeComplete) {
         onNodeComplete(nodeId, result);
       }
 
-      const continueOnFailure = nodeWithIO.data.continueOnFailure === true;
-      if (!continueOnFailure) {
-        overallSuccess = false;
-        break; // Stop workflow on input resolution failure (same as execution failure)
-      }
-      // Node failed but continueOnFailure is true - keep going but mark overall as failed
-      overallSuccess = false;
-      continue;
+      const continueOnFailure = nodeWithIO.data.continueOnFailure ?? continueOnFailDefault;
+      return {
+        nodeId,
+        result,
+        outputValues: {},
+        shouldTerminate: !continueOnFailure,
+      };
     }
 
     // Process templates with resolved input values
     const processedNode = processNodeTemplates(nodeWithIO, context, inputValues);
     const result = await executeNode(processedNode, rootDirectory || process.cwd(), nodes, edges, context, options);
-    results.push(result);
 
     if (onNodeComplete) {
       onNodeComplete(nodeId, result);
     }
 
-    // Build and store output values based on node's output definitions
+    // Build output values based on node's output definitions
     const outputValues = buildOutputValues(processedNode, result, context);
-    context.outputs.set(nodeId, outputValues);
 
-    // Check if we should stop on failure
+    // Check if we should terminate on failure
+    let shouldTerminate = false;
     if (result.status === 'failed') {
-      const continueOnFailure = processedNode.data.continueOnFailure === true;
-      if (!continueOnFailure) {
-        overallSuccess = false;
+      const continueOnFailure = processedNode.data.continueOnFailure ?? continueOnFailDefault;
+      shouldTerminate = !continueOnFailure;
+    }
+
+    return {
+      nodeId,
+      result,
+      outputValues,
+      shouldTerminate,
+    };
+  }
+
+  while (queue.length > 0 && !terminateWorkflow) {
+    // Partition queue into ready (all deps satisfied) vs pending (waiting for deps)
+    const ready: string[] = [];
+    const pending: string[] = [];
+
+    for (const nodeId of queue) {
+      if (visited.has(nodeId)) continue;
+
+      const skipResult = shouldSkipNode(nodeId);
+      if (skipResult.skip) {
+        if (skipResult.traverse) {
+          // Mark as visited and queue downstream
+          visited.add(nodeId);
+          const downstream = adjacency.get(nodeId) || [];
+          for (const nextId of downstream) {
+            if (!visited.has(nextId) && !pending.includes(nextId) && !queue.includes(nextId)) {
+              pending.push(nextId);
+            }
+          }
+        }
+        continue;
+      }
+
+      // Check if all dependencies are satisfied
+      if (isNodeReady(nodeId, edges, context, dockContext)) {
+        ready.push(nodeId);
+      } else {
+        pending.push(nodeId);
+      }
+    }
+
+    if (ready.length === 0) {
+      // No nodes ready to execute
+      if (pending.length === 0) {
+        // Nothing left to do
         break;
       }
-      // Node failed but continueOnFailure is true - keep going but mark overall as failed
-      overallSuccess = false;
+      // All remaining nodes are waiting for dependencies that may never complete
+      // This could indicate a cycle or unreachable nodes - break to avoid infinite loop
+      break;
     }
 
-    const nextNodes = adjacency.get(nodeId) || [];
-    for (const nextId of nextNodes) {
-      if (!visited.has(nextId)) {
-        queue.push(nextId);
+    // Apply concurrency limit
+    const batch = ready.slice(0, maxConcurrent);
+    const deferred = ready.slice(maxConcurrent);
+
+    // Track batch start
+    batchNumber++;
+    const batchStartTime = Date.now();
+    if (onBatchStart) {
+      onBatchStart(batch, batchNumber);
+    }
+
+    // Mark batch nodes as visited and add to execution order
+    for (const nodeId of batch) {
+      visited.add(nodeId);
+      executionOrder.push(nodeId);
+    }
+
+    // Execute batch in parallel
+    const batchResults = await Promise.all(batch.map(nodeId => executeOneNode(nodeId)));
+
+    // Track batch completion
+    if (onBatchComplete) {
+      onBatchComplete(batch, batchNumber, Date.now() - batchStartTime);
+    }
+
+    // Process results
+    for (const { nodeId, result, outputValues, shouldTerminate } of batchResults) {
+      results.push(result);
+      context.outputs.set(nodeId, outputValues);
+
+      if (result.status === 'failed') {
+        overallSuccess = false;
+
+        if (shouldTerminate) {
+          terminateWorkflow = true;
+        }
       }
     }
+
+    // Build new queue: pending + deferred + downstream of completed nodes
+    const newQueue = new Set<string>(pending);
+
+    // Add deferred nodes
+    for (const nodeId of deferred) {
+      newQueue.add(nodeId);
+    }
+
+    // Add downstream of all completed batch nodes
+    // (downstream nodes will be skipped on next iteration if workflow terminated)
+    for (const { nodeId } of batchResults) {
+      const downstream = adjacency.get(nodeId) || [];
+      for (const nextId of downstream) {
+        if (!visited.has(nextId)) {
+          newQueue.add(nextId);
+        }
+      }
+    }
+
+    queue = Array.from(newQueue);
   }
 
   return {
