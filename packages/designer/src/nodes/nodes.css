@@ -67,6 +67,14 @@
   box-shadow: 0 0 0 2px var(--node-component, #8b5cf6), 0 0 25px rgba(139, 92, 246, 0.5);
 }
 
+.custom-node.function {
+  border-color: #8b5cf6;
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.2);
+}
+.custom-node.function.selected {
+  box-shadow: 0 0 0 2px #8b5cf6, 0 0 25px rgba(139, 92, 246, 0.5);
+}
+
 .custom-node.interface-input,
 .custom-node.interface-output,
 .custom-node.interface-continue {
@@ -98,6 +106,7 @@
 .custom-node.interface-output .node-header,
 .custom-node.interface-continue .node-header { background: linear-gradient(90deg, var(--node-interface, #06b6d4), #22d3ee); }
 .custom-node.loop .node-header { background: linear-gradient(90deg, var(--node-loop, #a855f7), #c084fc); }
+.custom-node.function .node-header { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
 
 .node-header {
   display: flex;

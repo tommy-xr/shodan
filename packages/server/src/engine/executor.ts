@@ -1,7 +1,13 @@
 import { spawn } from 'child_process';
 import { executeAgent, type RunnerType } from './agents/index.js';
-import type { PortDefinition, ValueType, WorkflowNode, WorkflowEdge, WorkflowSchema, LoopNodeData, ConstantNodeData, ConstantValueType, NodeResult, NodeStatus } from '@robomesh/core';
-import { isLoopNodeData } from '@robomesh/core';
+import type { PortDefinition, ValueType, WorkflowNode, WorkflowEdge, WorkflowSchema, LoopNodeData, ConstantNodeData, ConstantValueType, FunctionNodeData, NodeResult, NodeStatus } from '@robomesh/core';
+import { isLoopNodeData, coerceInputs } from '@robomesh/core';
+import { transform, build } from 'esbuild';
+import { pathToFileURL } from 'url';
+import * as fs from 'fs/promises';
+import * as crypto from 'crypto';
+import * as os from 'os';
+import * as path from 'path';
 import { loadWorkflow, getWorkflowDirectory } from './workflow-loader.js';
 import { executeLoop } from './loop-executor.js';
 
@@ -548,6 +554,26 @@ function ensureNodeIO(node: WorkflowNode): WorkflowNode {
       { name: 'stderr', type: 'string', description: 'Standard error from script' },
       { name: 'exitCode', type: 'number', description: 'Exit code from script' }
     );
+  } else if (nodeType === 'function') {
+    // Function nodes use explicit inputs/outputs from data
+    const fnData = node.data as unknown as FunctionNodeData;
+    if (fnData.inputs) {
+      for (const input of fnData.inputs) {
+        inputs.push({
+          name: input.name,
+          type: (input.type || 'any') as ValueType,
+          required: input.required ?? false,
+        });
+      }
+    }
+    if (fnData.outputs) {
+      for (const output of fnData.outputs) {
+        outputs.push({
+          name: output.name,
+          type: (output.type || 'any') as ValueType,
+        });
+      }
+    }
   } else {
     // Other node types get a generic input/output
     inputs.push(
@@ -677,6 +703,12 @@ function buildOutputValues(
       if (result.structuredOutput && typeof result.structuredOutput === 'object') {
         const componentOutputs = result.structuredOutput as Record<string, unknown>;
         outputs[outputDef.name] = componentOutputs[outputDef.name];
+      }
+    } else if (nodeType === 'function') {
+      // Function node: outputs come from structuredOutput (the function's return value)
+      if (result.structuredOutput && typeof result.structuredOutput === 'object') {
+        const fnOutputs = result.structuredOutput as Record<string, unknown>;
+        outputs[outputDef.name] = fnOutputs[outputDef.name];
       }
     } else {
       // Other node types - use rawOutput
@@ -840,6 +872,146 @@ async function executeNode(
       startTime,
       endTime: new Date().toISOString(),
     };
+  }
+
+  // AsyncFunction constructor for inline async support
+  const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+
+  if (nodeType === 'function') {
+    const fnData = node.data as unknown as FunctionNodeData;
+    const { code, file } = fnData;
+
+    try {
+      let fn: (inputs: Record<string, unknown>) => unknown | Promise<unknown>;
+
+      if (code) {
+        // Inline mode: strip TS types with esbuild, then eval with AsyncFunction
+        const { code: jsCode } = await transform(code, { loader: 'ts' });
+        fn = new AsyncFunction('inputs', jsCode) as typeof fn;
+      } else if (file) {
+        // File mode: compile with esbuild, then dynamic import
+        const absolutePath = path.resolve(cwd, file);
+
+        // Check if file exists
+        try {
+          await fs.access(absolutePath);
+        } catch {
+          return {
+            nodeId: node.id,
+            status: 'failed',
+            error: `Function file not found: ${absolutePath}`,
+            startTime,
+            endTime: new Date().toISOString(),
+          };
+        }
+
+        // Bundle and compile to JS
+        const buildResult = await build({
+          entryPoints: [absolutePath],
+          bundle: true,
+          write: false,
+          format: 'esm',
+          platform: 'node',
+        });
+        const jsCode = buildResult.outputFiles[0].text;
+
+        // Write to temp file for import (Node requires file URL for ESM)
+        // Use content hash to bust Node's ESM cache when source changes
+        const contentHash = crypto.createHash('md5').update(jsCode).digest('hex').slice(0, 8);
+        const tempFile = path.join(os.tmpdir(), `robomesh-fn-${contentHash}.mjs`);
+
+        // Only write if file doesn't exist (content-addressed)
+        try {
+          await fs.access(tempFile);
+        } catch {
+          await fs.writeFile(tempFile, jsCode);
+        }
+
+        const module = await import(pathToFileURL(tempFile).href);
+        fn = module.default;
+
+        if (typeof fn !== 'function') {
+          return {
+            nodeId: node.id,
+            status: 'failed',
+            error: `File ${file} must export a default function`,
+            startTime,
+            endTime: new Date().toISOString(),
+          };
+        }
+      } else {
+        return {
+          nodeId: node.id,
+          status: 'failed',
+          error: 'Function node requires either code or file',
+          startTime,
+          endTime: new Date().toISOString(),
+        };
+      }
+
+      // Apply type coercion to inputs based on declared types
+      const coercedInputs = coerceInputs(inputValues, fnData.inputs || []);
+
+      // Execute function with input values
+      const result = await fn(coercedInputs);
+
+      // Validate result is an object
+      if (typeof result !== 'object' || result === null) {
+        return {
+          nodeId: node.id,
+          status: 'failed',
+          error: `Function must return an object, got: ${typeof result}`,
+          startTime,
+          endTime: new Date().toISOString(),
+        };
+      }
+
+      const resultObj = result as Record<string, unknown>;
+
+      // Validate outputs match declared outputs
+      const declaredOutputs = fnData.outputs || [];
+      const missingOutputs = declaredOutputs
+        .filter(o => !(o.name in resultObj))
+        .map(o => o.name);
+
+      if (missingOutputs.length > 0) {
+        return {
+          nodeId: node.id,
+          status: 'failed',
+          error: `Function missing declared outputs: ${missingOutputs.join(', ')}`,
+          startTime,
+          endTime: new Date().toISOString(),
+        };
+      }
+
+      // Safe serialization (handles undefined, but not circular refs)
+      const safeStringify = (obj: unknown): string => {
+        try {
+          return JSON.stringify(obj, (_, v) => v === undefined ? null : v);
+        } catch {
+          // Circular reference or BigInt - return a descriptive placeholder
+          return '[Complex object - not serializable]';
+        }
+      };
+
+      return {
+        nodeId: node.id,
+        status: 'completed',
+        output: safeStringify(result),
+        rawOutput: safeStringify(result),
+        structuredOutput: resultObj,
+        startTime,
+        endTime: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        nodeId: node.id,
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+        startTime,
+        endTime: new Date().toISOString(),
+      };
+    }
   }
 
   if (nodeType === 'workdir') {

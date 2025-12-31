@@ -1,0 +1,101 @@
+version: 2
+metadata:
+  name: Function Node Test (Inline)
+  description: Tests inline function code execution
+
+nodes:
+  - id: trigger
+    type: trigger
+    position: { x: 50, y: 150 }
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: text
+          type: string
+        - name: params
+          type: json
+
+  - id: num-a
+    type: constant
+    position: { x: 200, y: 100 }
+    data:
+      nodeType: constant
+      label: A
+      valueType: number
+      value: 10
+      outputs:
+        - name: value
+          type: number
+
+  - id: num-b
+    type: constant
+    position: { x: 200, y: 200 }
+    data:
+      nodeType: constant
+      label: B
+      valueType: number
+      value: 3
+      outputs:
+        - name: value
+          type: number
+
+  - id: add
+    type: function
+    position: { x: 400, y: 150 }
+    data:
+      nodeType: function
+      label: Add
+      code: "return { sum: inputs.a + inputs.b }"
+      inputs:
+        - name: a
+          type: number
+        - name: b
+          type: number
+      outputs:
+        - name: sum
+          type: number
+
+  - id: log
+    type: shell
+    position: { x: 600, y: 150 }
+    data:
+      nodeType: shell
+      label: Log Result
+      script: "echo \"Sum: {{ inputs.value }}\""
+      inputs:
+        - name: input
+          type: any
+        - name: value
+          type: number
+      outputs:
+        - name: output
+          type: string
+        - name: stdout
+          type: string
+        - name: stderr
+          type: string
+        - name: exitCode
+          type: number
+
+edges:
+  - id: e1
+    source: num-a
+    target: add
+    sourceHandle: "output:value"
+    targetHandle: "input:a"
+  - id: e2
+    source: num-b
+    target: add
+    sourceHandle: "output:value"
+    targetHandle: "input:b"
+  - id: e3
+    source: add
+    target: log
+    sourceHandle: "output:sum"
+    targetHandle: "input:value"

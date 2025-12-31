@@ -42,6 +42,8 @@ const DYNAMIC_PORT_TYPES = new Set([
   'interface-input',
   'interface-output',
   'interface-continue',
+  'function',  // User-defined inputs/outputs
+  'constant',  // User-defined output type
 ]);
 
 /**
@@ -228,7 +230,7 @@ function getNodePorts(node: WorkflowNode): { inputs: string[]; outputs: string[]
   }
 
   // Special handling for nodes that can output via generic 'output' handle
-  if (['shell', 'script', 'agent'].includes(nodeType)) {
+  if (['shell', 'script', 'agent', 'function'].includes(nodeType)) {
     outputs.add('output');
   }
 

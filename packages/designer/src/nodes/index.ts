@@ -14,6 +14,7 @@ export const nodeTypes = {
   loop: LoopContainerNode,
   'interface-continue': BaseNode,
   constant: ConstantNode,
+  function: BaseNode,
 };
 
 export type { BaseNodeData, NodeType, ExecutionStatus } from './BaseNode';

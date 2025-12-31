@@ -21,6 +21,7 @@ const paletteItems: PaletteItem[] = [
 
 const logicItems: PaletteItem[] = [
   { type: 'constant', label: 'Constant', icon: '◆' },
+  { type: 'function', label: 'Function', icon: 'ƒ' },
 ];
 
 interface AccordionSectionProps {

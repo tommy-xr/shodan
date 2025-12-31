@@ -1,0 +1,101 @@
+version: 2
+metadata:
+  name: Function Node Test (Logic Operators)
+  description: Tests boolean logic operators from file
+
+nodes:
+  - id: trigger
+    type: trigger
+    position: { x: 50, y: 150 }
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: text
+          type: string
+        - name: params
+          type: json
+
+  - id: flag-a
+    type: constant
+    position: { x: 200, y: 100 }
+    data:
+      nodeType: constant
+      label: Flag A
+      valueType: boolean
+      value: true
+      outputs:
+        - name: value
+          type: boolean
+
+  - id: flag-b
+    type: constant
+    position: { x: 200, y: 200 }
+    data:
+      nodeType: constant
+      label: Flag B
+      valueType: boolean
+      value: false
+      outputs:
+        - name: value
+          type: boolean
+
+  - id: and-op
+    type: function
+    position: { x: 400, y: 150 }
+    data:
+      nodeType: function
+      label: AND
+      file: scripts/logic/and.ts
+      inputs:
+        - name: a
+          type: boolean
+        - name: b
+          type: boolean
+      outputs:
+        - name: result
+          type: boolean
+
+  - id: log
+    type: shell
+    position: { x: 600, y: 150 }
+    data:
+      nodeType: shell
+      label: Log Result
+      script: "echo \"A AND B = {{ inputs.value }}\""
+      inputs:
+        - name: input
+          type: any
+        - name: value
+          type: boolean
+      outputs:
+        - name: output
+          type: string
+        - name: stdout
+          type: string
+        - name: stderr
+          type: string
+        - name: exitCode
+          type: number
+
+edges:
+  - id: e1
+    source: flag-a
+    target: and-op
+    sourceHandle: "output:value"
+    targetHandle: "input:a"
+  - id: e2
+    source: flag-b
+    target: and-op
+    sourceHandle: "output:value"
+    targetHandle: "input:b"
+  - id: e3
+    source: and-op
+    target: log
+    sourceHandle: "output:result"
+    targetHandle: "input:value"

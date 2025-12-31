@@ -3,7 +3,7 @@ import type { NodeProps } from '@xyflow/react';
 import type { PortDefinition, ValueType, DockSlot } from '@robomesh/core';
 import './nodes.css';
 
-export type NodeType = 'agent' | 'shell' | 'script' | 'trigger' | 'workdir' | 'component' | 'interface-input' | 'interface-output' | 'loop' | 'interface-continue' | 'constant';
+export type NodeType = 'agent' | 'shell' | 'script' | 'trigger' | 'workdir' | 'component' | 'interface-input' | 'interface-output' | 'loop' | 'interface-continue' | 'constant' | 'function';
 export type ExecutionStatus = 'idle' | 'pending' | 'running' | 'completed' | 'failed';
 
 // Color mapping for port types
@@ -49,6 +49,9 @@ export interface BaseNodeData extends Record<string, unknown> {
   // Loop fields
   maxIterations?: number;  // Safety limit for loops (default: 10)
   dockSlots?: DockSlot[];  // Dock slots for iteration control
+  // Function fields
+  code?: string;  // Inline TypeScript/JavaScript code
+  file?: string;  // Path to .ts file with default export function
   // Execution state
   executionStatus?: ExecutionStatus;
   executionOutput?: string;
@@ -71,6 +74,7 @@ const nodeIcons: Record<NodeType, string> = {
   loop: '🔁',
   'interface-continue': '⊕',
   constant: '◆',
+  function: 'ƒ',
 };
 
 const nodeLabels: Record<NodeType, string> = {
@@ -85,6 +89,7 @@ const nodeLabels: Record<NodeType, string> = {
   loop: 'Loop',
   'interface-continue': 'Continue',
   constant: 'Constant',
+  function: 'Function',
 };
 
 const runnerLabels: Record<string, string> = {
@@ -180,6 +185,17 @@ function getDefaultIO(nodeType: NodeType): { inputs: PortDefinition[]; outputs: 
       inputs: [],
       outputs: [
         { name: 'value', type: 'any', description: 'Constant value' }
+      ]
+    };
+  } else if (nodeType === 'function') {
+    // Function nodes have I/O defined by the user
+    // Defaults provide a simple example
+    return {
+      inputs: [
+        { name: 'value', type: 'any', required: false, description: 'Input value' }
+      ],
+      outputs: [
+        { name: 'result', type: 'any', description: 'Function result' }
       ]
     };
   } else {

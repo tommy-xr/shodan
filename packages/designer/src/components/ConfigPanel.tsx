@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Node } from '@xyflow/react';
 import type { BaseNodeData, NodeType } from '../nodes';
-import type { PortDefinition } from '@robomesh/core';
+import type { PortDefinition, ValueType } from '@robomesh/core';
 import { ListEditor } from './ListEditor';
 import { FilePicker } from './FilePicker';
 import { PortEditor } from './PortEditor';
@@ -70,6 +70,7 @@ export function ConfigPanel({ node, rootDirectory, onClose, onUpdate }: ConfigPa
         {nodeType === 'component' && <ComponentConfig node={node} />}
         {nodeType === 'loop' && <LoopConfig node={node} onUpdate={onUpdate} />}
         {nodeType === 'constant' && <ConstantConfig node={node} onUpdate={onUpdate} />}
+        {nodeType === 'function' && <FunctionConfig node={node} onUpdate={onUpdate} />}
         {(nodeType === 'interface-input' || nodeType === 'interface-output' || nodeType === 'interface-continue') && <InterfaceConfig node={node} onUpdate={onUpdate} />}
 
         {/* Execution Output */}
@@ -693,6 +694,207 @@ function ConstantConfig({ node, onUpdate }: Omit<NodeConfigProps, 'rootDirectory
           <code style={{ color: 'var(--text-primary)' }}>value</code>
           <span style={{ marginLeft: '8px', opacity: 0.7 }}>({valueType})</span>
         </div>
+      </div>
+    </>
+  );
+}
+
+/**
+ * Function node configuration - inline code or file reference
+ */
+function FunctionConfig({ node, onUpdate }: Omit<NodeConfigProps, 'rootDirectory'>) {
+  const code = (node.data.code as string) || '';
+  const file = (node.data.file as string) || '';
+  const inputs: PortDefinition[] = (node.data.inputs as PortDefinition[]) || [];
+  const outputs: PortDefinition[] = (node.data.outputs as PortDefinition[]) || [];
+
+  // Determine mode based on which field is set
+  const mode: 'inline' | 'file' = file ? 'file' : 'inline';
+
+  const handleModeChange = (newMode: 'inline' | 'file') => {
+    if (newMode === 'inline') {
+      onUpdate(node.id, {
+        code: code || 'return { result: inputs.value }',
+        file: undefined,
+      });
+    } else {
+      onUpdate(node.id, {
+        code: undefined,
+        file: file || '',
+      });
+    }
+  };
+
+  const handleCodeChange = (newCode: string) => {
+    onUpdate(node.id, { code: newCode });
+  };
+
+  const handleFileChange = (newFile: string) => {
+    onUpdate(node.id, { file: newFile });
+  };
+
+  const addInput = () => {
+    const newInputs: PortDefinition[] = [...inputs, { name: `input${inputs.length + 1}`, type: 'any' as ValueType }];
+    onUpdate(node.id, { inputs: newInputs });
+  };
+
+  const updateInput = (index: number, field: 'name' | 'type', value: string) => {
+    const newInputs: PortDefinition[] = [...inputs];
+    if (field === 'type') {
+      newInputs[index] = { ...newInputs[index], type: value as ValueType };
+    } else {
+      newInputs[index] = { ...newInputs[index], [field]: value };
+    }
+    onUpdate(node.id, { inputs: newInputs });
+  };
+
+  const removeInput = (index: number) => {
+    const newInputs: PortDefinition[] = inputs.filter((_, i) => i !== index);
+    onUpdate(node.id, { inputs: newInputs });
+  };
+
+  const addOutput = () => {
+    const newOutputs: PortDefinition[] = [...outputs, { name: `output${outputs.length + 1}`, type: 'any' as ValueType }];
+    onUpdate(node.id, { outputs: newOutputs });
+  };
+
+  const updateOutput = (index: number, field: 'name' | 'type', value: string) => {
+    const newOutputs: PortDefinition[] = [...outputs];
+    if (field === 'type') {
+      newOutputs[index] = { ...newOutputs[index], type: value as ValueType };
+    } else {
+      newOutputs[index] = { ...newOutputs[index], [field]: value };
+    }
+    onUpdate(node.id, { outputs: newOutputs });
+  };
+
+  const removeOutput = (index: number) => {
+    const newOutputs: PortDefinition[] = outputs.filter((_, i) => i !== index);
+    onUpdate(node.id, { outputs: newOutputs });
+  };
+
+  const typeOptions = ['any', 'string', 'number', 'boolean', 'object'];
+
+  return (
+    <>
+      <div className="config-field">
+        <label>Mode</label>
+        <select value={mode} onChange={(e) => handleModeChange(e.target.value as 'inline' | 'file')}>
+          <option value="inline">Inline Code</option>
+          <option value="file">File</option>
+        </select>
+      </div>
+
+      {mode === 'inline' ? (
+        <div className="config-field">
+          <label>Code</label>
+          <textarea
+            value={code}
+            onChange={(e) => handleCodeChange(e.target.value)}
+            placeholder="return { result: inputs.value }"
+            style={{ fontFamily: 'monospace', minHeight: '100px' }}
+          />
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            Access inputs via <code>inputs.name</code>. Return an object with output values.
+          </div>
+        </div>
+      ) : (
+        <div className="config-field">
+          <label>File Path</label>
+          <input
+            type="text"
+            value={file}
+            onChange={(e) => handleFileChange(e.target.value)}
+            placeholder="scripts/logic/myFunction.ts"
+          />
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            File must export a default function.
+          </div>
+        </div>
+      )}
+
+      <div className="config-field">
+        <label>
+          Inputs
+          <button
+            className="add-port-btn"
+            onClick={addInput}
+            style={{ marginLeft: '8px', padding: '2px 6px', fontSize: '0.75rem' }}
+          >
+            + Add
+          </button>
+        </label>
+        {inputs.length === 0 && (
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No inputs defined</div>
+        )}
+        {inputs.map((input, index) => (
+          <div key={index} style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+            <input
+              type="text"
+              value={input.name}
+              onChange={(e) => updateInput(index, 'name', e.target.value)}
+              placeholder="name"
+              style={{ flex: 1 }}
+            />
+            <select
+              value={input.type}
+              onChange={(e) => updateInput(index, 'type', e.target.value)}
+              style={{ width: '80px' }}
+            >
+              {typeOptions.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => removeInput(index)}
+              style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="config-field">
+        <label>
+          Outputs
+          <button
+            className="add-port-btn"
+            onClick={addOutput}
+            style={{ marginLeft: '8px', padding: '2px 6px', fontSize: '0.75rem' }}
+          >
+            + Add
+          </button>
+        </label>
+        {outputs.length === 0 && (
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No outputs defined</div>
+        )}
+        {outputs.map((output, index) => (
+          <div key={index} style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+            <input
+              type="text"
+              value={output.name}
+              onChange={(e) => updateOutput(index, 'name', e.target.value)}
+              placeholder="name"
+              style={{ flex: 1 }}
+            />
+            <select
+              value={output.type}
+              onChange={(e) => updateOutput(index, 'type', e.target.value)}
+              style={{ width: '80px' }}
+            >
+              {typeOptions.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => removeOutput(index)}
+              style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+            >
+              ×
+            </button>
+          </div>
+        ))}
       </div>
     </>
   );

@@ -27,6 +27,7 @@ export type StandardNodeType =
   | 'shell'
   | 'script'
   | 'constant'
+  | 'function'
   | 'workdir';
 
 /**
@@ -86,6 +87,15 @@ export const NODE_PORT_DEFAULTS: Record<StandardNodeType, NodePortDefaults> = {
     inputs: [],
     outputs: [
       { name: 'value', type: 'any', description: 'The constant value' },
+    ],
+  },
+
+  function: {
+    inputs: [
+      { name: 'value', type: 'any', required: false, description: 'Input value' },
+    ],
+    outputs: [
+      { name: 'result', type: 'any', description: 'Function result' },
     ],
   },
 

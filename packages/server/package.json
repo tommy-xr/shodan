@@ -19,6 +19,7 @@
     "@robomesh/core": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
+    "esbuild": "^0.27.2",
     "express": "^4.21.0",
     "glob": "^11.0.0",
     "js-yaml": "^4.1.0"

@@ -226,6 +226,32 @@ describe('Constant Node', () => {
   });
 });
 
+describe('Function Node', () => {
+  test('test-function-inline.yaml - inline code execution', async () => {
+    const result = await runWorkflow('test-function-inline.yaml');
+    assert.strictEqual(result.success, true);
+
+    const add = getNode(result, 'add');
+    assertNodeCompleted(add);
+
+    const log = getNode(result, 'log');
+    assertNodeCompleted(log);
+    assertOutputContains(log, 'Sum: 13', 'output');
+  });
+
+  test('test-function-logic.yaml - file-based function execution', async () => {
+    const result = await runWorkflow('test-function-logic.yaml', { rootDirectory: PROJECT_ROOT });
+    assert.strictEqual(result.success, true);
+
+    const andOp = getNode(result, 'and-op');
+    assertNodeCompleted(andOp);
+
+    const log = getNode(result, 'log');
+    assertNodeCompleted(log);
+    assertOutputContains(log, 'A AND B = false', 'output');
+  });
+});
+
 describe('Parallel Execution', () => {
   test('test-parallel/test-parallel-shell.yaml - executes independent nodes concurrently', async () => {
     const startTime = Date.now();
