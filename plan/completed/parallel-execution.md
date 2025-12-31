@@ -1,5 +1,7 @@
 # Parallel Workflow Execution
 
+**Status: ✅ COMPLETED**
+
 ## Overview
 
 Enable concurrent execution of independent workflow nodes to improve performance, particularly for workflows with multiple agents that don't depend on each other.
@@ -370,15 +372,15 @@ describe('Parallel Execution', () => {
 
 ## Implementation Steps
 
-1. **Add `onBatchStart`/`onBatchComplete` events** to `ExecuteOptions`
-2. **Implement `isNodeReady()` helper** function
-3. **Refactor main loop** to batch-based parallel execution
-4. **Add `maxConcurrent` option** with default of 3
-5. **Update error handling** for `continueOnFail` in parallel context
-6. **Create test workflows** in `workflows/test-parallel/`
-7. **Add automated tests** to test runner
-8. **Update CLI output** to handle interleaved node output
-9. **Verify Designer/SSE** handles concurrent node updates
+1. ✅ **Add `onBatchStart`/`onBatchComplete` events** to `ExecuteOptions`
+2. ✅ **Implement `isNodeReady()` helper** function
+3. ✅ **Refactor main loop** to batch-based parallel execution
+4. ✅ **Add `maxConcurrent` option** with default of 3
+5. ✅ **Update error handling** for `continueOnFail` in parallel context
+6. ✅ **Create test workflows** in `workflows/test-parallel/`
+7. ✅ **Add automated tests** to test runner (4 tests in "Parallel Execution" suite)
+8. ✅ **Update CLI output** to handle interleaved node output (prefixes with `[NodeLabel]`)
+9. ✅ **Fix Codex streaming** to parse JSONL and extract text (Designer/SSE already correct)
 
 ## Future Enhancements
 
