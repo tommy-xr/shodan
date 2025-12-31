@@ -117,10 +117,16 @@ async function runClaudeCli(config: AgentConfig): Promise<AgentResult> {
               const event = JSON.parse(line);
               // Extract text from assistant messages
               if (event.type === 'assistant' && event.message?.content) {
+                // Collect all text blocks from this message
+                const messageText: string[] = [];
                 for (const block of event.message.content) {
                   if (block.type === 'text' && block.text) {
-                    config.onOutput(block.text);
+                    messageText.push(block.text);
                   }
+                }
+                // Send message text with trailing newline for separation
+                if (messageText.length > 0) {
+                  config.onOutput(messageText.join('') + '\n');
                 }
               }
             } catch {
@@ -165,10 +171,15 @@ async function runClaudeCli(config: AgentConfig): Promise<AgentResult> {
           try {
             const event = JSON.parse(line);
             if (event.type === 'assistant' && event.message?.content) {
+              // Collect all text from this message
+              const messageText: string[] = [];
               for (const block of event.message.content) {
                 if (block.type === 'text' && block.text) {
-                  textParts.push(block.text);
+                  messageText.push(block.text);
                 }
+              }
+              if (messageText.length > 0) {
+                textParts.push(messageText.join(''));
               }
             } else if (event.type === 'result' && event.is_error) {
               hasError = true;
@@ -182,13 +193,13 @@ async function runClaudeCli(config: AgentConfig): Promise<AgentResult> {
         if (hasError) {
           resolve({
             success: false,
-            output: textParts.join(''),
+            output: textParts.join('\n'),
             error: errorMessage,
           });
         } else {
           resolve({
             success: true,
-            output: textParts.join('').trim(),
+            output: textParts.join('\n').trim(),
             sessionId,
           });
         }

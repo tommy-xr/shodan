@@ -18,6 +18,16 @@ Transform the workflow execution model from synchronous request-response to real
 | Phase 4 | ✅ Complete | Agent Output Streaming - Claude Code & Codex runners stream stdout |
 | Phase 5 | ✅ Complete | Loop Iteration Display - iteration badge on LoopContainerNode |
 | Testing | ✅ Complete | E2E visual test workflows created |
+| UI Polish | ✅ Complete | Floating output panel below nodes, blinking cursor, sidebar streaming |
+
+### UI Polish Details
+
+The streaming output display was enhanced with:
+- **Floating panel below running nodes** - Centered panel with min-width 280px, shows last 6 lines
+- **Blinking cursor** - Blue `▌` cursor with step-end animation indicates active streaming
+- **Sidebar live output** - ConfigPanel shows streaming output with "(streaming...)" indicator
+- **Proper newline handling** - Claude Code runner joins messages with `\n` for correct line breaks
+- **No-wrap scrollable** - Uses `white-space: pre` with horizontal/vertical scroll
 
 ## Current State (Before Implementation)
 

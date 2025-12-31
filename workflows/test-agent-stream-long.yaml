@@ -1,12 +1,12 @@
 version: 1
 metadata:
   name: Agent Streaming Test (Long Task)
-  description: Test agent streaming with a task that produces incremental output
+  description: Test agent streaming with Claude Code and Codex agents
 
 nodes:
   - id: trigger
     type: trigger
-    position: { x: 50, y: 100 }
+    position: { x: 50, y: 200 }
     data:
       nodeType: trigger
       label: Start
@@ -21,12 +21,12 @@ nodes:
         - name: params
           type: json
 
-  - id: agent-task
+  - id: claude-agent
     type: agent
-    position: { x: 250, y: 100 }
+    position: { x: 300, y: 50 }
     data:
       nodeType: agent
-      label: File Search Agent
+      label: Claude Code
       runner: claude-code
       prompt: |
         Search the codebase for all TypeScript files that contain the word "execute".
@@ -43,9 +43,37 @@ nodes:
         - name: output
           type: string
 
+  - id: codex-agent
+    type: agent
+    position: { x: 300, y: 300 }
+    data:
+      nodeType: agent
+      label: Codex
+      runner: codex
+      prompt: |
+        Search the codebase for all TypeScript files that contain the word "workflow".
+        For each file found, list:
+        1. The file path
+        2. The line numbers where "workflow" appears
+        3. A brief description of what that code does
+
+        Work through the files one at a time, explaining each as you go.
+      inputs:
+        - name: input
+          type: string
+      outputs:
+        - name: output
+          type: string
+
 edges:
   - id: e1
     source: trigger
-    target: agent-task
+    target: claude-agent
+    sourceHandle: output:text
+    targetHandle: input:input
+
+  - id: e2
+    source: trigger
+    target: codex-agent
     sourceHandle: output:text
     targetHandle: input:input

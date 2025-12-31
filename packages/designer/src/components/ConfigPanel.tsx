@@ -87,9 +87,12 @@ export function ConfigPanel({ node, rootDirectory, onClose, onUpdate }: ConfigPa
               </div>
             )}
             {node.data.executionOutput && (
-              <div className="execution-output-content">
-                <label>Output</label>
-                <pre>{node.data.executionOutput as string}</pre>
+              <div className={`execution-output-content ${node.data.executionStatus === 'running' ? 'streaming' : ''}`}>
+                <label>Output {node.data.executionStatus === 'running' && <span className="streaming-indicator">(streaming...)</span>}</label>
+                <pre>
+                  {node.data.executionOutput as string}
+                  {node.data.executionStatus === 'running' && <span className="output-cursor">▌</span>}
+                </pre>
               </div>
             )}
           </div>

@@ -322,14 +322,18 @@ export function BaseNode({ data, selected }: NodeProps) {
               <span className="schema-icon">{ }</span> {schemaPreview}
             </div>
           )}
-          {/* Streaming output display */}
-          {execStatus === 'running' && nodeData.executionOutput && (
-            <div className="node-streaming-output">
-              <pre>{nodeData.executionOutput.slice(-200)}</pre>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Floating streaming output panel - appears below node when running */}
+      {execStatus === 'running' && nodeData.executionOutput && (
+        <div className="node-streaming-panel">
+          <pre>{
+            // Show last 6 lines to preserve newline formatting
+            nodeData.executionOutput.split('\n').slice(-6).join('\n')
+          }<span className="streaming-cursor">▌</span></pre>
+        </div>
+      )}
 
       {/* Port labels - positioned absolutely relative to the entire node */}
       {inputs.map((input, index) => {
