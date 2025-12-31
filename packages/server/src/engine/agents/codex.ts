@@ -123,7 +123,25 @@ async function runCodexCli(config: AgentConfig): Promise<AgentResult> {
       stdout += chunk;
       // Stream output to callback if provided
       if (config.onOutput) {
-        config.onOutput(chunk);
+        // Parse JSONL and extract just the text content for streaming
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const json = JSON.parse(line) as CodexJsonLine;
+            if (json.type === 'item.completed') {
+              const item = (json as CodexItemCompleted).item;
+              // Stream both reasoning and agent_message text
+              if (item.type === 'reasoning' || item.type === 'agent_message') {
+                config.onOutput(item.text + '\n');
+              }
+            }
+            // Skip other event types (thread.started, turn.started, etc.)
+          } catch {
+            // Non-JSON line - stream as-is (fallback for non-JSONL output)
+            config.onOutput(line + '\n');
+          }
+        }
       }
     });
 
