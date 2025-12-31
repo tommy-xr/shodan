@@ -5,7 +5,8 @@ import type { NodeResult, NodeStatus } from '@shodan/core';
 // Re-export for convenience
 export type { NodeResult, NodeStatus };
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const serverPort = import.meta.env.VITE_SERVER_PORT || '3000';
+const API_BASE = import.meta.env.VITE_API_URL || `http://localhost:${serverPort}/api`;
 
 // Config types
 export interface ConfigResponse {
