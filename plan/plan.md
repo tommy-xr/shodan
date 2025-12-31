@@ -69,3 +69,6 @@ Schema migration (`upgradeWorkflow`) is disabled during early development. When 
 - Higher-order components
 - --working-directory (run workflows in other projects)
 - Planning workflow
+- UX: Move workflow name, +new, and execution into header, to free up header (probably import/export via a drop down menu too)
+- Rebrand to robomesh.ai
+

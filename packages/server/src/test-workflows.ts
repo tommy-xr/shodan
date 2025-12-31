@@ -12,331 +12,214 @@ import fs from 'fs/promises';
 import path from 'path';
 import yaml from 'js-yaml';
 import type { WorkflowSchema } from '@shodan/core';
-import { executeWorkflowSchema } from './engine/executor.js';
+import { executeWorkflowSchema, type ExecuteOptions, type ExecuteResult, type NodeResult } from './engine/executor.js';
+import { loadWorkflow } from './engine/workflow-loader.js';
 
 const WORKFLOWS_DIR = path.resolve(import.meta.dirname, '../../../workflows');
+const PROJECT_ROOT = path.resolve(WORKFLOWS_DIR, '..');
 
-async function loadWorkflow(filename: string): Promise<WorkflowSchema> {
-  const content = await fs.readFile(path.join(WORKFLOWS_DIR, filename), 'utf-8');
-  return yaml.load(content) as WorkflowSchema;
+// ============================================================================
+// Test Helpers
+// ============================================================================
+
+interface RunOptions extends ExecuteOptions {
+  rootDirectory?: string;
 }
+
+async function runWorkflow(filename: string, options?: RunOptions): Promise<ExecuteResult> {
+  const content = await fs.readFile(path.join(WORKFLOWS_DIR, filename), 'utf-8');
+  const schema = yaml.load(content) as WorkflowSchema;
+  if (options?.rootDirectory) {
+    schema.metadata.rootDirectory = options.rootDirectory;
+  }
+  const { rootDirectory: _, ...executeOptions } = options || {};
+  return executeWorkflowSchema(schema, executeOptions);
+}
+
+function getNode(result: ExecuteResult, nodeId: string): NodeResult {
+  const node = result.results.find((r: NodeResult) => r.nodeId === nodeId);
+  assert.ok(node, `Should have ${nodeId} result`);
+  return node;
+}
+
+function assertOutputContains(node: NodeResult, text: string, field: 'output' | 'rawOutput' | 'stdout' | 'stderr' = 'rawOutput') {
+  const value = node[field];
+  assert.ok(
+    value?.includes(text),
+    `${node.nodeId}.${field} should contain "${text}", got: ${value}`
+  );
+}
+
+function assertOutputNotContains(node: NodeResult, text: string, field: 'output' | 'rawOutput' = 'output') {
+  const value = node[field];
+  assert.ok(
+    !value?.includes(text),
+    `${node.nodeId}.${field} should NOT contain "${text}", got: ${value}`
+  );
+}
+
+function assertNodeCompleted(node: NodeResult) {
+  assert.strictEqual(node.status, 'completed', `${node.nodeId} should be completed`);
+}
+
+function assertNodeFailed(node: NodeResult) {
+  assert.strictEqual(node.status, 'failed', `${node.nodeId} should be failed`);
+}
+
+function assertNodeNotExecuted(result: ExecuteResult, nodeId: string) {
+  const node = result.results.find((r: NodeResult) => r.nodeId === nodeId);
+  assert.strictEqual(node, undefined, `${nodeId} should not have executed`);
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
 
 describe('Workflow Execution', () => {
   test('hello-world.yaml runs successfully', async () => {
-    const schema = await loadWorkflow('hello-world.yaml');
-    const result = await executeWorkflowSchema(schema);
+    const result = await runWorkflow('hello-world.yaml');
+    assert.strictEqual(result.success, true);
 
-    assert.strictEqual(result.success, true, 'Workflow should succeed');
-    assert.ok(result.results.length > 0, 'Should have node results');
-
-    // Find the shell node output
-    const shellResult = result.results.find(r => r.nodeId === 'shell_1');
-    assert.ok(shellResult, 'Should have shell_1 result');
-    assert.ok(
-      shellResult.output?.includes('Hello from Shodan!'),
-      `Output should contain greeting, got: ${shellResult.output}`
-    );
+    const shell = getNode(result, 'shell_1');
+    assertOutputContains(shell, 'Hello from Shodan!', 'output');
   });
 
   test('git-branch-info.yaml runs successfully', async () => {
-    const schema = await loadWorkflow('git-branch-info.yaml');
-    // Set rootDirectory to project root for git commands
-    schema.metadata.rootDirectory = path.resolve(WORKFLOWS_DIR, '..');
-
-    const result = await executeWorkflowSchema(schema);
-
-    assert.strictEqual(result.success, true, 'Workflow should succeed');
-    assert.ok(result.results.length > 0, 'Should have node results');
+    const result = await runWorkflow('git-branch-info.yaml', { rootDirectory: PROJECT_ROOT });
+    assert.strictEqual(result.success, true);
+    assert.ok(result.results.length > 0);
   });
 
   test('project-info.yaml runs with template substitution', async () => {
-    const schema = await loadWorkflow('project-info.yaml');
-    // Set rootDirectory to project root
-    schema.metadata.rootDirectory = path.resolve(WORKFLOWS_DIR, '..');
+    const result = await runWorkflow('project-info.yaml', { rootDirectory: PROJECT_ROOT });
+    assert.strictEqual(result.success, true);
 
-    const result = await executeWorkflowSchema(schema);
-
-    assert.strictEqual(result.success, true, 'Workflow should succeed');
-
-    // Find the summary node - it should have templated values filled in
-    const summaryResult = result.results.find(r => r.nodeId === 'shell_summary');
-    assert.ok(summaryResult, 'Should have shell_summary result');
-
-    // The output should NOT contain unreplaced template variables
-    assert.ok(
-      !summaryResult.output?.includes('{{ '),
-      `Output should not have unreplaced templates, got: ${summaryResult.output}`
-    );
-
-    // Should contain "Project Summary"
-    assert.ok(
-      summaryResult.output?.includes('Project Summary'),
-      `Output should contain summary header, got: ${summaryResult.output}`
-    );
+    const summary = getNode(result, 'shell_summary');
+    assertOutputNotContains(summary, '{{ ');
+    assertOutputContains(summary, 'Project Summary', 'output');
   });
 
   test('multi-line-demo.yaml executes multi-line scripts correctly', async () => {
-    const schema = await loadWorkflow('multi-line-demo.yaml');
-    schema.metadata.rootDirectory = WORKFLOWS_DIR;
+    const result = await runWorkflow('multi-line-demo.yaml', { rootDirectory: WORKFLOWS_DIR });
+    assert.strictEqual(result.success, true);
 
-    const result = await executeWorkflowSchema(schema);
+    const loop = getNode(result, 'shell_loop');
+    assertOutputContains(loop, 'Sum: 15');
 
-    assert.strictEqual(result.success, true, 'Workflow should succeed');
+    const conditional = getNode(result, 'shell_conditional');
+    assertOutputContains(conditional, 'YAML files');
 
-    // Test for loop output
-    const loopResult = result.results.find(r => r.nodeId === 'shell_loop');
-    assert.ok(loopResult, 'Should have shell_loop result');
-    assert.ok(
-      loopResult.rawOutput?.includes('Sum: 15'),
-      `Loop should calculate sum correctly, got: ${loopResult.rawOutput}`
-    );
+    const heredoc = getNode(result, 'shell_heredoc');
+    assertOutputContains(heredoc, '=== Report ===');
 
-    // Test conditional output
-    const conditionalResult = result.results.find(r => r.nodeId === 'shell_conditional');
-    assert.ok(conditionalResult, 'Should have shell_conditional result');
-    assert.ok(
-      conditionalResult.rawOutput?.includes('YAML files'),
-      `Conditional should find YAML files, got: ${conditionalResult.rawOutput}`
-    );
-
-    // Test here-doc output
-    const heredocResult = result.results.find(r => r.nodeId === 'shell_heredoc');
-    assert.ok(heredocResult, 'Should have shell_heredoc result');
-    assert.ok(
-      heredocResult.rawOutput?.includes('=== Report ==='),
-      `Heredoc should contain report header, got: ${heredocResult.rawOutput}`
-    );
-
-    // Test summary has correct template substitution (uses rawOutput from previous nodes)
-    const summaryResult = result.results.find(r => r.nodeId === 'shell_summary');
-    assert.ok(summaryResult, 'Should have shell_summary result');
-    assert.ok(
-      summaryResult.rawOutput?.includes('Loop result: Sum: 15'),
-      `Summary should have substituted loop result, got: ${summaryResult.rawOutput}`
-    );
-    assert.ok(
-      !summaryResult.output?.includes('{{ '),
-      `Summary should not have unreplaced templates, got: ${summaryResult.output}`
-    );
+    const summary = getNode(result, 'shell_summary');
+    assertOutputContains(summary, 'Loop result: Sum: 15');
+    assertOutputNotContains(summary, '{{ ');
   });
 });
 
 describe('Phase 2: I/O System', () => {
   test('test-phase2-io.yaml - trigger inputs and named outputs', async () => {
-    const schema = await loadWorkflow('test-phase2-io.yaml');
-    const result = await executeWorkflowSchema(schema, {
+    const result = await runWorkflow('test-phase2-io.yaml', {
       triggerInputs: { text: 'Hello from tests!' }
     });
+    assert.strictEqual(result.success, true);
 
-    assert.strictEqual(result.success, true, 'Workflow should succeed');
+    const shell2 = getNode(result, 'shell-2');
+    assertOutputContains(shell2, 'Hello from tests!', 'output');
 
-    // Verify trigger outputs were used
-    const shell2 = result.results.find(r => r.nodeId === 'shell-2');
-    assert.ok(shell2, 'Should have shell-2 result');
-    assert.ok(
-      shell2.output?.includes('Hello from tests!'),
-      `Should use trigger text input, got: ${shell2.output}`
-    );
-
-    // Verify stdout output capture
-    const shell1 = result.results.find(r => r.nodeId === 'shell-1');
-    assert.ok(shell1?.stdout, 'shell-1 should have stdout');
-    assert.ok(
-      shell1.stdout?.includes('This is stdout output'),
-      `stdout should contain expected text, got: ${shell1.stdout}`
-    );
-
-    // Verify stderr output capture
-    assert.ok(shell1?.stderr, 'shell-1 should have stderr');
-    assert.ok(
-      shell1.stderr?.includes('This is stderr output'),
-      `stderr should contain expected text, got: ${shell1.stderr}`
-    );
-
-    // Verify exitCode output
-    assert.strictEqual(shell1?.exitCode, 0, 'shell-1 should have exitCode 0');
+    const shell1 = getNode(result, 'shell-1');
+    assertOutputContains(shell1, 'This is stdout output', 'stdout');
+    assertOutputContains(shell1, 'This is stderr output', 'stderr');
+    assert.strictEqual(shell1.exitCode, 0);
   });
 
   test('test-stderr-exitcode.yaml - continueOnFailure and non-zero exit codes', async () => {
-    const schema = await loadWorkflow('test-stderr-exitcode.yaml');
-    const result = await executeWorkflowSchema(schema);
+    const result = await runWorkflow('test-stderr-exitcode.yaml');
+    assert.strictEqual(result.success, false);
 
-    // Workflow should fail overall (a node failed) but continue execution
-    assert.strictEqual(result.success, false, 'Workflow should fail overall');
+    const failNode = getNode(result, 'shell-fail');
+    assertNodeFailed(failNode);
+    assert.strictEqual(failNode.exitCode, 42);
 
-    // Verify the failing node executed
-    const failNode = result.results.find(r => r.nodeId === 'shell-fail');
-    assert.ok(failNode, 'Should have shell-fail result');
-    assert.strictEqual(failNode.status, 'failed', 'shell-fail should be marked as failed');
-    assert.strictEqual(failNode.exitCode, 42, 'shell-fail should have exitCode 42');
-
-    // Verify execution continued after failure
-    const verifyNode = result.results.find(r => r.nodeId === 'shell-verify-exitcode');
-    assert.ok(verifyNode, 'Should have shell-verify-exitcode result (execution continued)');
-    assert.strictEqual(verifyNode.status, 'completed', 'Verify node should succeed');
-    assert.ok(
-      verifyNode.output?.includes('SUCCESS: Exit code 42 was captured correctly!'),
-      `Verify node should confirm exit code, got: ${verifyNode.output}`
-    );
+    const verifyNode = getNode(result, 'shell-verify-exitcode');
+    assertNodeCompleted(verifyNode);
+    assertOutputContains(verifyNode, 'SUCCESS: Exit code 42 was captured correctly!', 'output');
   });
 
-  test('test-failure-stops-workflow.yaml - workflow stops on failure without continueOnFailure', async () => {
-    const schema = await loadWorkflow('test-failure-stops-workflow.yaml');
-    const result = await executeWorkflowSchema(schema);
+  test('test-failure-stops-workflow.yaml - workflow stops on failure', async () => {
+    const result = await runWorkflow('test-failure-stops-workflow.yaml');
+    assert.strictEqual(result.success, false);
 
-    assert.strictEqual(result.success, false, 'Workflow should fail');
-
-    // Verify success node ran
-    const successNode = result.results.find(r => r.nodeId === 'shell-success');
-    assert.ok(successNode, 'Should have shell-success result');
-    assert.strictEqual(successNode.status, 'completed', 'First node should succeed');
-
-    // Verify failure node ran
-    const failNode = result.results.find(r => r.nodeId === 'shell-fail');
-    assert.ok(failNode, 'Should have shell-fail result');
-    assert.strictEqual(failNode.status, 'failed', 'Second node should fail');
-
-    // Verify third node did NOT run (workflow should have stopped)
-    const shouldNotRun = result.results.find(r => r.nodeId === 'shell-should-not-run');
-    assert.strictEqual(shouldNotRun, undefined, 'Third node should not have executed');
+    assertNodeCompleted(getNode(result, 'shell-success'));
+    assertNodeFailed(getNode(result, 'shell-fail'));
+    assertNodeNotExecuted(result, 'shell-should-not-run');
   });
 
-  test('test-input-resolution-stops-workflow.yaml - workflow stops when input resolution fails', async () => {
-    const schema = await loadWorkflow('test-input-resolution-stops-workflow.yaml');
-    const result = await executeWorkflowSchema(schema);
+  test('test-input-resolution-stops-workflow.yaml - stops on missing input', async () => {
+    const result = await runWorkflow('test-input-resolution-stops-workflow.yaml');
+    assert.strictEqual(result.success, false);
 
-    assert.strictEqual(result.success, false, 'Workflow should fail');
+    assertNodeCompleted(getNode(result, 'shell-success'));
 
-    // Verify first shell node ran successfully
-    const successNode = result.results.find(r => r.nodeId === 'shell-success');
-    assert.ok(successNode, 'Should have shell-success result');
-    assert.strictEqual(successNode.status, 'completed', 'First node should succeed');
+    const missingInput = getNode(result, 'shell-missing-input');
+    assertNodeFailed(missingInput);
+    assert.ok(missingInput.error?.includes('required_data'));
 
-    // Verify the node with missing required input failed
-    const missingInputNode = result.results.find(r => r.nodeId === 'shell-missing-input');
-    assert.ok(missingInputNode, 'Should have shell-missing-input result');
-    assert.strictEqual(missingInputNode.status, 'failed', 'Node with missing input should fail');
-    assert.ok(
-      missingInputNode.error?.includes('required_data'),
-      `Error should mention missing required input, got: ${missingInputNode.error}`
-    );
-
-    // Verify sibling node did NOT run (workflow should have stopped on input resolution failure)
-    // This is the key assertion - sibling was already queued but should not execute
-    const siblingNode = result.results.find(r => r.nodeId === 'shell-sibling');
-    assert.strictEqual(siblingNode, undefined, 'Sibling node should not have executed after input resolution failure');
+    assertNodeNotExecuted(result, 'shell-sibling');
   });
 });
 
 describe('Loop Execution', () => {
-  test('test-loop-dock.yaml - dock-based loop executes correct number of iterations', async () => {
-    const schema = await loadWorkflow('test-loop-dock.yaml');
-    const result = await executeWorkflowSchema(schema);
+  test('test-loop-dock.yaml - dock-based loop', async () => {
+    const result = await runWorkflow('test-loop-dock.yaml');
+    assert.strictEqual(result.success, true);
 
-    assert.strictEqual(result.success, true, 'Workflow should succeed');
-    assert.ok(result.results.length > 0, 'Should have node results');
-
-    // Find the loop node result
-    const loopResult = result.results.find(r => r.nodeId === 'count-loop');
-    assert.ok(loopResult, 'Should have count-loop result');
-    assert.strictEqual(loopResult.status, 'completed', 'Loop should complete successfully');
-
-    // Loop should have counted to 5 (default target)
-    assert.ok(
-      loopResult.output?.includes('5 iterations'),
-      `Loop should complete 5 iterations, got: ${loopResult.output}`
-    );
+    const loop = getNode(result, 'count-loop');
+    assertNodeCompleted(loop);
+    assertOutputContains(loop, '5 iterations', 'output');
   });
 
-  test('test-loop-nested.yaml - nested loops execute correctly', async () => {
-    const schema = await loadWorkflow('test-loop-nested.yaml');
-    const result = await executeWorkflowSchema(schema);
+  test('test-loop-nested.yaml - nested loops', async () => {
+    const result = await runWorkflow('test-loop-nested.yaml');
+    assert.strictEqual(result.success, true);
 
-    assert.strictEqual(result.success, true, 'Workflow should succeed');
-    assert.ok(result.results.length > 0, 'Should have node results');
-
-    // Find the outer loop result
-    const outerLoopResult = result.results.find(r => r.nodeId === 'outer-loop');
-    assert.ok(outerLoopResult, 'Should have outer-loop result');
-    assert.strictEqual(outerLoopResult.status, 'completed', 'Outer loop should complete successfully');
-
-    // Outer loop should complete 3 iterations (i=1,2,3)
-    assert.ok(
-      outerLoopResult.output?.includes('3 iterations'),
-      `Outer loop should complete 3 iterations, got: ${outerLoopResult.output}`
-    );
+    const outer = getNode(result, 'outer-loop');
+    assertNodeCompleted(outer);
+    assertOutputContains(outer, '3 iterations', 'output');
   });
 });
 
 describe('Constant Node', () => {
-  test('test-constant.yaml - constant values pass through to shell nodes', async () => {
-    const schema = await loadWorkflow('test-constant.yaml');
-    const result = await executeWorkflowSchema(schema);
+  test('test-constant.yaml - values pass through to shell', async () => {
+    const result = await runWorkflow('test-constant.yaml');
+    assert.strictEqual(result.success, true);
 
-    assert.strictEqual(result.success, true, 'Workflow should succeed');
-
-    // Find the echo-all shell node result
-    const echoResult = result.results.find(r => r.nodeId === 'echo-all');
-    assert.ok(echoResult, 'Should have echo-all result');
-    assert.strictEqual(echoResult.status, 'completed', 'Echo node should complete');
-
-    // Verify all three constant types were passed correctly
-    assert.ok(
-      echoResult.rawOutput?.includes('String: Hello, Shodan!'),
-      `Should have string constant, got: ${echoResult.rawOutput}`
-    );
-    assert.ok(
-      echoResult.rawOutput?.includes('Number: 42'),
-      `Should have number constant, got: ${echoResult.rawOutput}`
-    );
-    assert.ok(
-      echoResult.rawOutput?.includes('Boolean: true'),
-      `Should have boolean constant, got: ${echoResult.rawOutput}`
-    );
+    const echo = getNode(result, 'echo-all');
+    assertNodeCompleted(echo);
+    assertOutputContains(echo, 'String: Hello, Shodan!');
+    assertOutputContains(echo, 'Number: 42');
+    assertOutputContains(echo, 'Boolean: true');
   });
 
-  test('test-loop-constant-true.yaml - constant true runs loop to max iterations', async () => {
-    const schema = await loadWorkflow('test-loop-constant-true.yaml');
-    const result = await executeWorkflowSchema(schema);
+  test('test-loop-constant-true.yaml - runs to max iterations', async () => {
+    const result = await runWorkflow('test-loop-constant-true.yaml');
+    assert.strictEqual(result.success, true);
 
-    assert.strictEqual(result.success, true, 'Workflow should succeed');
-
-    // Find the loop node result
-    const loopResult = result.results.find(r => r.nodeId === 'loop');
-    assert.ok(loopResult, 'Should have loop result');
-    assert.strictEqual(loopResult.status, 'completed', 'Loop should complete');
-
-    // Loop should run to max iterations (3)
-    assert.ok(
-      loopResult.output?.includes('3 iterations'),
-      `Loop should run 3 iterations, got: ${loopResult.output}`
-    );
-    assert.ok(
-      loopResult.output?.includes('max iterations reached'),
-      `Loop should hit max iterations, got: ${loopResult.output}`
-    );
+    const loop = getNode(result, 'loop');
+    assertNodeCompleted(loop);
+    assertOutputContains(loop, '3 iterations', 'output');
+    assertOutputContains(loop, 'max iterations reached', 'output');
   });
 
-  test('test-loop-constant-false.yaml - constant false stops loop after 1 iteration', async () => {
-    const schema = await loadWorkflow('test-loop-constant-false.yaml');
-    const result = await executeWorkflowSchema(schema);
+  test('test-loop-constant-false.yaml - stops after 1 iteration', async () => {
+    const result = await runWorkflow('test-loop-constant-false.yaml');
+    assert.strictEqual(result.success, true);
 
-    assert.strictEqual(result.success, true, 'Workflow should succeed');
-
-    // Find the loop node result
-    const loopResult = result.results.find(r => r.nodeId === 'loop');
-    assert.ok(loopResult, 'Should have loop result');
-    assert.strictEqual(loopResult.status, 'completed', 'Loop should complete');
-
-    // Loop should stop after 1 iteration
-    assert.ok(
-      loopResult.output?.includes('1 iteration'),
-      `Loop should run only 1 iteration, got: ${loopResult.output}`
-    );
-    assert.ok(
-      !loopResult.output?.includes('max iterations'),
-      `Loop should not hit max iterations, got: ${loopResult.output}`
-    );
+    const loop = getNode(result, 'loop');
+    assertNodeCompleted(loop);
+    assertOutputContains(loop, '1 iteration', 'output');
+    assertOutputNotContains(loop, 'max iterations', 'output');
   });
 });
 
@@ -345,10 +228,11 @@ describe('Workflow Validation', () => {
     const files = await fs.readdir(WORKFLOWS_DIR);
     const yamlFiles = files.filter(f => f.endsWith('.yaml') || f.endsWith('.yml'));
 
-    assert.ok(yamlFiles.length > 0, 'Should have workflow files to test');
+    assert.ok(yamlFiles.length > 0, 'Should have workflow files');
 
     for (const file of yamlFiles) {
-      const schema = await loadWorkflow(file);
+      const content = await fs.readFile(path.join(WORKFLOWS_DIR, file), 'utf-8');
+      const schema = yaml.load(content) as WorkflowSchema;
 
       assert.ok(typeof schema.version === 'number', `${file}: should have version`);
       assert.ok(schema.metadata?.name, `${file}: should have metadata.name`);
