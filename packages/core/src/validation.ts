@@ -77,10 +77,72 @@ export function validateWorkflow(workflow: WorkflowSchema): ValidationResult {
     issues.push(...edgeIssues);
   }
 
+  // Check for orphan nodes (nodes with no edges)
+  const orphanIssues = validateOrphanNodes(workflow.nodes, workflow.edges);
+  issues.push(...orphanIssues);
+
   return {
     valid: issues.filter(i => i.severity === 'error').length === 0,
     issues,
   };
+}
+
+/**
+ * Node types that don't require edges (entry points)
+ */
+const ENTRY_POINT_TYPES = new Set(['trigger', 'workdir']);
+
+/**
+ * Validate that nodes have at least one edge connection
+ * Nodes without any edges are likely errors (disconnected from workflow)
+ */
+function validateOrphanNodes(nodes: WorkflowNode[], edges: WorkflowEdge[]): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+
+  // Build set of nodes that have at least one edge
+  const connectedNodes = new Set<string>();
+  for (const edge of edges) {
+    connectedNodes.add(edge.source);
+    connectedNodes.add(edge.target);
+  }
+
+  // Check each node
+  for (const node of nodes) {
+    const nodeType = node.data.nodeType || node.type;
+
+    // Skip entry point types - they only need outgoing edges
+    // and that's checked separately
+    if (ENTRY_POINT_TYPES.has(nodeType)) {
+      // But entry points should still have at least one outgoing edge
+      const hasOutgoing = edges.some(e => e.source === node.id);
+      if (!hasOutgoing) {
+        issues.push({
+          severity: 'warning',
+          nodeId: node.id,
+          message: `${nodeType} node '${node.data.label || node.id}' has no outgoing edges`,
+          suggestion: 'Connect this node to at least one other node',
+        });
+      }
+      continue;
+    }
+
+    // Skip interface nodes (they have special connection semantics)
+    if (nodeType.startsWith('interface-')) {
+      continue;
+    }
+
+    // Check if node has any edges
+    if (!connectedNodes.has(node.id)) {
+      issues.push({
+        severity: 'warning',
+        nodeId: node.id,
+        message: `Node '${node.data.label || node.id}' has no edges (disconnected from workflow)`,
+        suggestion: 'Connect this node or remove it from the workflow',
+      });
+    }
+  }
+
+  return issues;
 }
 
 /**

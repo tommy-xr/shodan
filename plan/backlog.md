@@ -55,7 +55,6 @@ Schema migration (`upgradeWorkflow`) is disabled during early development. When 
 - Fix the animation when output travels along the edges
 - Experiment with reactive paradigms - can we use our primitives or set to implement a 'first' logic node (multiple inputs a, b, c, and a single output - whichever value comes _first_ gets sent to output)
 - Header improvement: bread crumb UI showing working directory -> active workflow
-- Some workflows missing edges (the loop ones particularly)
 - When the workflow is running, and a new workflow is imported, the current running session isn't stopped
 - Implement plan/retry-gate.md
 - Save and view workflow results

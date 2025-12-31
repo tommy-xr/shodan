@@ -33,6 +33,10 @@ nodes:
       nodeType: loop
       label: Always Loop
       maxIterations: 3
+      inputs:
+        - name: trigger
+          type: string
+          required: false
       dockSlots:
         - name: iteration
           type: iteration
@@ -85,6 +89,11 @@ nodes:
           type: number
           description: Exit code (0 = success)
 edges:
+  - id: trigger-to-loop
+    source: trigger
+    target: loop
+    sourceHandle: output:text
+    targetHandle: input:trigger
   - id: iter-to-log
     source: loop
     target: log
