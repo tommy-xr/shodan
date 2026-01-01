@@ -90,11 +90,13 @@ pnpm run -F @robomesh/server test:serve    # API integration tests
 - [x] `GET /api/components/list` returns components
 - [x] `POST /api/execute` without body returns error
 
-### Phase 2 Tests
-- [ ] `GET /api/workflows` returns workflows for each workspace
-- [ ] `GET /api/workflows/:path` returns workflow details with trigger info
-- [ ] Scanner correctly finds `.yaml` files in `workflows/` directory
-- [ ] Scanner extracts trigger type from workflow nodes
+### Phase 2 Tests (DONE)
+- [x] `GET /api/workflows` returns workflows for each workspace
+- [x] `GET /api/workflows/workspace/:workspace` returns workspace workflows
+- [x] `GET /api/workflows/workspace/:invalid` returns 404
+- [x] `GET /api/workflows/detail` requires params
+- [x] `GET /api/workflows/detail` returns workflow with schema
+- [x] `POST /api/workflows/refresh` clears cache
 
 ### Phase 3 Tests
 - [ ] CronTrigger schedules jobs correctly
@@ -156,21 +158,21 @@ robomesh init [path]             # Initialize a new workspace
 - [x] Add `/api/workspaces` endpoint
 - [ ] Create WorkspaceManager to handle multiple workspaces (Phase 2)
 
-### Phase 2: Workflow Discovery
+### Phase 2: Workflow Discovery (DONE)
 
 Scan workspace for workflow files and expose via API.
 
 **New route** (`packages/server/src/routes/workflows.ts`):
-- [ ] `GET /api/workflows` - List all workflows in workspace
-  - Scans `workflows/` directory (configurable)
-  - Returns: `{ workflows: [{ path, name, triggers, lastRun }] }`
-- [ ] `GET /api/workflows/:path` - Get single workflow details
-- [ ] Parse each workflow to extract trigger information
+- [x] `GET /api/workflows` - List all workflows across all workspaces
+- [x] `GET /api/workflows/workspace/:workspace` - List workflows for specific workspace
+- [x] `GET /api/workflows/detail?workspace=&path=` - Get single workflow with full schema
+- [x] `POST /api/workflows/refresh` - Clear cache and rescan
+- [x] Parse each workflow to extract trigger information
 
 **Workspace scanner** (`packages/server/src/workspace/scanner.ts`):
-- [ ] `scanWorkflows(rootDir)` - Find all `.yaml` workflow files
-- [ ] `getWorkflowTriggers(workflow)` - Extract trigger nodes and their types
-- [ ] Cache results with file mtime invalidation
+- [x] `scanWorkflows(rootDir)` - Find all `.yaml` workflow files
+- [x] `getWorkflowTriggers(workflow)` - Extract trigger nodes and their types
+- [x] Cache results with file mtime invalidation
 
 ### Phase 3: Trigger System
 

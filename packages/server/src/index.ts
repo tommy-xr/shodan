@@ -7,6 +7,7 @@ import { createFilesRouter } from './routes/files.js';
 import { createExecuteRouter } from './routes/execute.js';
 import { createConfigRouter } from './routes/config.js';
 import { createComponentsRouter } from './routes/components.js';
+import { createWorkflowsRouter } from './routes/workflows.js';
 import { getProjectRoot, getProjectRootMarker } from './utils/project-root.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -44,6 +45,7 @@ export function createServer(config: ServerConfig): Express {
   app.use('/api/files', createFilesRouter());
   app.use('/api/execute', createExecuteRouter(primaryRoot));
   app.use('/api/components', createComponentsRouter(primaryRoot));
+  app.use('/api/workflows', createWorkflowsRouter(workspaces));
 
   // Workspaces endpoint
   app.get('/api/workspaces', (_req, res) => {

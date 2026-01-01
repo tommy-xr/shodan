@@ -154,6 +154,79 @@ const tests = [
     // Should return 400 or 500 for invalid request
     assert(res.status >= 400, 'Expected error status for empty body');
   }),
+
+  // Phase 2: Workflow Discovery Tests
+  test('GET /api/workflows returns workflows list', async () => {
+    const res = await fetch(`${BASE_URL}/api/workflows`);
+    assertEqual(res.status, 200, 'Expected status 200');
+
+    const data = await res.json();
+    assert(Array.isArray(data.workspaces), 'Expected workspaces to be an array');
+    assert(Array.isArray(data.workflows), 'Expected workflows to be an array');
+    assert(typeof data.total === 'number', 'Expected total to be a number');
+
+    // Should find at least some workflows in the test workspace
+    assert(data.workflows.length > 0, 'Expected at least one workflow');
+
+    // Check workflow structure
+    const workflow = data.workflows[0];
+    assert(typeof workflow.path === 'string', 'Expected workflow path');
+    assert(typeof workflow.name === 'string', 'Expected workflow name');
+    assert(Array.isArray(workflow.triggers), 'Expected triggers array');
+  }),
+
+  test('GET /api/workflows/workspace/:workspace returns workspace workflows', async () => {
+    const res = await fetch(`${BASE_URL}/api/workflows/workspace/shodan`);
+    assertEqual(res.status, 200, 'Expected status 200');
+
+    const data = await res.json();
+    assert(typeof data.workspace === 'string', 'Expected workspace name');
+    assert(Array.isArray(data.workflows), 'Expected workflows array');
+  }),
+
+  test('GET /api/workflows/workspace/:invalid returns 404', async () => {
+    const res = await fetch(`${BASE_URL}/api/workflows/workspace/nonexistent-workspace`);
+    assertEqual(res.status, 404, 'Expected status 404 for invalid workspace');
+  }),
+
+  test('GET /api/workflows/detail requires params', async () => {
+    const res = await fetch(`${BASE_URL}/api/workflows/detail`);
+    assertEqual(res.status, 400, 'Expected status 400 without params');
+  }),
+
+  test('GET /api/workflows/detail returns workflow with schema', async () => {
+    // First get the list to find a valid workflow
+    const listRes = await fetch(`${BASE_URL}/api/workflows`);
+    const listData = await listRes.json();
+
+    if (listData.workflows.length === 0) {
+      // Skip if no workflows
+      return;
+    }
+
+    const workflow = listData.workflows[0];
+    const res = await fetch(
+      `${BASE_URL}/api/workflows/detail?workspace=${workflow.workspace}&path=${encodeURIComponent(workflow.path)}`
+    );
+    assertEqual(res.status, 200, 'Expected status 200');
+
+    const data = await res.json();
+    assert(typeof data.name === 'string', 'Expected workflow name');
+    assert(data.schema !== undefined, 'Expected schema to be included');
+    assert(Array.isArray(data.schema.nodes), 'Expected schema.nodes array');
+  }),
+
+  test('POST /api/workflows/refresh clears cache', async () => {
+    const res = await fetch(`${BASE_URL}/api/workflows/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    assertEqual(res.status, 200, 'Expected status 200');
+
+    const data = await res.json();
+    assert(data.message !== undefined, 'Expected message in response');
+  }),
 ];
 
 // Main
