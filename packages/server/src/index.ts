@@ -23,6 +23,7 @@ export { getProjectRoot } from './utils/project-root.js';
 export interface ServerConfig {
   port: number;
   designerPath?: string; // Path to designer dist folder
+  workspaces?: string[]; // Registered workspace directories
 }
 
 export function createServer(config: ServerConfig): Express {
@@ -32,15 +33,28 @@ export function createServer(config: ServerConfig): Express {
   app.use(cors());
   app.use(express.json());
 
-  // Discover project root
-  const projectRoot = getProjectRoot();
-  const rootMarker = getProjectRootMarker(projectRoot);
+  // Determine project root(s)
+  // If workspaces provided, use first one as primary (for backward compat)
+  // Otherwise, auto-discover from current directory
+  const workspaces = config.workspaces || [];
+  const primaryRoot = workspaces[0] || getProjectRoot();
 
   // API routes
   app.use('/api/config', createConfigRouter());
   app.use('/api/files', createFilesRouter());
-  app.use('/api/execute', createExecuteRouter(projectRoot));
-  app.use('/api/components', createComponentsRouter(projectRoot));
+  app.use('/api/execute', createExecuteRouter(primaryRoot));
+  app.use('/api/components', createComponentsRouter(primaryRoot));
+
+  // Workspaces endpoint
+  app.get('/api/workspaces', (_req, res) => {
+    res.json({
+      workspaces: workspaces.map(ws => ({
+        path: ws,
+        name: path.basename(ws),
+      })),
+      primary: primaryRoot,
+    });
+  });
 
   // Health check
   app.get('/api/health', (_req, res) => {

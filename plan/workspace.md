@@ -73,9 +73,55 @@ A single robomesh server can manage multiple workspaces (e.g., sdcanvas, robomes
 - `pr` - Requires GitHub integration
 - `webhook` - Requires persistent server with public endpoint
 
+## Testing Strategy
+
+Each phase should be testable before moving to the next. Tests live in `packages/server/src/test/`.
+
+**Run tests:**
+```bash
+pnpm run -F @robomesh/server test:serve    # API integration tests
+```
+
+### Phase 1 Tests (DONE)
+- [x] `GET /api/health` returns ok
+- [x] `GET /api/workspaces` returns registered workspaces
+- [x] `GET /api/config` returns configuration
+- [x] `GET /api/files/list` with root param returns files
+- [x] `GET /api/components/list` returns components
+- [x] `POST /api/execute` without body returns error
+
+### Phase 2 Tests
+- [ ] `GET /api/workflows` returns workflows for each workspace
+- [ ] `GET /api/workflows/:path` returns workflow details with trigger info
+- [ ] Scanner correctly finds `.yaml` files in `workflows/` directory
+- [ ] Scanner extracts trigger type from workflow nodes
+
+### Phase 3 Tests
+- [ ] CronTrigger schedules jobs correctly
+- [ ] IdleTrigger fires when no other workflows are running
+- [ ] TriggerManager respects priority (cron > idle)
+- [ ] `GET /api/triggers` returns trigger status
+
+### Phase 4 Tests
+- [ ] Dashboard page loads at `/`
+- [ ] Workflow list shows all workspaces
+- [ ] Start button triggers workflow execution
+- [ ] Stop button cancels running workflow
+- [ ] Status updates in real-time (via polling)
+
+### Phase 5 Tests
+- [ ] Trigger config removes unsupported types
+- [ ] Cron trigger shows next scheduled run
+- [ ] Navigation between dashboard and designer works
+
+### Phase 6 Tests
+- [ ] State file persists after workflow run
+- [ ] State restores on server restart
+- [ ] Trigger schedules survive restart
+
 ## Implementation Plan
 
-### Phase 1: `robomesh serve` Command
+### Phase 1: `robomesh serve` Command (DONE)
 
 Add serve command to CLI that starts the server with designer UI.
 
