@@ -11,7 +11,8 @@
     "build": "pnpm run -F @robomesh/core build && pnpm run -F @robomesh/server build && pnpm run -F @robomesh/designer build && pnpm run -F @robomesh/cli build",
     "start": "pnpm run -F @robomesh/server start",
     "robomesh": "pnpm run -F @robomesh/cli robomesh",
-    "test:workflows": "pnpm run -F @robomesh/server test:workflows"
+    "test:workflows": "pnpm run -F @robomesh/server test:workflows",
+    "generate:screenshot": "npx tsx scripts/generate-screenshot.ts"
   },
   "workspaces": [
     "packages/core",
@@ -21,6 +22,8 @@
     "packages/migrations"
   ],
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "playwright": "^1.57.0",
+    "wait-on": "^9.0.3"
   }
 }
