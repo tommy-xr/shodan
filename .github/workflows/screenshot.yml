@@ -94,14 +94,15 @@ jobs:
 
             const existingComment = comments.find(c => c.body.includes(commentMarker));
 
-            const body = `${commentMarker}
-## Designer Preview
-
-![Designer Screenshot](${screenshotUrl}?run=${context.runId})
-
-> Screenshot generated from \`workflows/test-session-persistence.yaml\`
-> [Download artifact](${artifactUrl})
-`;
+            const body = [
+              commentMarker,
+              '## Designer Preview',
+              '',
+              `![Designer Screenshot](${screenshotUrl}?run=${context.runId})`,
+              '',
+              '> Screenshot generated from `workflows/test-session-persistence.yaml`',
+              `> [Download artifact](${artifactUrl})`,
+            ].join('\n');
 
             if (existingComment) {
               await github.rest.issues.updateComment({
