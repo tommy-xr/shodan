@@ -2,7 +2,6 @@ import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import type { DragEvent } from 'react';
 import {
   ReactFlow,
-  Background,
   Controls,
   addEdge,
   useNodesState,
@@ -1031,7 +1030,7 @@ function Flow() {
           deleteKeyCode={['Backspace', 'Delete']}
           proOptions={{ hideAttribution: true }}
         >
-          <Background color="#2d1b4e" gap={24} />
+          {/* Grid rendered via CSS for proper alignment */}
           <Controls />
         </ReactFlow>
         </div>
