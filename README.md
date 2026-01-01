@@ -4,6 +4,8 @@
 
 AI Agentic Orchestration Tool - easily define, visualize, and debug workflows spanning multiple coding agents
 
+![Robomesh Designer](docs/screenshot.png)
+
 ## Developer Setup
 
 ### Prerequisites
