@@ -12,7 +12,7 @@
     "start": "pnpm run -F @robomesh/server start",
     "robomesh": "pnpm run -F @robomesh/cli robomesh",
     "test:workflows": "pnpm run -F @robomesh/server test:workflows",
-    "generate:screenshot": "npx tsx scripts/generate-screenshot.ts"
+    "generate:screenshot": "pnpm exec tsx scripts/generate-screenshot.ts"
   },
   "workspaces": [
     "packages/core",
@@ -24,6 +24,7 @@
   "devDependencies": {
     "concurrently": "^9.1.0",
     "playwright": "^1.57.0",
+    "tsx": "^4.21.0",
     "wait-on": "^9.0.3"
   }
 }

@@ -84,6 +84,9 @@ nodes:
           type: number
 
 edges:
+  - id: e0
+    source: trigger
+    target: flag-a
   - id: e1
     source: flag-a
     target: and-op
