@@ -280,7 +280,36 @@
 
 /* React Flow overrides */
 .react-flow__background {
-  background-color: var(--bg-primary) !important;
+  background-color: transparent !important;
+}
+
+/* Circuit grid background with radial gradient */
+.canvas-container .react-flow {
+  background:
+    radial-gradient(
+      ellipse 80% 60% at 50% 50%,
+      hsla(160, 100%, 20%, 0.12) 0%,
+      hsla(160, 100%, 15%, 0.06) 40%,
+      transparent 70%
+    ),
+    var(--bg-primary);
+}
+
+/* Aligned circuit grid pattern - scales with viewport */
+.react-flow__viewport::before {
+  --grid-size: 30;
+  --grid-color: rgba(45, 180, 140, 0.12);
+  --grid-color-strong: rgba(45, 180, 140, 0.25);
+
+  content: '';
+  position: absolute;
+  top: -10000px;
+  left: -10000px;
+  width: 20000px;
+  height: 20000px;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3C!-- Vertical line --%3E%3Cline x1='0' y1='0' x2='0' y2='30' stroke='rgba(45,180,140,0.12)' stroke-width='1'/%3E%3C!-- Horizontal dashed line --%3E%3Cline x1='0' y1='0' x2='30' y2='0' stroke='rgba(45,180,140,0.12)' stroke-width='1' stroke-dasharray='4,4'/%3E%3C!-- Dot at intersection --%3E%3Ccircle cx='0' cy='0' r='1.5' fill='rgba(45,180,140,0.35)'/%3E%3C/svg%3E");
+  background-size: 30px 30px;
 }
 
 .react-flow__controls {
