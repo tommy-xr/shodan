@@ -51,7 +51,6 @@ Schema migration (`upgradeWorkflow`) is disabled during early development. When 
 - Add a concept of tools - specifically, the ability to directly talk to an agent (ie, queue an additional prompt)
 - Implement plan/operators.md
 - Implement plan/output-visualization-improvements.
-- Add green grid background to designer - evoking like a circuit builder paradigm.
 - Fix the animation when output travels along the edges
 - Experiment with reactive paradigms - can we use our primitives or set to implement a 'first' logic node (multiple inputs a, b, c, and a single output - whichever value comes _first_ gets sent to output)
 - Header improvement: bread crumb UI showing working directory -> active workflow

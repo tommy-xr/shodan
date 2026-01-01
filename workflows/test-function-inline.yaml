@@ -84,6 +84,9 @@ nodes:
           type: number
 
 edges:
+  - id: e0
+    source: trigger
+    target: num-a
   - id: e1
     source: num-a
     target: add

@@ -40,3 +40,20 @@ pnpm run robomesh -- validate workflows/*.yaml
 # Run workflow tests
 pnpm run test:workflows
 ```
+
+### Global CLI (for development)
+```bash
+# Link the CLI globally to use 'robomesh' command from anywhere
+pnpm run build
+cd packages/cli && pnpm link --global
+
+# Now use from any directory
+robomesh run /path/to/workflow.yaml
+robomesh validate /path/to/workflow.yaml
+
+# After code changes, just rebuild
+pnpm run build
+
+# To unlink
+cd packages/cli && pnpm unlink --global
+```
