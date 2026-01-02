@@ -1,0 +1,748 @@
+/**
+ * Dashboard Page Styles
+ * Uses shared styles from shared.css for common components
+ */
+
+.dashboard {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Dashboard header extends .app-header */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  min-height: 48px;
+}
+
+.dashboard-header h1 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  background: linear-gradient(90deg, #05d9e8, #ff2a6d, #d300c5);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.dashboard-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Content area with grid background */
+.dashboard-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.dashboard-content::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse 80% 60% at 50% 50%,
+      hsla(160, 100%, 20%, 0.12) 0%,
+      hsla(160, 100%, 15%, 0.06) 40%,
+      transparent 70%
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dashboard-content::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Cline x1='0' y1='0' x2='0' y2='30' stroke='rgba(45,180,140,0.12)' stroke-width='1'/%3E%3Cline x1='0' y1='0' x2='30' y2='0' stroke='rgba(45,180,140,0.12)' stroke-width='1' stroke-dasharray='4,4'/%3E%3Ccircle cx='0' cy='0' r='1.5' fill='rgba(45,180,140,0.35)'/%3E%3C/svg%3E");
+  background-size: 30px 30px;
+  opacity: 0.5;
+}
+
+/* Panels */
+.workflows-panel {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  position: relative;
+  z-index: 1;
+}
+
+.workflows-panel h2,
+.status-panel h2 {
+  margin: 0 0 12px 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.status-panel {
+  width: 300px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  position: relative;
+  z-index: 1;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 48px;
+  color: var(--text-secondary);
+}
+
+.empty-state code {
+  background: var(--bg-tertiary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: ui-monospace, monospace;
+  color: var(--node-agent);
+}
+
+/* Workspace accordion groups */
+.workspace-group {
+  margin-bottom: 8px;
+}
+
+.workspace-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.workspace-header-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  cursor: pointer;
+  padding: 10px 12px;
+  transition: background 0.15s ease;
+}
+
+.workspace-header-toggle:hover {
+  background: var(--bg-tertiary);
+}
+
+.expand-icon {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  width: 12px;
+}
+
+.workspace-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  flex: 1;
+}
+
+.workflow-count {
+  background: var(--bg-tertiary);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+}
+
+/* Workflow list */
+.workflow-list {
+  margin-top: 4px;
+  padding-left: 16px;
+}
+
+.workflow-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  margin-bottom: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  border-left: 3px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.workflow-item:hover {
+  border-color: var(--border);
+  border-left-color: var(--node-agent);
+  background: var(--bg-tertiary);
+}
+
+.workflow-item.running {
+  border-left-color: var(--node-shell);
+  background: var(--bg-tertiary);
+}
+
+.workflow-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.workflow-name {
+  font-weight: 500;
+  font-size: 0.9rem;
+  margin-bottom: 2px;
+}
+
+.workflow-path {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-family: ui-monospace, monospace;
+}
+
+.workflow-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.workflow-triggers {
+  display: flex;
+  gap: 8px;
+}
+
+/* Trigger badges - extend .badge */
+.trigger-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  border-radius: 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+}
+
+.trigger-badge.manual {
+  color: var(--node-agent);
+  border-color: rgba(5, 217, 232, 0.3);
+}
+
+.trigger-badge.cron {
+  color: var(--node-script);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.trigger-badge.idle {
+  color: var(--node-shell);
+  border-color: rgba(1, 255, 195, 0.3);
+}
+
+.trigger-badge .cron {
+  font-family: ui-monospace, monospace;
+  font-size: 0.65rem;
+  opacity: 0.7;
+}
+
+/* Last/Next run badges - extend .badge */
+.last-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.last-run:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border);
+}
+
+.last-run.completed {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.last-run.failed {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.last-run.cancelled {
+  color: var(--node-script);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.next-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  border-radius: 10px;
+  color: var(--node-agent);
+  background: rgba(5, 217, 232, 0.1);
+  border: 1px solid rgba(5, 217, 232, 0.2);
+}
+
+/* Workflow action buttons - use .btn classes */
+.workflow-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.start-btn {
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  background: linear-gradient(135deg, #34d399, #059669);
+  border: 1px solid #34d399;
+  color: white;
+}
+
+.start-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4ade80, #10b981);
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.4);
+}
+
+.start-btn:disabled {
+  background: var(--bg-tertiary);
+  border-color: var(--border);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.stop-btn {
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  background: linear-gradient(135deg, #f87171, #ef4444);
+  border: 1px solid #f87171;
+  color: white;
+}
+
+.stop-btn:hover {
+  background: linear-gradient(135deg, #fca5a5, #f87171);
+  box-shadow: 0 0 12px rgba(248, 113, 113, 0.4);
+}
+
+.open-btn,
+.refresh-btn,
+.new-workflow-btn {
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.open-btn:hover,
+.refresh-btn:hover {
+  border-color: var(--accent);
+}
+
+.new-workflow-btn {
+  padding: 4px 10px;
+  margin-right: 8px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.new-workflow-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+/* Execution status panel */
+.execution-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.status-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.execution-status.idle .status-indicator {
+  background: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.execution-status.running .status-indicator {
+  background: var(--node-shell);
+  box-shadow: 0 0 8px var(--node-shell);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.status-info {
+  flex: 1;
+}
+
+.status-workflow {
+  font-weight: 500;
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+}
+
+.status-workspace {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.status-node {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--node-agent);
+}
+
+.status-progress {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* Loading and error states */
+.dashboard-loading,
+.dashboard-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  color: var(--text-secondary);
+}
+
+.dashboard-error button {
+  padding: 8px 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dashboard-error button:hover {
+  border-color: var(--accent);
+}
+
+/* Run Details Modal - extends .modal */
+.run-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.run-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 30px rgba(233, 69, 109, 0.2);
+}
+
+.run-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+}
+
+.run-modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.run-modal-header .close-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.run-modal-header .close-btn:hover {
+  color: var(--text-primary);
+}
+
+.run-modal-meta {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.run-meta-item {
+  display: flex;
+  gap: 8px;
+}
+
+.run-meta-item .label {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.run-meta-item .value {
+  color: var(--text-primary);
+  font-size: 0.8rem;
+}
+
+.run-meta-item .status-completed { color: #34d399; }
+.run-meta-item .status-failed { color: #f87171; }
+.run-meta-item .status-cancelled { color: var(--node-script); }
+
+.run-meta-item.error {
+  grid-column: 1 / -1;
+}
+
+.run-meta-item.error .value {
+  color: #f87171;
+}
+
+.run-modal-results {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.run-modal-results h4 {
+  margin: 0 0 12px 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.result-item {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+}
+
+.result-node {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+}
+
+.result-status {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.result-status.completed {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.result-status.failed {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.result-output,
+.result-error {
+  margin: 0;
+  padding: 12px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.result-output {
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+}
+
+.result-error {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.05);
+}
+
+.no-results {
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+/* New Workflow Modal - extends .modal */
+.new-workflow-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  width: 400px;
+  max-width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 30px rgba(233, 69, 109, 0.2);
+}
+
+.new-workflow-form {
+  padding: 20px;
+}
+
+.form-field {
+  margin-bottom: 16px;
+}
+
+.form-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.form-field input {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: border-color 0.15s ease;
+}
+
+.form-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.form-field .workspace-value {
+  display: block;
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.cancel-btn {
+  padding: 10px 20px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.15s ease;
+}
+
+.cancel-btn:hover {
+  border-color: var(--text-secondary);
+}
+
+.create-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #8b5cf6, #a855f7);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.create-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #9d6ffa, #b866fa);
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.4);
+}
+
+.create-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

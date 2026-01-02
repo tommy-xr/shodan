@@ -42,21 +42,20 @@ Schema migration (`upgradeWorkflow`) is disabled during early development. When 
 ### Retry Gate Primitive (see [retry-gate.md](./retry-gate.md))
 - [ ] Gate node for multi-stage validation with upstream retry
 
+### Workspace Polish (minor remaining items from workspace.md)
+- [ ] `robomesh init [path]` - Create `.robomesh/` directory for new workspaces
+- [ ] IdleTrigger auto-selection - Pick random idle workflow when nothing else running
+- [ ] Designer trigger config UI - Remove unsupported trigger types from dropdown
+
 ### Other
-- Workspace / orchestration of multiple flows:
-	- Get trigger conditions working
-	- Record results for a 'run'
-	- Cron trigger
 - Trigger: Add cli mode to manually trigger a workflow and report output on the CLI
 - Add a concept of tools - specifically, the ability to directly talk to an agent (ie, queue an additional prompt)
 - Implement plan/operators.md
 - Implement plan/output-visualization-improvements.
 - Fix the animation when output travels along the edges
 - Experiment with reactive paradigms - can we use our primitives or set to implement a 'first' logic node (multiple inputs a, b, c, and a single output - whichever value comes _first_ gets sent to output)
-- Header improvement: bread crumb UI showing working directory -> active workflow
 - When the workflow is running, and a new workflow is imported, the current running session isn't stopped
 - Implement plan/retry-gate.md
-- Save and view workflow results
 - Add refactor -> extract tool. Highlight an area, pull the inputs/outputs, and extract to a component
 - Fix agent models - we might want to make an API request and query each tool respectively?
 - Coercing agent output to JSON to fit output requirements - can we rely on the agents to do that, or does it require a GPT call to coalesce?
@@ -74,6 +73,3 @@ Schema migration (`upgradeWorkflow`) is disabled during early development. When 
 - Component versioning/history
 - 90 degree edges?
 - Auto-layout?
-- Workspace / orchestration of multiple flows:
-	- Get trigger conditions working
-	- Record results for a 'run'

@@ -1,5 +1,8 @@
 import { Router } from 'express';
-import type { WorkflowNode, WorkflowEdge, ExecutionEvent } from '@robomesh/core';
+import path from 'path';
+import fs from 'fs/promises';
+import os from 'os';
+import type { WorkflowNode, WorkflowEdge, ExecutionEvent, NodeResult } from '@robomesh/core';
 import { executeWorkflow, type ExecuteResult } from '../engine/executor.js';
 
 export interface ExecuteRequest {
@@ -7,6 +10,79 @@ export interface ExecuteRequest {
   edges: WorkflowEdge[];
   rootDirectory?: string;
   startNodeId?: string;
+  // Optional: for recording run history
+  workspace?: string;
+  workflowPath?: string;
+}
+
+// Get robomesh home directory
+function getRobomeshHome(): string {
+  return process.env.ROBOMESH_HOME || path.join(os.homedir(), '.robomesh');
+}
+
+function getRunsDir(): string {
+  return path.join(getRobomeshHome(), 'runs');
+}
+
+function getHistoryFile(): string {
+  return path.join(getRobomeshHome(), 'history.json');
+}
+
+interface ExecutionHistoryEntry {
+  id: string;
+  workspace: string;
+  workflowPath: string;
+  startedAt: string;
+  completedAt: string;
+  status: 'completed' | 'failed' | 'cancelled';
+  duration: number;
+  nodeCount: number;
+  error?: string;
+  results?: NodeResult[];
+}
+
+// Save run to history (simplified version for execute route)
+async function recordRunToHistory(entry: ExecutionHistoryEntry): Promise<void> {
+  try {
+    const runsDir = getRunsDir();
+    const historyFile = getHistoryFile();
+
+    // Ensure directories exist
+    await fs.mkdir(runsDir, { recursive: true });
+
+    // Save full run results
+    await fs.writeFile(
+      path.join(runsDir, `${entry.id}.json`),
+      JSON.stringify(entry, null, 2)
+    );
+
+    // Update history index
+    let history: Record<string, Array<Omit<ExecutionHistoryEntry, 'results'>>> = {};
+    try {
+      const data = await fs.readFile(historyFile, 'utf-8');
+      history = JSON.parse(data);
+    } catch {
+      // No history file yet
+    }
+
+    const key = `${entry.workspace}:${entry.workflowPath}`;
+    if (!history[key]) {
+      history[key] = [];
+    }
+
+    // Add new entry (without results for index)
+    const { results, ...summary } = entry;
+    history[key].unshift(summary);
+
+    // Keep only last 10
+    if (history[key].length > 10) {
+      history[key] = history[key].slice(0, 10);
+    }
+
+    await fs.writeFile(historyFile, JSON.stringify(history, null, 2));
+  } catch (err) {
+    console.error('Failed to record run to history:', err);
+  }
 }
 
 export function createExecuteRouter(defaultProjectRoot: string): Router {
@@ -44,7 +120,7 @@ export function createExecuteRouter(defaultProjectRoot: string): Router {
 
   // Streaming execution endpoint with SSE events
   router.post('/stream', async (req, res) => {
-    const { nodes, edges, rootDirectory, startNodeId } = req.body as ExecuteRequest;
+    const { nodes, edges, rootDirectory, startNodeId, workspace, workflowPath } = req.body as ExecuteRequest;
 
     // Validate request
     if (!nodes || !Array.isArray(nodes)) {
@@ -68,6 +144,12 @@ export function createExecuteRouter(defaultProjectRoot: string): Router {
 
     const effectiveRoot = rootDirectory || defaultProjectRoot;
 
+    // Track execution for history
+    const startTime = Date.now();
+    const startedAt = new Date().toISOString();
+    const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const collectedResults: NodeResult[] = [];
+
     try {
       const result = await executeWorkflow(nodes, edges, {
         rootDirectory: effectiveRoot,
@@ -76,6 +158,7 @@ export function createExecuteRouter(defaultProjectRoot: string): Router {
           sendEvent({ type: 'node-start', nodeId, timestamp: Date.now() });
         },
         onNodeComplete: (nodeId, nodeResult) => {
+          collectedResults.push(nodeResult);
           sendEvent({ type: 'node-complete', nodeId, result: nodeResult, timestamp: Date.now() });
         },
         onNodeOutput: (nodeId, chunk) => {
@@ -98,6 +181,25 @@ export function createExecuteRouter(defaultProjectRoot: string): Router {
         error: result.error,
         timestamp: Date.now(),
       });
+
+      // Record to history if workspace/path provided
+      if (workspace && workflowPath) {
+        const hasFailedNode = collectedResults.some(r => r.status === 'failed');
+        const failedNode = collectedResults.find(r => r.status === 'failed');
+
+        await recordRunToHistory({
+          id: runId,
+          workspace,
+          workflowPath,
+          startedAt,
+          completedAt: new Date().toISOString(),
+          status: hasFailedNode ? 'failed' : 'completed',
+          duration: Date.now() - startTime,
+          nodeCount: collectedResults.length,
+          error: failedNode?.error,
+          results: collectedResults,
+        });
+      }
     } catch (error) {
       console.error('Error executing workflow:', error);
       sendEvent({
@@ -106,6 +208,22 @@ export function createExecuteRouter(defaultProjectRoot: string): Router {
         error: error instanceof Error ? error.message : String(error),
         timestamp: Date.now(),
       });
+
+      // Record failed run to history if workspace/path provided
+      if (workspace && workflowPath) {
+        await recordRunToHistory({
+          id: runId,
+          workspace,
+          workflowPath,
+          startedAt,
+          completedAt: new Date().toISOString(),
+          status: 'failed',
+          duration: Date.now() - startTime,
+          nodeCount: collectedResults.length,
+          error: error instanceof Error ? error.message : String(error),
+          results: collectedResults,
+        });
+      }
     }
 
     res.end();

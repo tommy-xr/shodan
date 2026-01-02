@@ -1,5 +1,6 @@
 import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import type { DragEvent } from 'react';
+import { useParams } from 'react-router-dom';
 import {
   ReactFlow,
   Controls,
@@ -21,7 +22,7 @@ import { Sidebar } from './components/Sidebar';
 import { ConfigPanel } from './components/ConfigPanel';
 import { Header } from './components/Header';
 import { loadFromLocalStorage, saveToLocalStorage, clearLocalStorage } from './lib/storage';
-import { getConfig, getComponentWorkflow, saveComponentWorkflow } from './lib/api';
+import { getConfig, getComponentWorkflow, saveComponentWorkflow, saveWorkflow } from './lib/api';
 import { executeWorkflowStream } from './lib/execute-stream';
 import type { ComponentWorkflow } from './lib/api';
 import type { ExecutionStatus } from './nodes';
@@ -70,7 +71,82 @@ function Flow() {
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [dragOverLoopId, setDragOverLoopId] = useState<string | null>(null);
+  const [urlWorkflowLoaded, setUrlWorkflowLoaded] = useState(false);
+  const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(null);
+  const [currentWorkflowPath, setCurrentWorkflowPath] = useState<string | null>(null);
+  const [lastSaveTime, setLastSaveTime] = useState<number>(0);
   const { screenToFlowPosition, fitView, getViewport, setViewport } = useReactFlow();
+
+  // Get URL params for workspace/workflow routing
+  const { workspace, '*': rawWorkflowPath } = useParams();
+  // Decode the workflow path since it was URL-encoded in the dashboard
+  const workflowPath = rawWorkflowPath ? decodeURIComponent(rawWorkflowPath) : undefined;
+
+  // Load workflow from URL params (when navigating from dashboard)
+  useEffect(() => {
+    if (!workspace || !workflowPath || urlWorkflowLoaded) return;
+
+    const loadWorkflowFromUrl = async () => {
+      try {
+        const res = await fetch(
+          `/api/workflows/detail?workspace=${encodeURIComponent(workspace)}&path=${encodeURIComponent(workflowPath)}`
+        );
+        if (!res.ok) {
+          console.error('Failed to load workflow from URL');
+          return;
+        }
+
+        const data = await res.json();
+        const schema = data.schema;
+
+        // Convert workflow nodes to ReactFlow nodes
+        const importedNodes: Node<BaseNodeData>[] = schema.nodes.map((n: { id: string; type: string; position: { x: number; y: number }; data: Record<string, unknown>; parentId?: string; extent?: string; style?: { width?: number; height?: number } }) => ({
+          id: n.id,
+          type: n.type,
+          position: n.position,
+          parentId: n.parentId,
+          extent: n.extent === 'parent' ? 'parent' as const : undefined,
+          style: n.style,
+          data: {
+            ...n.data,
+            nodeType: n.type as NodeType,
+          } as BaseNodeData,
+        }));
+
+        // Convert edges
+        const importedEdges: Edge[] = schema.edges.map((e: { id: string; source: string; target: string; sourceHandle?: string; targetHandle?: string }) => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          sourceHandle: e.sourceHandle,
+          targetHandle: e.targetHandle,
+        }));
+
+        // Update state
+        updateNodeIdCounter(importedNodes);
+        setNodes(importedNodes);
+        setEdges(importedEdges);
+        setWorkflowName(data.name || schema.metadata?.name || 'Untitled Workflow');
+        setRootDirectory(data.workspacePath || '');
+        setSelectedNode(null);
+        setEdgeExecutionData(new Map());
+        setUrlWorkflowLoaded(true);
+
+        // Track file-based workflow for autosave
+        setCurrentWorkspace(workspace);
+        setCurrentWorkflowPath(workflowPath);
+        setLastSaveTime(Date.now()); // Mark as just loaded to prevent immediate "unsaved"
+        setHasUnsavedChanges(false);
+
+        // Fit view after loading
+        setTimeout(() => fitView({ padding: 0.2 }), 50);
+      } catch (err) {
+        console.error('Failed to load workflow from URL:', err);
+      }
+    };
+
+    loadWorkflowFromUrl();
+  }, [workspace, workflowPath, urlWorkflowLoaded, setNodes, setEdges, fitView]);
 
   // Helper: Find the loop container that contains a given position (in flow coordinates)
   const findContainingLoop = useCallback((position: { x: number; y: number }, excludeNodeId?: string): Node<BaseNodeData> | null => {
@@ -136,6 +212,68 @@ function Flow() {
 
     return () => clearTimeout(timeoutId);
   }, [nodes, edges, workflowName, rootDirectory, getViewport]);
+
+  // Track unsaved changes for file-based workflows
+  useEffect(() => {
+    // Skip if not a file-based workflow or just loaded
+    if (!currentWorkspace || !currentWorkflowPath) return;
+    if (Date.now() - lastSaveTime < 500) return; // Just loaded or just saved
+
+    setHasUnsavedChanges(true);
+  }, [nodes, edges, workflowName, rootDirectory, currentWorkspace, currentWorkflowPath, lastSaveTime]);
+
+  // Auto-save to file for file-based workflows (debounced, less frequent)
+  useEffect(() => {
+    // Skip if not a file-based workflow or no nodes yet
+    if (!currentWorkspace || !currentWorkflowPath || nodes.length === 0) return;
+    // Skip if no unsaved changes
+    if (!hasUnsavedChanges) return;
+
+    // Debounce file saves (2 seconds)
+    const timeoutId = setTimeout(async () => {
+      setIsSaving(true);
+      try {
+        const schema = {
+          version: 1,
+          metadata: {
+            name: workflowName,
+            description: '',
+            rootDirectory: rootDirectory || undefined,
+          },
+          nodes: nodes.map((n) => ({
+            id: n.id,
+            type: n.type || 'agent',
+            position: n.position,
+            data: n.data as Record<string, unknown>,
+            parentId: n.parentId,
+            extent: n.extent === 'parent' ? ('parent' as const) : undefined,
+            style: n.style as { width?: number; height?: number },
+          })),
+          edges: edges.map((e) => ({
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            sourceHandle: e.sourceHandle ?? undefined,
+            targetHandle: e.targetHandle ?? undefined,
+          })),
+        };
+
+        await saveWorkflow({
+          workspace: currentWorkspace,
+          path: currentWorkflowPath,
+          schema,
+        });
+        setLastSaveTime(Date.now());
+        setHasUnsavedChanges(false);
+      } catch (err) {
+        console.error('Failed to autosave workflow:', err);
+      } finally {
+        setIsSaving(false);
+      }
+    }, 2000);
+
+    return () => clearTimeout(timeoutId);
+  }, [nodes, edges, workflowName, rootDirectory, currentWorkspace, currentWorkflowPath, hasUnsavedChanges]);
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -743,6 +881,8 @@ function Flow() {
     setRootDirectory('');
     setSelectedNode(null);
     setEdgeExecutionData(new Map());
+    setCurrentWorkspace(null);
+    setCurrentWorkflowPath(null);
     nodeId = 0;
   }, [nodes.length, setNodes, setEdges]);
 
@@ -806,6 +946,9 @@ function Flow() {
         targetHandle: e.targetHandle,
       })),
       rootDirectory: rootDirectory || undefined,
+      // Include workspace/path for run history
+      workspace: currentWorkspace || undefined,
+      workflowPath: currentWorkflowPath || undefined,
     };
 
     // Use streaming execution for real-time updates
@@ -998,6 +1141,9 @@ function Flow() {
         onSaveComponent={isEditingComponent ? onSaveComponent : undefined}
         isSaving={isSaving}
         hasUnsavedChanges={hasUnsavedChanges}
+        isFileBased={!!currentWorkspace && !!currentWorkflowPath}
+        workspaceName={currentWorkspace || undefined}
+        workflowPath={currentWorkflowPath || undefined}
         onWorkflowNameChange={setWorkflowName}
         onNewWorkflow={onNewWorkflow}
         nodes={nodes}

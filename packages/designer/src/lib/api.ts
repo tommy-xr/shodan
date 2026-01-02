@@ -5,8 +5,8 @@ import type { NodeResult, NodeStatus } from '@robomesh/core';
 // Re-export for convenience
 export type { NodeResult, NodeStatus };
 
-const serverPort = import.meta.env.VITE_SERVER_PORT || '3000';
-const API_BASE = import.meta.env.VITE_API_URL || `http://localhost:${serverPort}/api`;
+// Use relative URLs to work with any port, or explicit URL if configured
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 // Config types
 export interface ConfigResponse {
@@ -96,6 +96,9 @@ export interface ExecuteRequest {
     targetHandle?: string | null;
   }>;
   rootDirectory?: string;
+  // Optional: for recording run history
+  workspace?: string;
+  workflowPath?: string;
 }
 
 export async function executeWorkflow(request: ExecuteRequest): Promise<ExecuteResponse> {
@@ -261,6 +264,53 @@ export async function createComponent(request: CreateComponentRequest): Promise<
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.error || 'Failed to create component');
+  }
+
+  return response.json();
+}
+
+// Workflow save types
+export interface SaveWorkflowRequest {
+  workspace: string;
+  path: string;
+  schema: {
+    version: number;
+    metadata: {
+      name: string;
+      description?: string;
+      rootDirectory?: string;
+    };
+    nodes: Array<{
+      id: string;
+      type: string;
+      position: { x: number; y: number };
+      data: Record<string, unknown>;
+      parentId?: string;
+      extent?: 'parent';
+      style?: { width?: number; height?: number };
+    }>;
+    edges: Array<{
+      id: string;
+      source: string;
+      target: string;
+      sourceHandle?: string;
+      targetHandle?: string;
+    }>;
+  };
+}
+
+export async function saveWorkflow(request: SaveWorkflowRequest): Promise<{ message: string }> {
+  const response = await fetch(`${API_BASE}/workflows/save`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to save workflow');
   }
 
   return response.json();

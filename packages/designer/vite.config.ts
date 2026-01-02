@@ -31,5 +31,14 @@ export default defineConfig(({ mode }) => {
       // Pass server port to client for API URL construction
       'import.meta.env.VITE_SERVER_PORT': JSON.stringify(serverPort),
     },
+    server: {
+      proxy: {
+        // Proxy API requests to the backend server
+        '/api': {
+          target: `http://localhost:${serverPort}`,
+          changeOrigin: true,
+        },
+      },
+    },
   }
 })

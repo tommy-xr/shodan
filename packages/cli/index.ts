@@ -3,9 +3,10 @@
 import fs from 'fs/promises';
 import path from 'path';
 import yaml from 'js-yaml';
-import { executeWorkflowSchema, type WorkflowSchema, type NodeResult } from '@robomesh/server';
+import { executeWorkflowSchema, createServer, type WorkflowSchema, type NodeResult } from '@robomesh/server';
 import { getProjectRoot } from '@robomesh/server';
 import { validateWorkflow as validateWorkflowSchema, formatValidationIssues } from '@robomesh/core';
+import { addWorkspace, removeWorkspace, listWorkspaces, isValidWorkspace, initWorkspace } from './src/config.js';
 
 // Use INIT_CWD if available (set by npm to the original working directory)
 const originalCwd = process.env.INIT_CWD || process.cwd();
@@ -32,20 +33,31 @@ ${color('Robomesh', COLORS.bright, COLORS.cyan)} - AI Workflow Orchestration
 ${color('Usage:', COLORS.bright)}
   robomesh run <workflow.yaml> [options]    Run a workflow
   robomesh validate <workflow.yaml>         Validate a workflow file
+  robomesh serve [--port 3000]              Start server with dashboard
+  robomesh init [path]                      Initialize a new workspace
+  robomesh add [path]                       Register a workspace
+  robomesh remove [path]                    Unregister a workspace
+  robomesh list                             Show registered workspaces
   robomesh help                             Show this help
 
-${color('Options:', COLORS.bright)}
+${color('Run Options:', COLORS.bright)}
   --cwd <dir>         Override working directory
   --input <text>      Pass text input to trigger node
   --quiet             Only show errors and final result
   --verbose           Show detailed output for each node
   --no-validation     Skip schema validation (not recommended)
 
+${color('Serve Options:', COLORS.bright)}
+  --port <port>       Server port (default: 3000)
+
 ${color('Examples:', COLORS.bright)}
   robomesh run ./workflows/build.yaml
   robomesh run ./workflows/deploy.yaml --cwd /path/to/project
   robomesh run ./workflows/process.yaml --input "Hello World"
   robomesh validate ./workflows/*.yaml
+  robomesh init .                           # Initialize current directory
+  robomesh add .                            # Register current directory
+  robomesh serve                            # Start dashboard server
 `);
 }
 
@@ -225,6 +237,136 @@ async function validateWorkflowFile(filePath: string): Promise<boolean> {
   }
 }
 
+async function handleInit(args: string[]) {
+  const workspacePath = args[1] || '.';
+  const absolutePath = path.resolve(originalCwd, workspacePath);
+  const createWorkflows = args.includes('--with-workflows');
+
+  // Check if already initialized
+  const validation = await isValidWorkspace(absolutePath);
+  if (validation.valid) {
+    console.log(color(`\n● Workspace already initialized: ${absolutePath}`, COLORS.yellow));
+    return;
+  }
+
+  try {
+    await initWorkspace(absolutePath, { createWorkflows });
+    console.log(color(`\n✓ Workspace initialized: ${absolutePath}`, COLORS.green));
+    console.log(color(`  Created .robomesh/ directory`, COLORS.dim));
+    if (createWorkflows) {
+      console.log(color(`  Created workflows/hello-world.yaml`, COLORS.dim));
+    }
+    console.log(color(`\n  Next: run "robomesh add ${workspacePath}" to register this workspace`, COLORS.dim));
+  } catch (err) {
+    console.error(color(`\n✗ Failed to initialize: ${(err as Error).message}`, COLORS.red));
+    process.exit(1);
+  }
+}
+
+async function handleAdd(args: string[]) {
+  const workspacePath = args[1] || '.';
+  const absolutePath = path.resolve(originalCwd, workspacePath);
+
+  // Validate the workspace
+  const validation = await isValidWorkspace(absolutePath);
+  if (!validation.valid) {
+    console.error(color(`\n✗ Cannot add workspace: ${validation.reason}`, COLORS.red));
+    console.error(color(`  Path: ${absolutePath}`, COLORS.dim));
+    console.log('');
+    console.log(color(`  To initialize this directory as a workspace, run:`, COLORS.dim));
+    console.log(color(`    robomesh init ${workspacePath}`, COLORS.cyan));
+    console.log(color(`    robomesh init ${workspacePath} --with-workflows  # also create sample workflow`, COLORS.dim));
+    process.exit(1);
+  }
+
+  const added = await addWorkspace(absolutePath);
+  if (added) {
+    console.log(color(`\n✓ Workspace registered: ${absolutePath}`, COLORS.green));
+  } else {
+    console.log(color(`\n● Workspace already registered: ${absolutePath}`, COLORS.yellow));
+  }
+}
+
+async function handleRemove(args: string[]) {
+  const workspacePath = args[1] || '.';
+  const absolutePath = path.resolve(originalCwd, workspacePath);
+
+  const removed = await removeWorkspace(absolutePath);
+  if (removed) {
+    console.log(color(`\n✓ Workspace unregistered: ${absolutePath}`, COLORS.green));
+  } else {
+    console.log(color(`\n✗ Workspace not found: ${absolutePath}`, COLORS.red));
+    process.exit(1);
+  }
+}
+
+async function handleList() {
+  const workspaces = await listWorkspaces();
+
+  console.log(color('\nRegistered Workspaces:', COLORS.bright));
+  if (workspaces.length === 0) {
+    console.log(color('  (none)', COLORS.dim));
+    console.log(color('\n  Use "robomesh add [path]" to register a workspace', COLORS.dim));
+  } else {
+    for (const workspace of workspaces) {
+      // Check if workspace still exists
+      const validation = await isValidWorkspace(workspace);
+      const status = validation.valid
+        ? color('✓', COLORS.green)
+        : color('✗', COLORS.red);
+      console.log(`  ${status} ${workspace}`);
+    }
+  }
+  console.log('');
+}
+
+async function handleServe(args: string[]) {
+  const portIndex = args.indexOf('--port');
+  const port = portIndex !== -1 ? parseInt(args[portIndex + 1], 10) : 3000;
+
+  const workspaces = await listWorkspaces();
+
+  if (workspaces.length === 0) {
+    console.error(color('\n✗ No workspaces registered', COLORS.red));
+    console.error(color('  Use "robomesh add [path]" to register a workspace first', COLORS.dim));
+    process.exit(1);
+  }
+
+  // Resolve designer path relative to this CLI package
+  // When running from source (tsx): ../designer/dist from cli/
+  // When running from dist: ../../designer/dist from cli/dist/
+  // When published: will need to be bundled or resolved differently
+  const __filename = new URL(import.meta.url).pathname;
+  const __dirname = path.dirname(__filename);
+  // Check if we're in a dist folder
+  const isInDist = __dirname.endsWith('/dist') || __dirname.includes('/dist/');
+  const designerPath = isInDist
+    ? path.resolve(__dirname, '../../designer/dist')
+    : path.resolve(__dirname, '../designer/dist');
+
+  console.log(color('\n▶ Starting Robomesh server...', COLORS.bright));
+  console.log(color(`  Port: ${port}`, COLORS.dim));
+  console.log(color(`  Workspaces: ${workspaces.length}`, COLORS.dim));
+  for (const workspace of workspaces) {
+    console.log(color(`    - ${workspace}`, COLORS.dim));
+  }
+
+  const app = createServer({
+    port,
+    designerPath,
+    workspaces,
+  });
+
+  app.listen(port, () => {
+    console.log('');
+    console.log(color(`✓ Server running at http://localhost:${port}`, COLORS.green, COLORS.bright));
+    console.log(color(`  Dashboard: http://localhost:${port}`, COLORS.cyan));
+    console.log(color(`  API: http://localhost:${port}/api`, COLORS.dim));
+    console.log('');
+    console.log(color('Press Ctrl+C to stop', COLORS.dim));
+  });
+}
+
 async function main() {
   // Filter out '--' which npm/pnpm use to separate script args
   const args = process.argv.slice(2).filter(arg => arg !== '--');
@@ -235,6 +377,31 @@ async function main() {
   }
 
   const command = args[0];
+
+  if (command === 'init') {
+    await handleInit(args);
+    process.exit(0);
+  }
+
+  if (command === 'add') {
+    await handleAdd(args);
+    process.exit(0);
+  }
+
+  if (command === 'remove') {
+    await handleRemove(args);
+    process.exit(0);
+  }
+
+  if (command === 'list') {
+    await handleList();
+    process.exit(0);
+  }
+
+  if (command === 'serve') {
+    await handleServe(args);
+    return; // Don't exit, server is running
+  }
 
   if (command === 'run') {
     const filePath = args[1];

@@ -9,7 +9,8 @@ import type { ExecutionEvent, NodeResult } from '@robomesh/core';
 import { SSEParser } from './sse-parser';
 import type { ExecuteRequest } from './api';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// Use relative URLs to work with any port, or explicit URL if configured
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 /**
  * Handlers for streaming execution events

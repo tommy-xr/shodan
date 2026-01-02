@@ -7,6 +7,10 @@ import { createFilesRouter } from './routes/files.js';
 import { createExecuteRouter } from './routes/execute.js';
 import { createConfigRouter } from './routes/config.js';
 import { createComponentsRouter } from './routes/components.js';
+import { createWorkflowsRouter } from './routes/workflows.js';
+import { createExecutionRouter, startWorkflow } from './routes/execution.js';
+import { createTriggersRouter } from './routes/triggers.js';
+import { getTriggerManager } from './triggers/index.js';
 import { getProjectRoot, getProjectRootMarker } from './utils/project-root.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -23,6 +27,9 @@ export { getProjectRoot } from './utils/project-root.js';
 export interface ServerConfig {
   port: number;
   designerPath?: string; // Path to designer dist folder
+  workspaces?: string[]; // Registered workspace directories
+  enableTriggers?: boolean; // Enable trigger scheduling (default: true)
+  triggerCheckInterval?: number; // Trigger check interval in ms (default: 10000)
 }
 
 export function createServer(config: ServerConfig): Express {
@@ -32,15 +39,53 @@ export function createServer(config: ServerConfig): Express {
   app.use(cors());
   app.use(express.json());
 
-  // Discover project root
-  const projectRoot = getProjectRoot();
-  const rootMarker = getProjectRootMarker(projectRoot);
+  // Determine project root(s)
+  // If workspaces provided, use first one as primary (for backward compat)
+  // Otherwise, auto-discover from current directory
+  const workspaces = config.workspaces || [];
+  const primaryRoot = workspaces[0] || getProjectRoot();
 
   // API routes
   app.use('/api/config', createConfigRouter());
   app.use('/api/files', createFilesRouter());
-  app.use('/api/execute', createExecuteRouter(projectRoot));
-  app.use('/api/components', createComponentsRouter(projectRoot));
+  app.use('/api/execute', createExecuteRouter(primaryRoot));
+  app.use('/api/components', createComponentsRouter(primaryRoot));
+  app.use('/api/workflows', createWorkflowsRouter(workspaces));
+  app.use('/api/execution', createExecutionRouter(workspaces));
+  app.use('/api/triggers', createTriggersRouter());
+
+  // Initialize trigger manager
+  const triggerManager = getTriggerManager();
+  triggerManager.load().catch(console.error);
+
+  // Wire up trigger firing to execute workflows
+  triggerManager.onFire(async (trigger) => {
+    console.log(`[Trigger] Firing trigger: ${trigger.id} (${trigger.label})`);
+    const result = await startWorkflow(trigger.workspace, trigger.workflowPath, {
+      triggeredBy: `cron:${trigger.config.cron}`,
+    });
+    if (!result.success) {
+      console.error(`[Trigger] Failed to start workflow: ${result.error}`);
+      throw new Error(result.error);
+    }
+  });
+
+  // Start trigger scheduler if enabled (default: true)
+  if (config.enableTriggers !== false) {
+    const checkInterval = config.triggerCheckInterval || 10000;
+    triggerManager.start(checkInterval);
+  }
+
+  // Workspaces endpoint
+  app.get('/api/workspaces', (_req, res) => {
+    res.json({
+      workspaces: workspaces.map(ws => ({
+        path: ws,
+        name: path.basename(ws),
+      })),
+      primary: primaryRoot,
+    });
+  });
 
   // Health check
   app.get('/api/health', (_req, res) => {
@@ -65,16 +110,17 @@ export function createServer(config: ServerConfig): Express {
 const isMainModule = process.argv[1]?.includes('server/dist/index.js') ||
                      process.argv[1]?.includes('server/src/index.ts');
 if (isMainModule) {
+  // Auto-discover project root as workspace when running directly
+  const discoveredRoot = getProjectRoot();
+  const discoveredMarker = getProjectRootMarker(discoveredRoot);
+
   const config: ServerConfig = {
     port: parseInt(process.env.PORT || '3000', 10),
     designerPath: process.env.DESIGNER_PATH || path.join(__dirname, '../../designer/dist'),
+    workspaces: [discoveredRoot], // Use discovered root as workspace
   };
 
   const app = createServer(config);
-
-  // Discover project root for logging
-  const discoveredRoot = getProjectRoot();
-  const discoveredMarker = getProjectRootMarker(discoveredRoot);
 
   app.listen(config.port, () => {
     console.log(`Robomesh server running at http://localhost:${config.port}`);

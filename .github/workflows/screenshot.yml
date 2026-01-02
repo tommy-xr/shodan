@@ -43,20 +43,23 @@ jobs:
       - name: Generate screenshot
         run: pnpm run generate:screenshot
 
-      - name: Upload screenshot artifact
+      - name: Upload screenshot artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: screenshot
-          path: docs/screenshot.png
+          name: screenshots
+          path: |
+            docs/screenshot.png
+            docs/dashboard.png
 
-      - name: Push screenshot to screenshots branch
+      - name: Push screenshots to screenshots branch
         run: |
           # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Save the screenshot
-          cp docs/screenshot.png /tmp/screenshot-pr-${{ github.event.pull_request.number }}.png
+          # Save the screenshots
+          cp docs/screenshot.png /tmp/designer-pr-${{ github.event.pull_request.number }}.png
+          cp docs/dashboard.png /tmp/dashboard-pr-${{ github.event.pull_request.number }}.png
 
           # Fetch and checkout screenshots branch (or create it)
           git fetch origin screenshots || true
@@ -65,15 +68,17 @@ jobs:
           # Clean the branch and add only screenshots
           git rm -rf . || true
           mkdir -p screenshots
-          cp /tmp/screenshot-pr-${{ github.event.pull_request.number }}.png screenshots/
+          cp /tmp/designer-pr-${{ github.event.pull_request.number }}.png screenshots/
+          cp /tmp/dashboard-pr-${{ github.event.pull_request.number }}.png screenshots/
 
           # Also copy any existing screenshots from the branch
           git checkout origin/screenshots -- screenshots/ 2>/dev/null || true
-          cp /tmp/screenshot-pr-${{ github.event.pull_request.number }}.png screenshots/
+          cp /tmp/designer-pr-${{ github.event.pull_request.number }}.png screenshots/
+          cp /tmp/dashboard-pr-${{ github.event.pull_request.number }}.png screenshots/
 
           # Commit and push
           git add screenshots/
-          git commit -m "Update screenshot for PR #${{ github.event.pull_request.number }}" || echo "No changes to commit"
+          git commit -m "Update screenshots for PR #${{ github.event.pull_request.number }}" || echo "No changes to commit"
           git push origin screenshots --force
 
       - name: Create or update PR comment
@@ -82,7 +87,9 @@ jobs:
           script: |
             const commentMarker = '<!-- robomesh-screenshot-preview -->';
             const prNumber = context.issue.number;
-            const screenshotUrl = `https://raw.githubusercontent.com/${context.repo.owner}/${context.repo.repo}/screenshots/screenshots/screenshot-pr-${prNumber}.png`;
+            const baseUrl = `https://raw.githubusercontent.com/${context.repo.owner}/${context.repo.repo}/screenshots/screenshots`;
+            const dashboardUrl = `${baseUrl}/dashboard-pr-${prNumber}.png`;
+            const designerUrl = `${baseUrl}/designer-pr-${prNumber}.png`;
             const artifactUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
             // Find existing comment
@@ -96,12 +103,15 @@ jobs:
 
             const body = [
               commentMarker,
-              '## Designer Preview',
+              '## UI Preview',
               '',
-              `![Designer Screenshot](${screenshotUrl}?run=${context.runId})`,
+              '### Dashboard',
+              `![Dashboard Screenshot](${dashboardUrl}?run=${context.runId})`,
               '',
-              '> Screenshot generated from `workflows/test-session-persistence.yaml`',
-              `> [Download artifact](${artifactUrl})`,
+              '### Designer',
+              `![Designer Screenshot](${designerUrl}?run=${context.runId})`,
+              '',
+              `> [Download artifacts](${artifactUrl})`,
             ].join('\n');
 
             if (existingComment) {

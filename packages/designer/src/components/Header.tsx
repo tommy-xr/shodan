@@ -24,6 +24,9 @@ interface HeaderProps {
   onSaveComponent?: () => void;
   isSaving?: boolean;
   hasUnsavedChanges?: boolean;
+  isFileBased?: boolean; // True when editing a file-based workflow
+  workspaceName?: string; // For file-based workflows
+  workflowPath?: string; // For file-based workflows (e.g. ".robomesh/workflows/test.yaml")
   // Workflow props
   onWorkflowNameChange: (name: string) => void;
   onNewWorkflow: () => void;
@@ -46,6 +49,9 @@ export function Header({
   onSaveComponent,
   isSaving,
   hasUnsavedChanges,
+  isFileBased,
+  workspaceName,
+  workflowPath,
   onWorkflowNameChange,
   onNewWorkflow,
   nodes,
@@ -143,11 +149,84 @@ export function Header({
   };
 
   // Build the full breadcrumb display
-  // Format: rootDirectory / workflowName [/ component path...]
+  // For file-based workflows: Workspaces > workspace > path/segments > filename
+  // For in-memory workflows: rootDirectory / workflowName [/ component path...]
   const renderBreadcrumb = () => {
     const parts: React.ReactNode[] = [];
 
-    // Root directory (truncated if too long)
+    // File-based workflow: show Workspaces > workspace > path
+    if (isFileBased && workspaceName && workflowPath) {
+      // "Workspaces" link to dashboard
+      parts.push(
+        <a key="workspaces" href="/" className="header-breadcrumb-link">
+          Workspaces
+        </a>
+      );
+      parts.push(
+        <span key="sep-ws" className="header-breadcrumb-separator">›</span>
+      );
+
+      // Workspace name
+      parts.push(
+        <span key="workspace" className="header-breadcrumb-item workspace">
+          {workspaceName}
+        </span>
+      );
+
+      // Path segments (e.g., .robomesh/workflows/test.yaml becomes: .robomesh > workflows > test.yaml)
+      const pathParts = workflowPath.split('/');
+      pathParts.forEach((part, index) => {
+        parts.push(
+          <span key={`sep-path-${index}`} className="header-breadcrumb-separator">›</span>
+        );
+
+        const isFile = index === pathParts.length - 1;
+        parts.push(
+          <span
+            key={`path-${index}`}
+            className={`header-breadcrumb-item ${isFile ? 'current file' : 'folder'}`}
+          >
+            {isFile && <span className="header-breadcrumb-icon">📄</span>}
+            {part}
+          </span>
+        );
+      });
+
+      // If editing nested components, add those
+      if (breadcrumbItems.length > 1) {
+        breadcrumbItems.slice(1).forEach((item, index) => {
+          parts.push(
+            <span key={`sep-comp-${index}`} className="header-breadcrumb-separator">›</span>
+          );
+          const isLast = index === breadcrumbItems.length - 2;
+          const isComponent = item.path !== undefined;
+
+          if (isLast) {
+            parts.push(
+              <span key={`comp-${index}`} className={`header-breadcrumb-item current ${isComponent ? 'component' : ''}`}>
+                {isComponent && <span className="header-breadcrumb-icon">📦</span>}
+                {item.name}
+              </span>
+            );
+          } else {
+            parts.push(
+              <button
+                key={`comp-${index}`}
+                className={`header-breadcrumb-link ${isComponent ? 'component' : ''}`}
+                onClick={() => onNavigateBreadcrumb(index + 1)}
+              >
+                {isComponent && <span className="header-breadcrumb-icon">📦</span>}
+                {item.name}
+              </button>
+            );
+          }
+        });
+      }
+
+      return parts;
+    }
+
+    // Non-file-based workflow (in-memory): rootDirectory / workflowName
     const displayDir = rootDirectory
       ? rootDirectory.length > 30
         ? '...' + rootDirectory.slice(-27)
@@ -161,7 +240,6 @@ export function Header({
       </span>
     );
 
-    // Separator
     parts.push(
       <span key="sep-root" className="header-breadcrumb-separator">/</span>
     );
@@ -180,7 +258,6 @@ export function Header({
         const isRoot = index === 0;
 
         if (isLast) {
-          // Last item (current location) - show as text, editable if it's a component
           parts.push(
             <span key={`item-${index}`} className={`header-breadcrumb-item current ${isComponent ? 'component' : ''}`}>
               {isComponent && <span className="header-breadcrumb-icon">📦</span>}
@@ -188,7 +265,6 @@ export function Header({
             </span>
           );
         } else if (isRoot && !isComponent) {
-          // Root workflow - make it editable
           if (isEditingName) {
             parts.push(
               <input
@@ -221,7 +297,6 @@ export function Header({
             );
           }
         } else {
-          // Other navigable items
           parts.push(
             <button
               key={`item-${index}`}
@@ -334,6 +409,11 @@ export function Header({
           >
             {isSaving ? 'Saving...' : 'Save'}
           </button>
+        )}
+        {isFileBased && !isEditingComponent && (
+          <span className={`header-save-status ${isSaving ? 'saving' : hasUnsavedChanges ? 'unsaved' : 'saved'}`}>
+            {isSaving ? '⏳ Saving...' : hasUnsavedChanges ? '● Unsaved' : '✓ Saved'}
+          </span>
         )}
       </div>
 

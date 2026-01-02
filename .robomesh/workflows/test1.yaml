@@ -1,0 +1,47 @@
+version: 1
+metadata:
+  name: test1
+  description: ''
+  rootDirectory: /Users/bryphe/shodan
+nodes:
+  - id: trigger_1
+    type: trigger
+    position:
+      x: -341.6103245025843
+      'y': 52.266159636710796
+    data:
+      label: Start
+      triggerType: manual
+      nodeType: trigger
+  - id: node_0
+    type: shell
+    position:
+      x: 68.74956736590468
+      'y': 55.78168737925898
+    data:
+      label: New Shell
+      nodeType: shell
+      inputs:
+        - name: input
+          type: any
+          required: false
+          description: Generic input for template interpolation
+      outputs:
+        - name: output
+          type: string
+          description: Combined stdout output
+        - name: stdout
+          type: string
+          description: Standard output
+        - name: stderr
+          type: string
+          description: Standard error
+        - name: exitCode
+          type: number
+          description: Exit code (0 = success)
+edges:
+  - id: xy-edge__trigger_1output:timestamp-node_0input:input
+    source: trigger_1
+    target: node_0
+    sourceHandle: output:timestamp
+    targetHandle: input:input

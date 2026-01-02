@@ -157,6 +157,53 @@ Components enable workflow reuse (`packages/server/src/routes/components.ts`):
 - **Executor**: Recursively executes component workflows, mapping inputs/outputs through interface nodes
 - **Designer**: Components appear in sidebar, support drill-down editing with breadcrumb navigation
 
+### Workspace Architecture
+
+Workspaces allow managing workflows across multiple projects from a single server:
+
+**Concept**: A workspace is a project directory containing workflows. Identified by a `.robomesh/` directory (primary) or `workflows/` directory.
+
+**CLI Commands** (`packages/cli/index.ts`):
+```bash
+robomesh serve [--port 3000]  # Start server with registered workspaces
+robomesh add [path]           # Register workspace (default: cwd)
+robomesh remove [path]        # Unregister workspace
+robomesh list                 # Show registered workspaces
+robomesh init [path]          # Initialize workspace with .robomesh/ directory
+```
+
+**Configuration**: Workspaces stored in `~/.robomesh/config.yaml`:
+```yaml
+workspaces:
+  - /path/to/project1
+  - /path/to/project2
+```
+
+**Server Routes**:
+- `/api/workspaces` - List registered workspaces
+- `/api/workflows` - Discover workflows across all workspaces (`packages/server/src/routes/workflows.ts`)
+- `/api/execution/*` - Execution management (`packages/server/src/routes/execution.ts`)
+
+**Dashboard** (`packages/designer/src/pages/Dashboard.tsx`):
+- Lists all workflows grouped by workspace
+- Shows trigger info (manual, cron, idle badges)
+- Start/Stop workflow execution
+- Last run status with relative time ("✔ 5m ago")
+- Click to view run details with per-node output
+
+**Execution History** (`packages/server/src/routes/execution.ts`):
+- Tracks running workflow state (one per server currently)
+- Records history per workflow (last 10 runs)
+- Persists to `~/.robomesh/`:
+  - `history.json` - Index of all runs (summaries)
+  - `runs/<run-id>.json` - Full results for each run
+- History loads on server startup
+
+**Routing** (`packages/designer/src/main.tsx`):
+- `/` - Dashboard page
+- `/workflow/:workspace/:path` - Designer with workflow loaded from URL
+- `/designer` - Designer (uses localStorage state)
+
 ## Key Technical Details
 
 ### TypeScript Configuration
