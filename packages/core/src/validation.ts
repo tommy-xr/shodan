@@ -44,6 +44,7 @@ const DYNAMIC_PORT_TYPES = new Set([
   'interface-continue',
   'function',  // User-defined inputs/outputs
   'constant',  // User-defined output type
+  'trigger',   // Outputs are always implicitly present (timestamp, type, text, params)
 ]);
 
 /**

@@ -13,10 +13,12 @@ nodes:
       label: Start
       triggerType: manual
       nodeType: trigger
+      executionStatus: completed
+      executionOutput: Trigger activated
   - id: node_0
     type: shell
     position:
-      x: 68.74956736590468
+      x: 67.90636727575622
       'y': 55.78168737925898
     data:
       label: New Shell
@@ -39,9 +41,13 @@ nodes:
         - name: exitCode
           type: number
           description: Exit code (0 = success)
+      script: echo "yo {{inputs.input}}"
+      executionStatus: completed
+      executionOutput: |
+        $ echo ""
 edges:
-  - id: xy-edge__trigger_1output:timestamp-node_0input:input
+  - id: xy-edge__trigger_1output:text-node_0input:input
     source: trigger_1
     target: node_0
-    sourceHandle: output:timestamp
+    sourceHandle: output:text
     targetHandle: input:input

@@ -36,8 +36,10 @@ export async function resolveWorkflowPath(arg: string, cwd: string): Promise<str
     return path.resolve(cwd, arg);
   }
 
-  // Shorthand: look for workflow by name
+  // Shorthand: look for workflow by name in standard locations
   const candidates = [
+    `.robomesh/workflows/${arg}.yaml`,
+    `.robomesh/workflows/${arg}.yml`,
     `workflows/${arg}.yaml`,
     `workflows/${arg}.yml`,
     `.robomesh/${arg}.yaml`,
@@ -155,10 +157,19 @@ export async function runChat(workflowArg: string, options: ChatOptions = {}): P
   // Validate workflow
   if (!options.skipValidation) {
     const validation = validateWorkflow(schema);
+
+    // Show issues but only fail on actual errors (not warnings)
     if (validation.issues.length > 0) {
-      console.error('\x1b[31m\x1b[1mWorkflow validation failed:\x1b[0m');
+      const hasErrors = !validation.valid;
+      if (hasErrors) {
+        console.error('\x1b[31m\x1b[1mWorkflow validation failed:\x1b[0m');
+        console.error(formatValidationIssues(validation.issues));
+        return 1;
+      }
+      // Just warnings - show them but continue
+      console.error('\x1b[33mWorkflow validation warnings:\x1b[0m');
       console.error(formatValidationIssues(validation.issues));
-      return 1;
+      console.error('');
     }
   }
 
