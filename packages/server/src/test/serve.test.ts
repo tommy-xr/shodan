@@ -175,7 +175,13 @@ const tests = [
   }),
 
   test('GET /api/workflows/workspace/:workspace returns workspace workflows', async () => {
-    const res = await fetch(`${BASE_URL}/api/workflows/workspace/shodan`);
+    // First get the actual workspace name dynamically
+    const wsRes = await fetch(`${BASE_URL}/api/workspaces`);
+    const wsData = await wsRes.json();
+    assert(wsData.workspaces.length > 0, 'Expected at least one workspace');
+    const workspaceName = wsData.workspaces[0].name;
+
+    const res = await fetch(`${BASE_URL}/api/workflows/workspace/${workspaceName}`);
     assertEqual(res.status, 200, 'Expected status 200');
 
     const data = await res.json();
