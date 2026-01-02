@@ -65,6 +65,21 @@ interface ExecutionHistoryEntry {
   results?: NodeResult[];
 }
 
+interface RegisteredTrigger {
+  id: string;
+  workspace: string;
+  workflowPath: string;
+  nodeId: string;
+  label: string;
+  config: {
+    type: string;
+    cron?: string;
+  };
+  enabled: boolean;
+  nextRun?: string;
+  lastRun?: string;
+}
+
 const TRIGGER_ICONS: Record<string, string> = {
   manual: '\u{1F590}', // Hand
   cron: '\u{23F0}',    // Alarm clock
@@ -81,6 +96,9 @@ export function Dashboard() {
   const [expandedWorkspaces, setExpandedWorkspaces] = useState<Set<string>>(new Set());
   const [lastRuns, setLastRuns] = useState<Record<string, ExecutionHistoryEntry>>({});
   const [selectedHistory, setSelectedHistory] = useState<ExecutionHistoryEntry | null>(null);
+  const [triggers, setTriggers] = useState<RegisteredTrigger[]>([]);
+  const [newWorkflowModal, setNewWorkflowModal] = useState<{ workspace: string } | null>(null);
+  const [newWorkflowName, setNewWorkflowName] = useState('');
 
   // Fetch workflows from API
   const fetchWorkflows = useCallback(async () => {
@@ -127,19 +145,34 @@ export function Dashboard() {
     }
   }, []);
 
+  // Fetch registered triggers
+  const fetchTriggers = useCallback(async () => {
+    try {
+      const res = await fetch('/api/triggers');
+      if (res.ok) {
+        const data = await res.json();
+        setTriggers(data.triggers || []);
+      }
+    } catch {
+      // Ignore errors
+    }
+  }, []);
+
   // Initial fetch
   useEffect(() => {
     fetchWorkflows();
     fetchExecutionStatus();
     fetchLastRuns();
+    fetchTriggers();
 
     // Poll for status updates (also refresh last runs when status changes)
     const interval = setInterval(() => {
       fetchExecutionStatus();
       fetchLastRuns();
+      fetchTriggers();
     }, 2000);
     return () => clearInterval(interval);
-  }, [fetchWorkflows, fetchExecutionStatus, fetchLastRuns]);
+  }, [fetchWorkflows, fetchExecutionStatus, fetchLastRuns, fetchTriggers]);
 
   // Start a workflow
   const handleStart = async (workflow: WorkflowInfo) => {
@@ -186,6 +219,38 @@ export function Dashboard() {
   // Open workflow in designer
   const handleOpen = (workflow: WorkflowInfo) => {
     navigate(`/workflow/${workflow.workspace}/${encodeURIComponent(workflow.path)}`);
+  };
+
+  // Create new workflow
+  const handleCreateWorkflow = async () => {
+    if (!newWorkflowModal || !newWorkflowName.trim()) return;
+
+    try {
+      const res = await fetch('/api/workflows/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspace: newWorkflowModal.workspace,
+          name: newWorkflowName.trim(),
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to create workflow');
+      }
+
+      const data = await res.json();
+
+      // Close modal and reset
+      setNewWorkflowModal(null);
+      setNewWorkflowName('');
+
+      // Navigate to the new workflow
+      navigate(`/workflow/${data.workspace}/${encodeURIComponent(data.path)}`);
+    } catch (err) {
+      alert((err as Error).message);
+    }
   };
 
   // Toggle workspace expansion
@@ -253,8 +318,42 @@ export function Dashboard() {
     return `${(ms / 60000).toFixed(1)}m`;
   };
 
-  // View run details
-  const handleViewRun = (entry: ExecutionHistoryEntry) => {
+  // Get next run time for a workflow
+  const getNextRun = (workflow: WorkflowInfo): RegisteredTrigger | undefined => {
+    return triggers.find(
+      t => t.workspace === workflow.workspace && t.workflowPath === workflow.path && t.nextRun
+    );
+  };
+
+  // Format next run time
+  const formatNextRun = (nextRun: string): string => {
+    const date = new Date(nextRun);
+    const now = new Date();
+    const diffMs = date.getTime() - now.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+
+    if (diffMins < 0) return 'due';
+    if (diffMins < 60) return `in ${diffMins}m`;
+    if (diffHours < 24) return `in ${diffHours}h`;
+    return date.toLocaleDateString();
+  };
+
+  // View run details (fetch full results from API if needed)
+  const handleViewRun = async (entry: ExecutionHistoryEntry) => {
+    // If results are missing, fetch from API
+    if (!entry.results) {
+      try {
+        const res = await fetch(`/api/execution/run/${entry.id}`);
+        if (res.ok) {
+          const fullRun = await res.json();
+          setSelectedHistory(fullRun);
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to fetch run details:', err);
+      }
+    }
     setSelectedHistory(entry);
   };
 
@@ -301,15 +400,28 @@ export function Dashboard() {
             <div className="workspace-list">
               {workspaces.map(workspace => (
                 <div key={workspace.name} className="workspace-group">
-                  <div
-                    className="workspace-header"
-                    onClick={() => toggleWorkspace(workspace.name)}
-                  >
-                    <span className="expand-icon">
-                      {expandedWorkspaces.has(workspace.name) ? '\u25BC' : '\u25B6'}
-                    </span>
-                    <span className="workspace-name">{workspace.name}</span>
-                    <span className="workflow-count">{workspace.workflowCount}</span>
+                  <div className="workspace-header">
+                    <div
+                      className="workspace-header-toggle"
+                      onClick={() => toggleWorkspace(workspace.name)}
+                    >
+                      <span className="expand-icon">
+                        {expandedWorkspaces.has(workspace.name) ? '\u25BC' : '\u25B6'}
+                      </span>
+                      <span className="workspace-name">{workspace.name}</span>
+                      <span className="workflow-count">{workspace.workflowCount}</span>
+                    </div>
+                    <button
+                      className="new-workflow-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setNewWorkflowModal({ workspace: workspace.name });
+                        setNewWorkflowName('');
+                      }}
+                      title="Create new workflow"
+                    >
+                      + New
+                    </button>
                   </div>
 
                   {expandedWorkspaces.has(workspace.name) && (
@@ -318,6 +430,7 @@ export function Dashboard() {
                         .filter(w => w.workspace === workspace.name)
                         .map(workflow => {
                           const lastRun = getLastRun(workflow);
+                          const nextRunTrigger = getNextRun(workflow);
                           return (
                             <div
                               key={`${workflow.workspace}/${workflow.path}`}
@@ -330,6 +443,14 @@ export function Dashboard() {
                                   <span className="workflow-triggers">
                                     {getTriggerDisplay(workflow.triggers)}
                                   </span>
+                                  {nextRunTrigger?.nextRun && (
+                                    <span
+                                      className="next-run"
+                                      title={`Next run: ${new Date(nextRunTrigger.nextRun).toLocaleString()}`}
+                                    >
+                                      {'\u23F1'} {formatNextRun(nextRunTrigger.nextRun)}
+                                    </span>
+                                  )}
                                   {lastRun && (
                                     <span
                                       className={`last-run ${lastRun.status}`}
@@ -466,6 +587,55 @@ export function Dashboard() {
               ) : (
                 <p className="no-results">No results available</p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Workflow Modal */}
+      {newWorkflowModal && (
+        <div className="run-modal-overlay" onClick={() => setNewWorkflowModal(null)}>
+          <div className="new-workflow-modal" onClick={e => e.stopPropagation()}>
+            <div className="run-modal-header">
+              <h3>New Workflow</h3>
+              <button className="close-btn" onClick={() => setNewWorkflowModal(null)}>&times;</button>
+            </div>
+            <div className="new-workflow-form">
+              <div className="form-field">
+                <label>Workspace</label>
+                <span className="workspace-value">{newWorkflowModal.workspace}</span>
+              </div>
+              <div className="form-field">
+                <label htmlFor="workflow-name">Name</label>
+                <input
+                  id="workflow-name"
+                  type="text"
+                  value={newWorkflowName}
+                  onChange={e => setNewWorkflowName(e.target.value)}
+                  placeholder="My Workflow"
+                  autoFocus
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && newWorkflowName.trim()) {
+                      handleCreateWorkflow();
+                    }
+                  }}
+                />
+              </div>
+              <div className="form-actions">
+                <button
+                  className="cancel-btn"
+                  onClick={() => setNewWorkflowModal(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="create-btn"
+                  onClick={handleCreateWorkflow}
+                  disabled={!newWorkflowName.trim()}
+                >
+                  Create
+                </button>
+              </div>
             </div>
           </div>
         </div>

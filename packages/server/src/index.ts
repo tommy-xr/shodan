@@ -8,7 +8,9 @@ import { createExecuteRouter } from './routes/execute.js';
 import { createConfigRouter } from './routes/config.js';
 import { createComponentsRouter } from './routes/components.js';
 import { createWorkflowsRouter } from './routes/workflows.js';
-import { createExecutionRouter } from './routes/execution.js';
+import { createExecutionRouter, startWorkflow } from './routes/execution.js';
+import { createTriggersRouter } from './routes/triggers.js';
+import { getTriggerManager } from './triggers/index.js';
 import { getProjectRoot, getProjectRootMarker } from './utils/project-root.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -26,6 +28,8 @@ export interface ServerConfig {
   port: number;
   designerPath?: string; // Path to designer dist folder
   workspaces?: string[]; // Registered workspace directories
+  enableTriggers?: boolean; // Enable trigger scheduling (default: true)
+  triggerCheckInterval?: number; // Trigger check interval in ms (default: 10000)
 }
 
 export function createServer(config: ServerConfig): Express {
@@ -48,6 +52,29 @@ export function createServer(config: ServerConfig): Express {
   app.use('/api/components', createComponentsRouter(primaryRoot));
   app.use('/api/workflows', createWorkflowsRouter(workspaces));
   app.use('/api/execution', createExecutionRouter(workspaces));
+  app.use('/api/triggers', createTriggersRouter());
+
+  // Initialize trigger manager
+  const triggerManager = getTriggerManager();
+  triggerManager.load().catch(console.error);
+
+  // Wire up trigger firing to execute workflows
+  triggerManager.onFire(async (trigger) => {
+    console.log(`[Trigger] Firing trigger: ${trigger.id} (${trigger.label})`);
+    const result = await startWorkflow(trigger.workspace, trigger.workflowPath, {
+      triggeredBy: `cron:${trigger.config.cron}`,
+    });
+    if (!result.success) {
+      console.error(`[Trigger] Failed to start workflow: ${result.error}`);
+      throw new Error(result.error);
+    }
+  });
+
+  // Start trigger scheduler if enabled (default: true)
+  if (config.enableTriggers !== false) {
+    const checkInterval = config.triggerCheckInterval || 10000;
+    triggerManager.start(checkInterval);
+  }
 
   // Workspaces endpoint
   app.get('/api/workspaces', (_req, res) => {

@@ -96,16 +96,41 @@
 .workspace-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px;
+  justify-content: space-between;
+  padding: 8px 12px;
   background: #0f3460;
   border-radius: 4px;
-  cursor: pointer;
   user-select: none;
 }
 
-.workspace-header:hover {
-  background: #1a4a7a;
+.workspace-header-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.workspace-header-toggle:hover {
+  color: #00d9ff;
+}
+
+.new-workflow-btn {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid #00d9ff;
+  border-radius: 4px;
+  color: #00d9ff;
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0.7;
+  transition: opacity 0.2s, background 0.2s;
+}
+
+.new-workflow-btn:hover {
+  opacity: 1;
+  background: rgba(0, 217, 255, 0.1);
 }
 
 .expand-icon {
@@ -374,6 +399,18 @@
   background: rgba(255, 204, 0, 0.1);
 }
 
+/* Next run badge */
+.next-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 10px;
+  color: #00d9ff;
+  background: rgba(0, 217, 255, 0.1);
+}
+
 /* Run Details Modal */
 .run-modal-overlay {
   position: fixed;
@@ -551,4 +588,95 @@
 .no-results {
   color: #808080;
   font-style: italic;
+}
+
+/* New Workflow Modal */
+.new-workflow-modal {
+  background: #1a1a2e;
+  border: 1px solid #0f3460;
+  border-radius: 8px;
+  width: 400px;
+  max-width: 90%;
+}
+
+.new-workflow-form {
+  padding: 20px;
+}
+
+.form-field {
+  margin-bottom: 16px;
+}
+
+.form-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #a0a0a0;
+}
+
+.form-field input {
+  width: 100%;
+  padding: 10px 12px;
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 14px;
+}
+
+.form-field input:focus {
+  outline: none;
+  border-color: #00d9ff;
+}
+
+.form-field .workspace-value {
+  display: block;
+  padding: 10px 12px;
+  background: #16213e;
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 14px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.cancel-btn {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #404060;
+  border-radius: 4px;
+  color: #a0a0a0;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.cancel-btn:hover {
+  background: #252550;
+  color: #e0e0e0;
+}
+
+.create-btn {
+  padding: 8px 16px;
+  background: #00d9ff;
+  border: none;
+  border-radius: 4px;
+  color: #000;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.create-btn:hover:not(:disabled) {
+  background: #00b8d9;
+}
+
+.create-btn:disabled {
+  background: #404060;
+  color: #808080;
+  cursor: not-allowed;
 }

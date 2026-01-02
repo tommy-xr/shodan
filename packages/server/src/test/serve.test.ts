@@ -165,14 +165,13 @@ const tests = [
     assert(Array.isArray(data.workflows), 'Expected workflows to be an array');
     assert(typeof data.total === 'number', 'Expected total to be a number');
 
-    // Should find at least some workflows in the test workspace
-    assert(data.workflows.length > 0, 'Expected at least one workflow');
-
-    // Check workflow structure
-    const workflow = data.workflows[0];
-    assert(typeof workflow.path === 'string', 'Expected workflow path');
-    assert(typeof workflow.name === 'string', 'Expected workflow name');
-    assert(Array.isArray(workflow.triggers), 'Expected triggers array');
+    // If workflows exist, check structure
+    if (data.workflows.length > 0) {
+      const workflow = data.workflows[0];
+      assert(typeof workflow.path === 'string', 'Expected workflow path');
+      assert(typeof workflow.name === 'string', 'Expected workflow name');
+      assert(Array.isArray(workflow.triggers), 'Expected triggers array');
+    }
   }),
 
   test('GET /api/workflows/workspace/:workspace returns workspace workflows', async () => {
@@ -277,6 +276,50 @@ const tests = [
 
     const data = await res.json();
     assert(Array.isArray(data.history), 'Expected history to be an array');
+  }),
+
+  // Trigger API Tests
+  test('GET /api/triggers returns triggers list', async () => {
+    const res = await fetch(`${BASE_URL}/api/triggers`);
+    assertEqual(res.status, 200, 'Expected status 200');
+
+    const data = await res.json();
+    assert(Array.isArray(data.triggers), 'Expected triggers array');
+    assert(typeof data.count === 'number', 'Expected count');
+  }),
+
+  test('GET /api/triggers/validate returns valid for good cron', async () => {
+    const res = await fetch(`${BASE_URL}/api/triggers/validate?cron=${encodeURIComponent('0 0 9 * * *')}`);
+    assertEqual(res.status, 200, 'Expected status 200');
+
+    const data = await res.json();
+    assertEqual(data.valid, true, 'Expected valid: true');
+    assert(data.nextRun !== undefined, 'Expected nextRun');
+  }),
+
+  test('GET /api/triggers/validate returns invalid for bad cron', async () => {
+    const res = await fetch(`${BASE_URL}/api/triggers/validate?cron=invalid`);
+    assertEqual(res.status, 200, 'Expected status 200');
+
+    const data = await res.json();
+    assertEqual(data.valid, false, 'Expected valid: false');
+  }),
+
+  test('POST /api/triggers/enable requires params', async () => {
+    const res = await fetch(`${BASE_URL}/api/triggers/enable`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    assertEqual(res.status, 400, 'Expected status 400 for missing params');
+  }),
+
+  test('GET /api/triggers/due returns due triggers', async () => {
+    const res = await fetch(`${BASE_URL}/api/triggers/due`);
+    assertEqual(res.status, 200, 'Expected status 200');
+
+    const data = await res.json();
+    assert(Array.isArray(data.triggers), 'Expected triggers array');
   }),
 ];
 

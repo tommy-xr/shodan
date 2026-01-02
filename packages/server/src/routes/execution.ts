@@ -13,9 +13,17 @@ import { executeWorkflowSchema } from '../engine/executor.js';
 import type { WorkflowSchema, NodeResult } from '@robomesh/core';
 
 // Get robomesh home directory
-const ROBOMESH_HOME = path.join(os.homedir(), '.robomesh');
-const HISTORY_FILE = path.join(ROBOMESH_HOME, 'history.json');
-const RUNS_DIR = path.join(ROBOMESH_HOME, 'runs');
+function getRobomeshHome(): string {
+  return process.env.ROBOMESH_HOME || path.join(os.homedir(), '.robomesh');
+}
+
+function getHistoryFile(): string {
+  return path.join(getRobomeshHome(), 'history.json');
+}
+
+function getRunsDir(): string {
+  return path.join(getRobomeshHome(), 'runs');
+}
 
 export interface ExecutionState {
   isRunning: boolean;
@@ -83,22 +91,23 @@ function getLastRun(workspace: string, workflowPath: string): ExecutionHistoryEn
 
 // Ensure directories exist
 async function ensureDirectories() {
-  await fs.mkdir(ROBOMESH_HOME, { recursive: true });
-  await fs.mkdir(RUNS_DIR, { recursive: true });
+  await fs.mkdir(getRobomeshHome(), { recursive: true });
+  await fs.mkdir(getRunsDir(), { recursive: true });
 }
 
 // Load history from disk on startup
 async function loadHistory() {
   try {
     await ensureDirectories();
-    const data = await fs.readFile(HISTORY_FILE, 'utf-8');
+    const historyFile = getHistoryFile();
+    const data = await fs.readFile(historyFile, 'utf-8');
     const parsed = JSON.parse(data) as Record<string, ExecutionHistoryEntry[]>;
 
     // Restore to in-memory map
     for (const [key, entries] of Object.entries(parsed)) {
       executionHistory.set(key, entries);
     }
-    console.log(`Loaded ${executionHistory.size} workflow histories from ${HISTORY_FILE}`);
+    console.log(`Loaded ${executionHistory.size} workflow histories from ${historyFile}`);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
       console.error('Error loading history:', err);
@@ -120,7 +129,7 @@ async function saveHistoryIndex() {
       indexData[key] = entries.map(({ results, ...summary }) => summary);
     }
 
-    await fs.writeFile(HISTORY_FILE, JSON.stringify(indexData, null, 2));
+    await fs.writeFile(getHistoryFile(), JSON.stringify(indexData, null, 2));
   } catch (err) {
     console.error('Error saving history index:', err);
   }
@@ -130,7 +139,7 @@ async function saveHistoryIndex() {
 async function saveRunResults(entry: ExecutionHistoryEntry) {
   try {
     await ensureDirectories();
-    const runFile = path.join(RUNS_DIR, `${entry.id}.json`);
+    const runFile = path.join(getRunsDir(), `${entry.id}.json`);
     await fs.writeFile(runFile, JSON.stringify(entry, null, 2));
   } catch (err) {
     console.error('Error saving run results:', err);
@@ -140,7 +149,7 @@ async function saveRunResults(entry: ExecutionHistoryEntry) {
 // Load individual run results from disk
 async function loadRunResults(runId: string): Promise<ExecutionHistoryEntry | null> {
   try {
-    const runFile = path.join(RUNS_DIR, `${runId}.json`);
+    const runFile = path.join(getRunsDir(), `${runId}.json`);
     const data = await fs.readFile(runFile, 'utf-8');
     return JSON.parse(data) as ExecutionHistoryEntry;
   } catch (err) {
@@ -154,8 +163,163 @@ async function loadRunResults(runId: string): Promise<ExecutionHistoryEntry | nu
 // Initialize: load history on module load
 loadHistory().catch(console.error);
 
+// Store workspaces for use by startWorkflow
+let registeredWorkspaces: string[] = [];
+
+/**
+ * Start a workflow execution programmatically
+ * Returns a promise that resolves when execution starts (not when it completes)
+ */
+export async function startWorkflow(
+  workspace: string,
+  workflowPath: string,
+  options?: { triggeredBy?: string }
+): Promise<{ success: boolean; error?: string; runId?: string }> {
+  if (executionState.isRunning) {
+    return {
+      success: false,
+      error: `A workflow is already running: ${executionState.workflowPath}`,
+    };
+  }
+
+  // Find workspace path
+  const workspacePath = registeredWorkspaces.find(ws => path.basename(ws) === workspace);
+  if (!workspacePath) {
+    return { success: false, error: 'Workspace not found' };
+  }
+
+  // Load workflow
+  const absoluteWorkflowPath = path.resolve(workspacePath, workflowPath);
+
+  // Security check
+  if (!absoluteWorkflowPath.startsWith(workspacePath)) {
+    return { success: false, error: 'Invalid workflow path' };
+  }
+
+  let schema: WorkflowSchema;
+  try {
+    const content = await fs.readFile(absoluteWorkflowPath, 'utf-8');
+    schema = yaml.load(content) as WorkflowSchema;
+
+    if (!schema?.metadata?.name || !Array.isArray(schema.nodes)) {
+      return { success: false, error: 'Invalid workflow schema' };
+    }
+
+    // Set rootDirectory to workspace
+    schema.metadata.rootDirectory = workspacePath;
+  } catch (err) {
+    return { success: false, error: `Failed to load workflow: ${(err as Error).message}` };
+  }
+
+  const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  // Initialize execution state
+  executionState = {
+    isRunning: true,
+    workflowPath,
+    workspace,
+    workspacePath,
+    startedAt: new Date().toISOString(),
+    currentNode: undefined,
+    progress: {
+      completed: 0,
+      total: schema.nodes.length,
+    },
+    results: [],
+  };
+
+  // Log if triggered by cron
+  if (options?.triggeredBy) {
+    console.log(`[Trigger] Starting workflow ${workspace}/${workflowPath} (triggered by: ${options.triggeredBy})`);
+  }
+
+  // Execute in background
+  const startTime = Date.now();
+
+  executeWorkflowSchema(schema, {
+    onNodeStart: (nodeId, node) => {
+      executionState.currentNode = (node.data.label as string) || nodeId;
+    },
+    onNodeComplete: (_nodeId, result) => {
+      if (executionState.progress) {
+        executionState.progress.completed++;
+      }
+      executionState.results?.push(result);
+    },
+  })
+    .then(result => {
+      const completedAt = new Date().toISOString();
+      const duration = Date.now() - startTime;
+
+      // Check if any node failed
+      const hasFailedNode = result.results.some(r => r.status === 'failed');
+      const failedNode = result.results.find(r => r.status === 'failed');
+
+      // Record to history
+      addToHistory({
+        id: runId,
+        workspace,
+        workflowPath,
+        startedAt: executionState.startedAt!,
+        completedAt,
+        status: hasFailedNode ? 'failed' : 'completed',
+        duration,
+        nodeCount: result.results.length,
+        error: failedNode?.error,
+        results: result.results,
+      });
+
+      executionState = {
+        isRunning: false,
+        workflowPath,
+        workspace,
+        progress: executionState.progress,
+        results: result.results,
+        error: failedNode?.error,
+      };
+
+      if (options?.triggeredBy) {
+        console.log(`[Trigger] Workflow ${workspace}/${workflowPath} completed (status: ${hasFailedNode ? 'failed' : 'completed'})`);
+      }
+    })
+    .catch(err => {
+      const completedAt = new Date().toISOString();
+      const duration = Date.now() - startTime;
+
+      // Record to history
+      addToHistory({
+        id: runId,
+        workspace,
+        workflowPath,
+        startedAt: executionState.startedAt!,
+        completedAt,
+        status: 'failed',
+        duration,
+        nodeCount: executionState.results?.length || 0,
+        error: (err as Error).message,
+        results: executionState.results,
+      });
+
+      executionState = {
+        isRunning: false,
+        workflowPath,
+        workspace,
+        error: (err as Error).message,
+      };
+
+      if (options?.triggeredBy) {
+        console.log(`[Trigger] Workflow ${workspace}/${workflowPath} failed: ${(err as Error).message}`);
+      }
+    });
+
+  return { success: true, runId };
+}
+
 export function createExecutionRouter(workspaces: string[]): Router {
   const router = Router();
+
+  // Store workspaces for startWorkflow
+  registeredWorkspaces = workspaces;
 
   /**
    * GET /api/execution/status
@@ -178,136 +342,27 @@ export function createExecutionRouter(workspaces: string[]): Router {
       });
     }
 
-    if (executionState.isRunning) {
-      return res.status(409).json({
-        error: 'A workflow is already running',
-        currentWorkflow: executionState.workflowPath,
-      });
-    }
+    const result = await startWorkflow(workspace, workflowPath);
 
-    // Find workspace path
-    const workspacePath = workspaces.find(ws => path.basename(ws) === workspace);
-    if (!workspacePath) {
-      return res.status(404).json({ error: 'Workspace not found' });
-    }
-
-    // Load workflow
-    const absoluteWorkflowPath = path.resolve(workspacePath, workflowPath);
-
-    // Security check
-    if (!absoluteWorkflowPath.startsWith(workspacePath)) {
-      return res.status(403).json({ error: 'Invalid workflow path' });
-    }
-
-    let schema: WorkflowSchema;
-    try {
-      const content = await fs.readFile(absoluteWorkflowPath, 'utf-8');
-      schema = yaml.load(content) as WorkflowSchema;
-
-      if (!schema?.metadata?.name || !Array.isArray(schema.nodes)) {
-        return res.status(400).json({ error: 'Invalid workflow schema' });
+    if (!result.success) {
+      // Determine appropriate status code
+      if (result.error?.includes('already running')) {
+        return res.status(409).json({ error: result.error, currentWorkflow: executionState.workflowPath });
+      } else if (result.error?.includes('not found')) {
+        return res.status(404).json({ error: result.error });
+      } else if (result.error?.includes('Invalid')) {
+        return res.status(403).json({ error: result.error });
+      } else {
+        return res.status(400).json({ error: result.error });
       }
-
-      // Set rootDirectory to workspace
-      schema.metadata.rootDirectory = workspacePath;
-    } catch (err) {
-      return res.status(404).json({
-        error: 'Failed to load workflow',
-        details: (err as Error).message,
-      });
     }
 
-    // Initialize execution state
-    executionState = {
-      isRunning: true,
-      workflowPath,
-      workspace,
-      workspacePath,
-      startedAt: new Date().toISOString(),
-      currentNode: undefined,
-      progress: {
-        completed: 0,
-        total: schema.nodes.length,
-      },
-      results: [],
-    };
-
-    // Start execution asynchronously
     res.json({
       message: 'Workflow started',
       workflowPath,
       workspace,
+      runId: result.runId,
     });
-
-    // Execute in background
-    // Note: Cancellation not yet implemented - would need to add signal support to executor
-    const startTime = Date.now();
-    const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-    executeWorkflowSchema(schema, {
-      onNodeStart: (nodeId, node) => {
-        executionState.currentNode = (node.data.label as string) || nodeId;
-      },
-      onNodeComplete: (_nodeId, result) => {
-        if (executionState.progress) {
-          executionState.progress.completed++;
-        }
-        executionState.results?.push(result);
-      },
-    })
-      .then(result => {
-        const completedAt = new Date().toISOString();
-        const duration = Date.now() - startTime;
-
-        // Record to history
-        addToHistory({
-          id: runId,
-          workspace,
-          workflowPath,
-          startedAt: executionState.startedAt!,
-          completedAt,
-          status: 'completed',
-          duration,
-          nodeCount: result.results.length,
-          results: result.results,
-        });
-
-        executionState = {
-          isRunning: false,
-          workflowPath,
-          workspace,
-          progress: executionState.progress,
-          results: result.results,
-        };
-      })
-      .catch(err => {
-        const completedAt = new Date().toISOString();
-        const duration = Date.now() - startTime;
-
-        // Record to history
-        addToHistory({
-          id: runId,
-          workspace,
-          workflowPath,
-          startedAt: executionState.startedAt!,
-          completedAt,
-          status: 'failed',
-          duration,
-          nodeCount: executionState.results?.length || 0,
-          error: (err as Error).message,
-          results: executionState.results,
-        });
-
-        executionState = {
-          isRunning: false,
-          workflowPath,
-          workspace,
-          error: (err as Error).message,
-        };
-      })
-      .finally(() => {
-        // Cancellation cleanup would go here when implemented
-      });
   });
 
   /**

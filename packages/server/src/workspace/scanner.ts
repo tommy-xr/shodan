@@ -42,6 +42,9 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 
+// Default workflow directory relative to workspace root
+const DEFAULT_WORKFLOW_DIRS = ['.robomesh/workflows'];
+
 /**
  * Extract trigger information from workflow nodes
  */
@@ -125,10 +128,18 @@ async function isCacheValid(workspacePath: string): Promise<boolean> {
   return true;
 }
 
+export interface ScanOptions {
+  /** Workflow directories to scan (relative to workspace root). Defaults to ['.robomesh/workflows'] */
+  workflowDirs?: string[];
+}
+
 /**
  * Scan a workspace directory for workflow files
  */
-export async function scanWorkflows(workspacePath: string): Promise<WorkspaceScanResult> {
+export async function scanWorkflows(
+  workspacePath: string,
+  options?: ScanOptions
+): Promise<WorkspaceScanResult> {
   const absoluteWorkspacePath = path.resolve(workspacePath);
 
   // Check cache
@@ -136,34 +147,26 @@ export async function scanWorkflows(workspacePath: string): Promise<WorkspaceSca
     return cache.get(absoluteWorkspacePath)!.result;
   }
 
-  // Find all workflow YAML files
-  const workflowsDir = path.join(absoluteWorkspacePath, 'workflows');
-  let files: string[] = [];
+  const workflowDirs = options?.workflowDirs || DEFAULT_WORKFLOW_DIRS;
+  const files: string[] = [];
 
-  try {
-    // Check if workflows directory exists
-    await fs.stat(workflowsDir);
+  // Scan each configured workflow directory
+  for (const dir of workflowDirs) {
+    const workflowsDir = path.join(absoluteWorkspacePath, dir);
 
-    files = await glob('**/*.{yaml,yml}', {
-      cwd: workflowsDir,
-      nodir: true,
-      ignore: ['**/node_modules/**', '**/components/**'], // Skip components for now
-    });
-
-    // Convert to absolute paths
-    files = files.map(f => path.join(workflowsDir, f));
-  } catch {
-    // No workflows directory, check root for .robomesh/workflows
-    const robomeshWorkflows = path.join(absoluteWorkspacePath, '.robomesh', 'workflows');
     try {
-      await fs.stat(robomeshWorkflows);
-      files = await glob('**/*.{yaml,yml}', {
-        cwd: robomeshWorkflows,
+      await fs.stat(workflowsDir);
+
+      const found = await glob('**/*.{yaml,yml}', {
+        cwd: workflowsDir,
         nodir: true,
+        ignore: ['**/node_modules/**', '**/components/**'],
       });
-      files = files.map(f => path.join(robomeshWorkflows, f));
+
+      // Convert to absolute paths
+      files.push(...found.map(f => path.join(workflowsDir, f)));
     } catch {
-      // No workflows found
+      // Directory doesn't exist, skip
     }
   }
 

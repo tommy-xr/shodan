@@ -22,7 +22,7 @@ import { Sidebar } from './components/Sidebar';
 import { ConfigPanel } from './components/ConfigPanel';
 import { Header } from './components/Header';
 import { loadFromLocalStorage, saveToLocalStorage, clearLocalStorage } from './lib/storage';
-import { getConfig, getComponentWorkflow, saveComponentWorkflow } from './lib/api';
+import { getConfig, getComponentWorkflow, saveComponentWorkflow, saveWorkflow } from './lib/api';
 import { executeWorkflowStream } from './lib/execute-stream';
 import type { ComponentWorkflow } from './lib/api';
 import type { ExecutionStatus } from './nodes';
@@ -72,6 +72,9 @@ function Flow() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [dragOverLoopId, setDragOverLoopId] = useState<string | null>(null);
   const [urlWorkflowLoaded, setUrlWorkflowLoaded] = useState(false);
+  const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(null);
+  const [currentWorkflowPath, setCurrentWorkflowPath] = useState<string | null>(null);
+  const [lastSaveTime, setLastSaveTime] = useState<number>(0);
   const { screenToFlowPosition, fitView, getViewport, setViewport } = useReactFlow();
 
   // Get URL params for workspace/workflow routing
@@ -126,6 +129,10 @@ function Flow() {
         setSelectedNode(null);
         setEdgeExecutionData(new Map());
         setUrlWorkflowLoaded(true);
+
+        // Track file-based workflow for autosave
+        setCurrentWorkspace(workspace);
+        setCurrentWorkflowPath(workflowPath);
 
         // Fit view after loading
         setTimeout(() => fitView({ padding: 0.2 }), 50);
@@ -201,6 +208,56 @@ function Flow() {
 
     return () => clearTimeout(timeoutId);
   }, [nodes, edges, workflowName, rootDirectory, getViewport]);
+
+  // Auto-save to file for file-based workflows (debounced, less frequent)
+  useEffect(() => {
+    // Skip if not a file-based workflow or no nodes yet
+    if (!currentWorkspace || !currentWorkflowPath || nodes.length === 0) return;
+
+    // Debounce file saves more aggressively (2 seconds)
+    const timeoutId = setTimeout(async () => {
+      // Don't save if we just loaded (prevent save loop)
+      if (Date.now() - lastSaveTime < 1000) return;
+
+      try {
+        const schema = {
+          version: 1,
+          metadata: {
+            name: workflowName,
+            description: '',
+            rootDirectory: rootDirectory || undefined,
+          },
+          nodes: nodes.map((n) => ({
+            id: n.id,
+            type: n.type || 'agent',
+            position: n.position,
+            data: n.data as Record<string, unknown>,
+            parentId: n.parentId,
+            extent: n.extent === 'parent' ? ('parent' as const) : undefined,
+            style: n.style as { width?: number; height?: number },
+          })),
+          edges: edges.map((e) => ({
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            sourceHandle: e.sourceHandle ?? undefined,
+            targetHandle: e.targetHandle ?? undefined,
+          })),
+        };
+
+        await saveWorkflow({
+          workspace: currentWorkspace,
+          path: currentWorkflowPath,
+          schema,
+        });
+        setLastSaveTime(Date.now());
+      } catch (err) {
+        console.error('Failed to autosave workflow:', err);
+      }
+    }, 2000);
+
+    return () => clearTimeout(timeoutId);
+  }, [nodes, edges, workflowName, rootDirectory, currentWorkspace, currentWorkflowPath, lastSaveTime]);
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -808,6 +865,8 @@ function Flow() {
     setRootDirectory('');
     setSelectedNode(null);
     setEdgeExecutionData(new Map());
+    setCurrentWorkspace(null);
+    setCurrentWorkflowPath(null);
     nodeId = 0;
   }, [nodes.length, setNodes, setEdges]);
 
@@ -871,6 +930,9 @@ function Flow() {
         targetHandle: e.targetHandle,
       })),
       rootDirectory: rootDirectory || undefined,
+      // Include workspace/path for run history
+      workspace: currentWorkspace || undefined,
+      workflowPath: currentWorkflowPath || undefined,
     };
 
     // Use streaming execution for real-time updates
