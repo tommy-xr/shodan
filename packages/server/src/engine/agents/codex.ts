@@ -87,6 +87,12 @@ async function runCodexCli(config: AgentConfig): Promise<AgentResult> {
     // Use 'exec' subcommand for non-interactive execution
     const args: string[] = ['exec'];
 
+    // Add permission bypass flag if enabled
+    // --full-auto enables sandboxed automatic execution with workspace-write permissions
+    if (config.dangerouslySkipPermissions) {
+      args.push('--full-auto');
+    }
+
     // Determine if we're resuming an existing session
     const isResuming = !!config.sessionId;
 

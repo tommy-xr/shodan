@@ -32,10 +32,14 @@ export interface ServerConfig {
   workspaces?: string[]; // Registered workspace directories
   enableTriggers?: boolean; // Enable trigger scheduling (default: true)
   triggerCheckInterval?: number; // Trigger check interval in ms (default: 10000)
+  dangerouslySkipPermissions?: boolean; // Skip permission prompts for all agents
 }
 
 export function createServer(config: ServerConfig): Express {
   const app = express();
+
+  // Store config in app.locals for route access
+  app.locals.dangerouslySkipPermissions = config.dangerouslySkipPermissions || false;
 
   // Middleware
   app.use(cors());
@@ -53,7 +57,9 @@ export function createServer(config: ServerConfig): Express {
   app.use('/api/execute', createExecuteRouter(primaryRoot));
   app.use('/api/components', createComponentsRouter(primaryRoot));
   app.use('/api/workflows', createWorkflowsRouter(workspaces));
-  app.use('/api/execution', createExecutionRouter(workspaces));
+  app.use('/api/execution', createExecutionRouter(workspaces, {
+    skipPermissions: config.dangerouslySkipPermissions,
+  }));
   app.use('/api/triggers', createTriggersRouter());
 
   // Initialize trigger manager

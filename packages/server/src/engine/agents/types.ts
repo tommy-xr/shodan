@@ -20,6 +20,12 @@ export interface AgentConfig {
 
   // Streaming callback for real-time output
   onOutput?: (chunk: string) => void;
+
+  // Permission control for CLI-based agents
+  // When true, enables auto-approval mode for write operations:
+  // - Claude Code: --dangerously-skip-permissions
+  // - Codex: --full-auto
+  dangerouslySkipPermissions?: boolean;
 }
 
 /**

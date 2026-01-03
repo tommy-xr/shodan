@@ -4,6 +4,7 @@ import { getProjectRoot, getProjectRootMarker } from '../utils/project-root.js';
 export interface ConfigResponse {
   projectRoot: string;
   rootMarker: string | null;
+  dangerouslySkipPermissions: boolean;
 }
 
 export function createConfigRouter(): Router {
@@ -13,10 +14,14 @@ export function createConfigRouter(): Router {
   const projectRoot = getProjectRoot();
   const rootMarker = getProjectRootMarker(projectRoot);
 
-  router.get('/', (_req, res) => {
+  router.get('/', (req, res) => {
+    // Read dangerouslySkipPermissions from app.locals (set in createServer)
+    const dangerouslySkipPermissions = req.app.locals.dangerouslySkipPermissions || false;
+
     res.json({
       projectRoot,
       rootMarker,
+      dangerouslySkipPermissions,
     } as ConfigResponse);
   });
 

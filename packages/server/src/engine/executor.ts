@@ -38,6 +38,9 @@ export interface ExecuteOptions {
   // Parallel execution options
   maxConcurrent?: number;           // Maximum nodes to execute concurrently (default: 3)
   continueOnFailDefault?: boolean;  // Default behavior when a node fails (default: true)
+  // Permission control for CLI-based agents (global override)
+  // When true, enables auto-approval mode for write operations
+  dangerouslySkipPermissions?: boolean;
   // Streaming callbacks for progressive results
   onNodeStart?: (nodeId: string, node: WorkflowNode) => void;
   onNodeComplete?: (nodeId: string, result: NodeResult) => void;
@@ -1121,6 +1124,10 @@ async function executeNode(
     // Create session if node has sessionId output and no sessionId input
     const createSession = hasSessionIdOutput && !sessionIdInput;
 
+    // Use global dangerouslySkipPermissions or per-node setting
+    const skipPermissions = options.dangerouslySkipPermissions ||
+      (node.data.dangerouslySkipPermissions as boolean | undefined) || false;
+
     const result = await executeAgent({
       runner,
       model,
@@ -1131,6 +1138,7 @@ async function executeNode(
       inputValues,  // Pass input values for template injection
       sessionId: sessionIdInput,   // Resume existing session if provided
       createSession,               // Create new session if output defined but no input
+      dangerouslySkipPermissions: skipPermissions,
       onOutput: options.onNodeOutput
         ? (chunk: string) => options.onNodeOutput!(node.id, chunk)
         : undefined,
@@ -1361,6 +1369,7 @@ export async function executeWorkflow(
     dockContext,
     maxConcurrent = 3,
     continueOnFailDefault = false,
+    dangerouslySkipPermissions = false,
     onNodeStart,
     onNodeComplete,
     onNodeOutput,
