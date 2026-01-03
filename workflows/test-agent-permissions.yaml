@@ -40,9 +40,19 @@ nodes:
       inputs:
         - name: trigger
           type: string
+        - name: prompt
+          type: string
+          required: false
+        - name: sessionId
+          type: string
+          required: false
       outputs:
         - name: output
           type: string
+        - name: sessionId
+          type: string
+        - name: exitCode
+          type: number
 
   - id: codex-haiku
     type: agent
@@ -64,9 +74,19 @@ nodes:
       inputs:
         - name: trigger
           type: string
+        - name: prompt
+          type: string
+          required: false
+        - name: sessionId
+          type: string
+          required: false
       outputs:
         - name: output
           type: string
+        - name: sessionId
+          type: string
+        - name: exitCode
+          type: number
 
 edges:
   - id: trigger-to-claude
