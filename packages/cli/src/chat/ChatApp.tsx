@@ -24,6 +24,7 @@ export interface ExecutionResult {
 interface Props {
   schema: WorkflowSchema;
   userInput: string;
+  dangerouslySkipPermissions?: boolean;
   onComplete?: (result: ExecutionResult) => void;
 }
 
@@ -38,7 +39,7 @@ interface RunningNode {
 
 type Phase = 'running' | 'completed' | 'failed';
 
-export function ChatApp({ schema, userInput, onComplete }: Props) {
+export function ChatApp({ schema, userInput, dangerouslySkipPermissions, onComplete }: Props) {
   const { exit } = useApp();
   const [phase, setPhase] = useState<Phase>('running');
   const [nodes, setNodes] = useState<Map<string, RunningNode>>(new Map());
@@ -75,6 +76,7 @@ export function ChatApp({ schema, userInput, onComplete }: Props) {
 
     executeWorkflowSchema(schema, {
       triggerInputs: { text: userInput },
+      dangerouslySkipPermissions,
       onNodeStart: (nodeId: string, node: WorkflowNode) => {
         const label = (node.data.label as string) || nodeId;
         const nodeType = (node.data.nodeType as string) || node.type || 'unknown';

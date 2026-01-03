@@ -169,6 +169,9 @@ loadHistory().catch(console.error);
 // Store workspaces for use by startWorkflow
 let registeredWorkspaces: string[] = [];
 
+// Store permission bypass setting
+let dangerouslySkipPermissions = false;
+
 /**
  * Start a workflow execution programmatically
  * Returns a promise that resolves when execution starts (not when it completes)
@@ -240,6 +243,7 @@ export async function startWorkflow(
   const startTime = Date.now();
 
   executeWorkflowSchema(schema, {
+    dangerouslySkipPermissions,
     onNodeStart: (nodeId, node) => {
       executionState.currentNode = (node.data.label as string) || nodeId;
     },
@@ -320,11 +324,20 @@ export async function startWorkflow(
   return { success: true, runId };
 }
 
-export function createExecutionRouter(workspaces: string[]): Router {
+interface ExecutionRouterOptions {
+  skipPermissions?: boolean;
+}
+
+export function createExecutionRouter(workspaces: string[], options?: ExecutionRouterOptions): Router {
   const router = Router();
 
   // Store workspaces for startWorkflow
   registeredWorkspaces = workspaces;
+
+  // Store permission bypass setting
+  if (options?.skipPermissions !== undefined) {
+    dangerouslySkipPermissions = options.skipPermissions;
+  }
 
   /**
    * GET /api/execution/status

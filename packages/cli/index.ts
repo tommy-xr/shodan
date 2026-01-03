@@ -48,13 +48,19 @@ ${color('Run Options:', COLORS.bright)}
   --quiet             Only show errors and final result
   --verbose           Show detailed output for each node
   --no-validation     Skip schema validation (not recommended)
+  --yolo              Skip permission prompts for all agents (dangerous!)
+  --dangerously-skip-permissions  Same as --yolo
 
 ${color('Chat Options:', COLORS.bright)}
   --cwd <dir>         Override working directory
   --no-validation     Skip schema validation
+  --yolo              Skip permission prompts for all agents (dangerous!)
+  --dangerously-skip-permissions  Same as --yolo
 
 ${color('Serve Options:', COLORS.bright)}
   --port <port>       Server port (default: 3000)
+  --yolo              Skip permission prompts for all agents (dangerous!)
+  --dangerously-skip-permissions  Same as --yolo
 
 ${color('Examples:', COLORS.bright)}
   robomesh chat plan                        # Run workflows/plan.yaml interactively
@@ -110,8 +116,15 @@ async function loadWorkflow(filePath: string): Promise<WorkflowSchema> {
   return schema;
 }
 
-async function runWorkflow(filePath: string, options: { cwd?: string; input?: string; quiet?: boolean; verbose?: boolean; skipValidation?: boolean }) {
+async function runWorkflow(filePath: string, options: { cwd?: string; input?: string; quiet?: boolean; verbose?: boolean; skipValidation?: boolean; dangerouslySkipPermissions?: boolean }) {
   console.log(color(`\n▶ Running workflow: ${filePath}`, COLORS.bright));
+
+  // Show warning if running with permission bypass
+  if (options.dangerouslySkipPermissions) {
+    console.log(color(`\n⚠️  WARNING: Running with --yolo / --dangerously-skip-permissions`, COLORS.yellow, COLORS.bright));
+    console.log(color(`   Agents will have full write permissions without prompting.`, COLORS.yellow));
+    console.log(color(`   Only use this in sandboxed/isolated environments.\n`, COLORS.yellow));
+  }
 
   const schema = await loadWorkflow(filePath);
 
@@ -155,6 +168,7 @@ async function runWorkflow(filePath: string, options: { cwd?: string; input?: st
 
   const result = await executeWorkflowSchema(schema, {
     triggerInputs,
+    dangerouslySkipPermissions: options.dangerouslySkipPermissions,
     onNodeStart: (nodeId, node) => {
       const label = (node.data.label as string) || nodeId;
       nodeLabels.set(nodeId, label);
@@ -331,6 +345,7 @@ async function handleList() {
 async function handleServe(args: string[]) {
   const portIndex = args.indexOf('--port');
   const port = portIndex !== -1 ? parseInt(args[portIndex + 1], 10) : 3000;
+  const dangerouslySkipPermissions = args.includes('--yolo') || args.includes('--dangerously-skip-permissions');
 
   const workspaces = await listWorkspaces();
 
@@ -359,10 +374,18 @@ async function handleServe(args: string[]) {
     console.log(color(`    - ${workspace}`, COLORS.dim));
   }
 
+  // Show warning if running with permission bypass
+  if (dangerouslySkipPermissions) {
+    console.log(color(`\n⚠️  WARNING: Running with --yolo / --dangerously-skip-permissions`, COLORS.yellow, COLORS.bright));
+    console.log(color(`   Agents will have full write permissions without prompting.`, COLORS.yellow));
+    console.log(color(`   Only use this in sandboxed/isolated environments.\n`, COLORS.yellow));
+  }
+
   const app = createServer({
     port,
     designerPath,
     workspaces,
+    dangerouslySkipPermissions,
   });
 
   app.listen(port, () => {
@@ -422,6 +445,7 @@ async function main() {
     const options = {
       cwd: args.includes('--cwd') ? args[args.indexOf('--cwd') + 1] : undefined,
       skipValidation: args.includes('--no-validation'),
+      dangerouslySkipPermissions: args.includes('--yolo') || args.includes('--dangerously-skip-permissions'),
     };
 
     try {
@@ -446,6 +470,7 @@ async function main() {
       quiet: args.includes('--quiet') || args.includes('-q'),
       verbose: args.includes('--verbose') || args.includes('-v'),
       skipValidation: args.includes('--no-validation'),
+      dangerouslySkipPermissions: args.includes('--yolo') || args.includes('--dangerously-skip-permissions'),
     };
 
     try {

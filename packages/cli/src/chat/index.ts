@@ -23,6 +23,7 @@ const originalCwd = process.env.INIT_CWD || process.cwd();
 export interface ChatOptions {
   cwd?: string;
   skipValidation?: boolean;
+  dangerouslySkipPermissions?: boolean;
 }
 
 /**
@@ -190,6 +191,13 @@ export async function runChat(workflowArg: string, options: ChatOptions = {}): P
     schema.metadata.rootDirectory = path.resolve(workflowDir, schema.metadata.rootDirectory);
   }
 
+  // Show warning if running with permission bypass
+  if (options.dangerouslySkipPermissions) {
+    console.log('\x1b[33m\x1b[1m⚠️  WARNING: Running with --yolo / --dangerously-skip-permissions\x1b[0m');
+    console.log('\x1b[33m   Agents will have full write permissions without prompting.\x1b[0m');
+    console.log('\x1b[33m   Only use this in sandboxed/isolated environments.\x1b[0m\n');
+  }
+
   // Get user input
   let userInput: string;
   if (isInteractive()) {
@@ -212,6 +220,7 @@ export async function runChat(workflowArg: string, options: ChatOptions = {}): P
     React.createElement(ChatApp, {
       schema,
       userInput,
+      dangerouslySkipPermissions: options.dangerouslySkipPermissions,
       onComplete: (result: ExecutionResult) => {
         resultRef.current = result;
       },

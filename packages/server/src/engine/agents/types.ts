@@ -20,6 +20,13 @@ export interface AgentConfig {
 
   // Streaming callback for real-time output
   onOutput?: (chunk: string) => void;
+
+  // Permission control for CLI-based agents
+  // When true, bypasses all permission prompts and sandbox restrictions:
+  // - Claude Code: --dangerously-skip-permissions
+  // - Codex: --dangerously-bypass-approvals-and-sandbox
+  // - Gemini CLI: --yolo
+  dangerouslySkipPermissions?: boolean;
 }
 
 /**

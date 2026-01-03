@@ -99,6 +99,7 @@ export function Dashboard() {
   const [triggers, setTriggers] = useState<RegisteredTrigger[]>([]);
   const [newWorkflowModal, setNewWorkflowModal] = useState<{ workspace: string } | null>(null);
   const [newWorkflowName, setNewWorkflowName] = useState('');
+  const [dangerouslySkipPermissions, setDangerouslySkipPermissions] = useState(false);
 
   // Fetch workflows from API
   const fetchWorkflows = useCallback(async () => {
@@ -158,12 +159,26 @@ export function Dashboard() {
     }
   }, []);
 
+  // Fetch server config (for permission bypass warning)
+  const fetchConfig = useCallback(async () => {
+    try {
+      const res = await fetch('/api/config');
+      if (res.ok) {
+        const data = await res.json();
+        setDangerouslySkipPermissions(data.dangerouslySkipPermissions || false);
+      }
+    } catch {
+      // Ignore errors
+    }
+  }, []);
+
   // Initial fetch
   useEffect(() => {
     fetchWorkflows();
     fetchExecutionStatus();
     fetchLastRuns();
     fetchTriggers();
+    fetchConfig();
 
     // Poll for status updates (also refresh last runs when status changes)
     const interval = setInterval(() => {
@@ -172,7 +187,7 @@ export function Dashboard() {
       fetchTriggers();
     }, 2000);
     return () => clearInterval(interval);
-  }, [fetchWorkflows, fetchExecutionStatus, fetchLastRuns, fetchTriggers]);
+  }, [fetchWorkflows, fetchExecutionStatus, fetchLastRuns, fetchTriggers, fetchConfig]);
 
   // Start a workflow
   const handleStart = async (workflow: WorkflowInfo) => {
@@ -378,6 +393,16 @@ export function Dashboard() {
 
   return (
     <div className="dashboard">
+      {dangerouslySkipPermissions && (
+        <div className="permission-warning-banner">
+          <span className="warning-icon">⚠️</span>
+          <span className="warning-text">
+            <strong>YOLO Mode:</strong> Agents are running with full permissions without prompting.
+            Only use this in sandboxed/isolated environments.
+          </span>
+        </div>
+      )}
+
       <header className="dashboard-header">
         <h1>Robomesh</h1>
         <div className="dashboard-actions">

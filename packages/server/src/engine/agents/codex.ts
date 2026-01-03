@@ -87,6 +87,13 @@ async function runCodexCli(config: AgentConfig): Promise<AgentResult> {
     // Use 'exec' subcommand for non-interactive execution
     const args: string[] = ['exec'];
 
+    // Add permission bypass flag if enabled
+    // --dangerously-bypass-approvals-and-sandbox skips all prompts and sandbox restrictions
+    // This gives full network and filesystem access
+    if (config.dangerouslySkipPermissions) {
+      args.push('--dangerously-bypass-approvals-and-sandbox');
+    }
+
     // Determine if we're resuming an existing session
     const isResuming = !!config.sessionId;
 

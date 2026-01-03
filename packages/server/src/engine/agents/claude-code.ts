@@ -73,6 +73,11 @@ async function runClaudeCli(config: AgentConfig): Promise<AgentResult> {
       '-p', config.prompt,    // Pass prompt via -p flag
     ];
 
+    // Add permission bypass flag if enabled
+    if (config.dangerouslySkipPermissions) {
+      args.push('--dangerously-skip-permissions');
+    }
+
     // stream-json requires --verbose flag
     if (outputFormat === 'stream-json') {
       args.push('--verbose');

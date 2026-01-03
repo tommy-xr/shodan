@@ -1,0 +1,101 @@
+version: 2
+metadata:
+  name: Test Agent Permissions
+  description: >
+    Tests agent write permissions by having Claude Code and Codex each
+    read the current backlog and Hacker News front page, then write a haiku.
+    This exercises file search, network access, and write access.
+
+    Run with: robomesh run workflows/test-agent-permissions.yaml --yolo
+
+nodes:
+  - id: trigger
+    type: trigger
+    position: { x: 250, y: 50 }
+    data:
+      label: Manual Trigger
+      nodeType: trigger
+      triggerType: manual
+      outputs:
+        - name: output
+          type: string
+
+  - id: claude-haiku
+    type: agent
+    position: { x: 100, y: 200 }
+    data:
+      label: Claude Code Haiku
+      nodeType: agent
+      runner: claude-code
+      prompt: |
+        Please do the following:
+        1. Read the plan/backlog.md file in this project to understand what we're working on
+        2. Fetch the front page of Hacker News (https://news.ycombinator.com) to see what's trending
+        3. Write a haiku that captures the essence of both - the current development backlog
+           and the tech zeitgeist from Hacker News
+        4. Save your haiku to a file called claude-haiku.md in the project root
+
+        The haiku should follow the traditional 5-7-5 syllable structure.
+        Include a brief note about what inspired each line.
+      inputs:
+        - name: trigger
+          type: string
+        - name: prompt
+          type: string
+          required: false
+        - name: sessionId
+          type: string
+          required: false
+      outputs:
+        - name: output
+          type: string
+        - name: sessionId
+          type: string
+        - name: exitCode
+          type: number
+
+  - id: codex-haiku
+    type: agent
+    position: { x: 400, y: 200 }
+    data:
+      label: Codex Haiku
+      nodeType: agent
+      runner: codex
+      prompt: |
+        Please do the following:
+        1. Read the plan/backlog.md file in this project to understand what we're working on
+        2. Fetch the front page of Hacker News (https://news.ycombinator.com) to see what's trending
+        3. Write a haiku that captures the essence of both - the current development backlog
+           and the tech zeitgeist from Hacker News
+        4. Save your haiku to a file called codex-haiku.md in the project root
+
+        The haiku should follow the traditional 5-7-5 syllable structure.
+        Include a brief note about what inspired each line.
+      inputs:
+        - name: trigger
+          type: string
+        - name: prompt
+          type: string
+          required: false
+        - name: sessionId
+          type: string
+          required: false
+      outputs:
+        - name: output
+          type: string
+        - name: sessionId
+          type: string
+        - name: exitCode
+          type: number
+
+edges:
+  - id: trigger-to-claude
+    source: trigger
+    target: claude-haiku
+    sourceHandle: "output:output"
+    targetHandle: "input:trigger"
+  - id: trigger-to-codex
+    source: trigger
+    target: codex-haiku
+    sourceHandle: "output:output"
+    targetHandle: "input:trigger"

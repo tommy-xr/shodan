@@ -47,11 +47,14 @@ async function runGeminiCli(config: AgentConfig): Promise<AgentResult> {
       args.push('--model', config.model);
     }
 
-    // Add non-interactive/headless flags
-    args.push('--non-interactive');
+    // Add permission bypass flag if enabled
+    // --yolo enables automatic approval of all actions
+    if (config.dangerouslySkipPermissions) {
+      args.push('--yolo');
+    }
 
-    // Add the prompt via -p flag
-    args.push('-p', config.prompt);
+    // Add the prompt as positional argument (one-shot mode)
+    args.push(config.prompt);
 
     const proc = spawn('gemini', args, {
       cwd: config.cwd,
