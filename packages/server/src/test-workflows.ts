@@ -250,6 +250,24 @@ describe('Function Node', () => {
     assertNodeCompleted(log);
     assertOutputContains(log, 'A AND B = false', 'output');
   });
+
+  test('test-logic-operators.yaml - NOT, AND, OR operators', async () => {
+    const result = await runWorkflow('test-logic-operators.yaml');
+    assert.strictEqual(result.success, true);
+
+    // Verify all operators completed
+    assertNodeCompleted(getNode(result, 'not-op'));
+    assertNodeCompleted(getNode(result, 'and-op'));
+    assertNodeCompleted(getNode(result, 'or-op'));
+
+    // Verify the final check passed
+    const verify = getNode(result, 'verify');
+    assertNodeCompleted(verify);
+    assertOutputContains(verify, 'NOT(true) = false', 'output');
+    assertOutputContains(verify, 'true AND false = false', 'output');
+    assertOutputContains(verify, 'true OR false = true', 'output');
+    assertOutputContains(verify, 'SUCCESS: All logic operators work correctly!', 'output');
+  });
 });
 
 describe('Parallel Execution', () => {

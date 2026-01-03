@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { DragEvent } from 'react';
+import type { ValueType } from '@robomesh/core';
 import type { NodeType } from '../nodes';
 import { listComponents, createComponent, type ComponentInfo } from '../lib/api';
 import { CreateComponentDialog, type NewComponentData } from './CreateComponentDialog';
@@ -8,6 +9,7 @@ interface PaletteItem {
   type: NodeType;
   label: string;
   icon: string;
+  preset?: string;  // Optional preset name for pre-configured nodes
 }
 
 const paletteItems: PaletteItem[] = [
@@ -22,7 +24,42 @@ const paletteItems: PaletteItem[] = [
 const logicItems: PaletteItem[] = [
   { type: 'constant', label: 'Constant', icon: '◆' },
   { type: 'function', label: 'Function', icon: 'ƒ' },
+  // Pre-configured logic operators
+  { type: 'function', label: 'NOT', icon: '¬', preset: 'not' },
+  { type: 'function', label: 'AND', icon: '∧', preset: 'and' },
+  { type: 'function', label: 'OR', icon: '∨', preset: 'or' },
 ];
+
+/**
+ * Operator presets - pre-configured function nodes for common logic operations
+ */
+export interface OperatorPreset {
+  label: string;
+  code: string;
+  inputs: Array<{ name: string; type: ValueType }>;
+  outputs: Array<{ name: string; type: ValueType }>;
+}
+
+export const operatorPresets: Record<string, OperatorPreset> = {
+  not: {
+    label: 'NOT',
+    code: 'return { result: !inputs.value }',
+    inputs: [{ name: 'value', type: 'boolean' }],
+    outputs: [{ name: 'result', type: 'boolean' }],
+  },
+  and: {
+    label: 'AND',
+    code: 'return { result: inputs.a && inputs.b }',
+    inputs: [{ name: 'a', type: 'boolean' }, { name: 'b', type: 'boolean' }],
+    outputs: [{ name: 'result', type: 'boolean' }],
+  },
+  or: {
+    label: 'OR',
+    code: 'return { result: inputs.a || inputs.b }',
+    inputs: [{ name: 'a', type: 'boolean' }, { name: 'b', type: 'boolean' }],
+    outputs: [{ name: 'result', type: 'boolean' }],
+  },
+};
 
 interface AccordionSectionProps {
   title: string;
@@ -108,8 +145,11 @@ export function Sidebar() {
     }
   };
 
-  const onDragStart = (event: DragEvent, nodeType: NodeType) => {
+  const onDragStart = (event: DragEvent, nodeType: NodeType, preset?: string) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
+    if (preset) {
+      event.dataTransfer.setData('application/preset', preset);
+    }
     event.dataTransfer.effectAllowed = 'move';
   };
 
@@ -152,10 +192,10 @@ export function Sidebar() {
         <div className="palette-items">
           {logicItems.map((item) => (
             <div
-              key={item.type}
+              key={item.preset || item.type}
               className="palette-item"
               draggable
-              onDragStart={(e) => onDragStart(e, item.type)}
+              onDragStart={(e) => onDragStart(e, item.type, item.preset)}
             >
               <div className={`palette-icon ${item.type}`}>{item.icon}</div>
               <span className="palette-label">{item.label}</span>

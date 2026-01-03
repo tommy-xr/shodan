@@ -6,11 +6,14 @@ Dedicated logic operator nodes (`not`, `and`, `or`, etc.) that appear in the sid
 
 ## Status
 
-**Infrastructure complete** - function node execution works.
+**Phase 1 complete** - NOT, AND, OR operators added to sidebar.
+
+**Completed**:
+- [x] Add `not`, `and`, `or` to sidebar under "Logic" category
+- [x] Pre-configured inline code and I/O defaults
+- [x] Test workflow (`workflows/test-logic-operators.yaml`)
 
 **Remaining work**:
-- [ ] Add `not`, `and`, `or` to sidebar under "Logic" category
-- [ ] Pre-configured inline code and I/O defaults
 - [ ] Consider compact visual styling (smaller nodes, symbols like `¬`, `∧`, `∨`)
 
 ## Implementation Approach
