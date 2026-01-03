@@ -77,9 +77,70 @@ nodes:
       outputs:
         - name: result
           type: boolean
+  - id: node_3
+    type: function
+    position:
+      x: 55.571948303320895
+      'y': 170.15074603412882
+    data:
+      label: CONCAT
+      nodeType: function
+      code: 'return { result: inputs.values.join(inputs.separator || "") }'
+      inputs:
+        - name: values[0]
+          type: string
+          label: values[0]
+          arrayParent: values
+          arrayIndex: 0
+        - name: values[1]
+          label: values[1]
+          type: string
+          arrayParent: values
+          arrayIndex: 1
+        - name: values[2]
+          label: values[2]
+          type: string
+          arrayParent: values
+          arrayIndex: 2
+        - name: separator
+          type: string
+      outputs:
+        - name: result
+          type: string
+  - id: node_4
+    type: constant
+    position:
+      x: -196.11266474742607
+      'y': 167.97227409237004
+    data:
+      label: Constant
+      nodeType: constant
+      valueType: string
+      value: a
+      outputs:
+        - name: value
+          type: string
+  - id: node_5
+    type: constant
+    position:
+      x: -222.06839180433727
+      'y': 266.4250318944471
+    data:
+      label: Constant
+      nodeType: constant
+      valueType: string
+      value: b
+      outputs:
+        - name: value
+          type: string
 edges:
   - id: xy-edge__trigger_1output:text-node_0input:input
     source: trigger_1
     target: node_0
     sourceHandle: output:text
     targetHandle: input:input
+  - id: xy-edge__node_5output:value-node_3input:values[1]
+    source: node_5
+    target: node_3
+    sourceHandle: output:value
+    targetHandle: input:values[1]

@@ -13,6 +13,7 @@
     "robomesh": "pnpm run -F @robomesh/cli robomesh",
     "test:workflows": "pnpm run -F @robomesh/server test:workflows",
     "test:cli": "pnpm run -F @robomesh/cli test",
+    "test:e2e": "playwright test",
     "generate:screenshot": "pnpm exec tsx scripts/generate-screenshot.ts"
   },
   "workspaces": [
@@ -23,6 +24,7 @@
     "packages/migrations"
   ],
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "concurrently": "^9.1.0",
     "playwright": "^1.57.0",
     "tsx": "^4.21.0",

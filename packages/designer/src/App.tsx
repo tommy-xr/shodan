@@ -5,14 +5,15 @@ import {
   ReactFlow,
   Controls,
   addEdge,
+  applyEdgeChanges,
   useNodesState,
   useEdgesState,
   ReactFlowProvider,
   useReactFlow,
 } from '@xyflow/react';
-import type { Connection, Node, Edge } from '@xyflow/react';
+import type { Connection, Node, Edge, EdgeChange } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { getNodePortDefaults } from '@robomesh/core';
+import { getNodePortDefaults, type PortDefinition } from '@robomesh/core';
 
 import { nodeTypes } from './nodes';
 import type { BaseNodeData, NodeType } from './nodes';
@@ -58,10 +59,179 @@ const updateNodeIdCounter = (nodes: Node[]) => {
   nodeId = maxId + 1;
 };
 
+/**
+ * Expand array inputs into individual slots.
+ * An input with array: true becomes values[0], and more slots are added as needed.
+ */
+function expandArrayInputs(inputs: PortDefinition[]): PortDefinition[] {
+  const expanded: PortDefinition[] = [];
+  for (const input of inputs) {
+    if (input.array) {
+      // Create the first slot for the array input
+      expanded.push({
+        ...input,
+        name: `${input.name}[0]`,
+        label: `${input.label || input.name}[0]`,
+        arrayParent: input.name,
+        arrayIndex: 0,
+        array: undefined, // Remove array flag from expanded slot
+      });
+    } else {
+      expanded.push(input);
+    }
+  }
+  return expanded;
+}
+
+/**
+ * Check if a node needs a new array slot added after a connection.
+ * Returns the updated inputs array if a new slot was added, or null if no change needed.
+ */
+function maybeAddArraySlot(
+  nodeInputs: PortDefinition[],
+  connectedHandle: string,
+  allEdges: Edge[],
+  nodeId: string
+): PortDefinition[] | null {
+  // Parse the handle to find the array parent and index
+  // Handle format: "input:values[0]"
+  const match = connectedHandle.match(/^input:(.+)\[(\d+)\]$/);
+  if (!match) return null;
+
+  const arrayParent = match[1];
+  const connectedIndex = parseInt(match[2], 10);
+
+  // Find all slots for this array parent
+  const arraySlots = nodeInputs.filter(inp => inp.arrayParent === arrayParent);
+  if (arraySlots.length === 0) return null;
+
+  // Find the highest index
+  const maxIndex = Math.max(...arraySlots.map(s => s.arrayIndex ?? 0));
+
+  // Check if the connected slot is the last one
+  if (connectedIndex !== maxIndex) return null;
+
+  // Check if this slot is now connected (it should be, since we just connected it)
+  const slotHandle = `input:${arrayParent}[${connectedIndex}]`;
+  const isConnected = allEdges.some(
+    e => e.target === nodeId && e.targetHandle === slotHandle
+  );
+  if (!isConnected) return null;
+
+  // Find the template for this array (first slot has the type info)
+  const firstSlot = arraySlots.find(s => s.arrayIndex === 0);
+  if (!firstSlot) return null;
+
+  // Add a new slot
+  const newIndex = maxIndex + 1;
+  const newSlot: PortDefinition = {
+    name: `${arrayParent}[${newIndex}]`,
+    label: `${arrayParent}[${newIndex}]`,
+    type: firstSlot.type,
+    arrayParent,
+    arrayIndex: newIndex,
+  };
+
+  // Insert the new slot after the last array slot
+  const lastSlotIndex = nodeInputs.findIndex(
+    inp => inp.arrayParent === arrayParent && inp.arrayIndex === maxIndex
+  );
+  const newInputs = [...nodeInputs];
+  newInputs.splice(lastSlotIndex + 1, 0, newSlot);
+
+  return newInputs;
+}
+
+/**
+ * Clean up empty trailing array slots after edge disconnection.
+ * Keeps at least one slot so users can still connect.
+ */
+function cleanupArraySlots(
+  nodeInputs: PortDefinition[],
+  edges: Edge[],
+  nodeId: string
+): PortDefinition[] | null {
+  // Group inputs by array parent
+  const arrayGroups = new Map<string, PortDefinition[]>();
+  const nonArrayInputs: PortDefinition[] = [];
+
+  for (const input of nodeInputs) {
+    if (input.arrayParent !== undefined) {
+      const group = arrayGroups.get(input.arrayParent) || [];
+      group.push(input);
+      arrayGroups.set(input.arrayParent, group);
+    } else {
+      nonArrayInputs.push(input);
+    }
+  }
+
+  if (arrayGroups.size === 0) return null;
+
+  let changed = false;
+  const cleanedInputs: PortDefinition[] = [...nonArrayInputs];
+
+  for (const [parentName, slots] of arrayGroups) {
+    // Sort by index
+    slots.sort((a, b) => (a.arrayIndex ?? 0) - (b.arrayIndex ?? 0));
+
+    // Find which slots are connected
+    const connectedSlots: PortDefinition[] = [];
+
+    for (const slot of slots) {
+      const handleId = `input:${slot.name}`;
+      const isConnected = edges.some(
+        e => e.target === nodeId && e.targetHandle === handleId
+      );
+      if (isConnected) {
+        connectedSlots.push(slot);
+      }
+    }
+
+    // Keep all connected slots plus one empty slot at the end
+    const keptSlots = [...connectedSlots];
+
+    // Find max index among connected slots
+    const maxConnectedIndex = connectedSlots.length > 0
+      ? Math.max(...connectedSlots.map(s => s.arrayIndex ?? 0))
+      : -1;
+
+    // Add one empty slot after the last connected slot
+    const nextEmptyIndex = maxConnectedIndex + 1;
+
+    // Check if we already have a slot at this index
+    const existingNextSlot = slots.find(s => s.arrayIndex === nextEmptyIndex);
+    if (existingNextSlot) {
+      keptSlots.push(existingNextSlot);
+    } else if (slots.length > 0) {
+      // Create a new slot at the next index
+      const template = slots[0];
+      keptSlots.push({
+        name: `${parentName}[${nextEmptyIndex}]`,
+        label: `${parentName}[${nextEmptyIndex}]`,
+        type: template.type,
+        arrayParent: parentName,
+        arrayIndex: nextEmptyIndex,
+      });
+    }
+
+    // Sort kept slots by index
+    keptSlots.sort((a, b) => (a.arrayIndex ?? 0) - (b.arrayIndex ?? 0));
+
+    // Check if anything changed
+    if (keptSlots.length !== slots.length) {
+      changed = true;
+    }
+
+    cleanedInputs.push(...keptSlots);
+  }
+
+  return changed ? cleanedInputs : null;
+}
+
 function Flow() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [edges, setEdges] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node<BaseNodeData> | null>(null);
   const [workflowName, setWorkflowName] = useState(stored?.workflowName || 'Untitled Workflow');
   const [rootDirectory, setRootDirectory] = useState(stored?.rootDirectory || '');
@@ -277,7 +447,7 @@ function Flow() {
 
   const onConnect = useCallback(
     (connection: Connection) => {
-      // Validate connection: only one edge per input port
+      // Validate connection: only one edge per input port (unless it's an array port)
       if (connection.targetHandle) {
         setEdges((eds) => {
           // Check if there's already an edge connected to this input
@@ -287,18 +457,100 @@ function Flow() {
               edge.targetHandle === connection.targetHandle
           );
 
+          let newEdges: Edge[];
           if (existingEdge) {
             // Remove the existing edge and add the new one
-            return addEdge(connection, eds.filter((e) => e.id !== existingEdge.id));
+            newEdges = addEdge(connection, eds.filter((e) => e.id !== existingEdge.id));
+          } else {
+            newEdges = addEdge(connection, eds);
           }
 
-          return addEdge(connection, eds);
+          // Check if we need to add a new array slot
+          if (connection.target && connection.targetHandle) {
+            const targetNode = nodes.find(n => n.id === connection.target);
+            if (targetNode?.data.inputs) {
+              const updatedInputs = maybeAddArraySlot(
+                targetNode.data.inputs as PortDefinition[],
+                connection.targetHandle,
+                newEdges,
+                connection.target
+              );
+              if (updatedInputs) {
+                // Update the node with new inputs
+                setNodes(nds => nds.map(n => {
+                  if (n.id === connection.target) {
+                    return {
+                      ...n,
+                      data: {
+                        ...n.data,
+                        inputs: updatedInputs,
+                      },
+                    };
+                  }
+                  return n;
+                }));
+              }
+            }
+          }
+
+          return newEdges;
         });
       } else {
         setEdges((eds) => addEdge(connection, eds));
       }
     },
-    [setEdges]
+    [setEdges, setNodes, nodes]
+  );
+
+  // Custom edge change handler that cleans up array slots after edge removal
+  const handleEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      // Apply the changes first
+      const newEdges = applyEdgeChanges(changes, edges);
+      setEdges(newEdges);
+
+      // Check if any edges were removed
+      const removedEdges = changes.filter(c => c.type === 'remove');
+      if (removedEdges.length === 0) return;
+
+      // For each removed edge, check if we need to clean up array slots
+      const affectedNodeIds = new Set<string>();
+      for (const change of removedEdges) {
+        if (change.type === 'remove') {
+          // Find the original edge to get the target node
+          const originalEdge = edges.find(e => e.id === change.id);
+          if (originalEdge?.target) {
+            affectedNodeIds.add(originalEdge.target);
+          }
+        }
+      }
+
+      // Clean up array slots for affected nodes
+      if (affectedNodeIds.size > 0) {
+        setNodes(nds => nds.map(node => {
+          if (!affectedNodeIds.has(node.id)) return node;
+          if (!node.data.inputs) return node;
+
+          const cleanedInputs = cleanupArraySlots(
+            node.data.inputs as PortDefinition[],
+            newEdges,
+            node.id
+          );
+
+          if (cleanedInputs) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                inputs: cleanedInputs,
+              },
+            };
+          }
+          return node;
+        }));
+      }
+    },
+    [edges, setEdges, setNodes]
   );
 
   const onDragOver = useCallback((event: DragEvent) => {
@@ -435,6 +687,8 @@ function Flow() {
       } else if (type === 'function' && presetName && operatorPresets[presetName]) {
         // Pre-configured function node (logic operators)
         const preset = operatorPresets[presetName];
+        // Expand any array inputs into individual slots
+        const expandedInputs = expandArrayInputs(preset.inputs as PortDefinition[]);
         newNodes = [{
           id: getNodeId(),
           type: 'function',
@@ -445,7 +699,7 @@ function Flow() {
             label: preset.label,
             nodeType: 'function',
             code: preset.code,
-            inputs: preset.inputs,
+            inputs: expandedInputs,
             outputs: preset.outputs,
           },
         }];
@@ -1180,7 +1434,7 @@ function Flow() {
           edges={edgesWithData}
           edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
+          onEdgesChange={handleEdgesChange}
           onConnect={onConnect}
           onDragOver={onDragOver}
           onDrop={onDrop}

@@ -268,6 +268,20 @@ describe('Function Node', () => {
     assertOutputContains(verify, 'true OR false = true', 'output');
     assertOutputContains(verify, 'SUCCESS: All logic operators work correctly!', 'output');
   });
+
+  test('test-concat.yaml - CONCAT operator with array inputs', async () => {
+    const result = await runWorkflow('test-concat.yaml');
+    assert.strictEqual(result.success, true);
+
+    // Verify CONCAT completed
+    assertNodeCompleted(getNode(result, 'concat-op'));
+
+    // Verify the final check passed
+    const verify = getNode(result, 'verify');
+    assertNodeCompleted(verify);
+    assertOutputContains(verify, 'Result: Hello World !', 'output');
+    assertOutputContains(verify, 'SUCCESS: CONCAT operator works correctly!', 'output');
+  });
 });
 
 describe('Parallel Execution', () => {

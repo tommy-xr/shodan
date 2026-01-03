@@ -45,9 +45,8 @@ Schema migration (`upgradeWorkflow`) is disabled during early development. When 
 ### Other
 - Multi-agent CLI output isn't ideal - especially when there is only one item running. We should maybe constrain to a single sentence / line (ideally a summary) - we may be able to pick specific events to pull out like CLaude Code. The test plan.yaml one is a good example of this.
 - Workspaces view: show run live progress in the 'status' sidebar pane - need a concept of 'selected' workflow
-- Add a 'CONCAT' operator - take multiple strings and combine them.
-	- Do we need an 'array' input that can take multiple string connections?
-	- Have a 'separator' input that can be put in between
+- Add a 'CONCAT' operator - take multiple strings and combine them. (see [array-input-output.md](./array-input-output.md))
+- Upgrade AND/OR to N-ary operators (requires array inputs)
 - For the plan.yml workflow - why can I not create an edge from trigger.text -> agent?
 - The node ids are implicit - can we make those editable?
 - Show source (ui/cli/automatic) in the dashboard and history
@@ -79,3 +78,13 @@ Schema migration (`upgradeWorkflow`) is disabled during early development. When 
 - 90 degree edges?
 - Auto-layout?
 - Add a concept of tools - specifically, the ability to directly talk to an agent (ie, queue an additional prompt)
+
+### MVP
+1. Triage - can pick and output a specific task to work
+2. Plan - pick up the item, expand a plan
+3. Execute - write code 
+4. Test - write testsPlea:w
+
+Optional step:
+# 3. Prototype - take a plan, and try writing code
+

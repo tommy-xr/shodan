@@ -1,0 +1,175 @@
+version: 2
+metadata:
+  name: CONCAT Operator Test
+  description: Tests the CONCAT operator with array inputs
+
+nodes:
+  - id: trigger
+    type: trigger
+    position: { x: 50, y: 200 }
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: text
+          type: string
+        - name: params
+          type: json
+
+  # String constants for testing
+  - id: str-hello
+    type: constant
+    position: { x: 200, y: 100 }
+    data:
+      nodeType: constant
+      label: "Hello"
+      valueType: string
+      value: "Hello"
+      outputs:
+        - name: value
+          type: string
+
+  - id: str-world
+    type: constant
+    position: { x: 200, y: 200 }
+    data:
+      nodeType: constant
+      label: "World"
+      valueType: string
+      value: "World"
+      outputs:
+        - name: value
+          type: string
+
+  - id: str-exclaim
+    type: constant
+    position: { x: 200, y: 300 }
+    data:
+      nodeType: constant
+      label: "!"
+      valueType: string
+      value: "!"
+      outputs:
+        - name: value
+          type: string
+
+  - id: separator
+    type: constant
+    position: { x: 200, y: 400 }
+    data:
+      nodeType: constant
+      label: "Separator"
+      valueType: string
+      value: " "
+      outputs:
+        - name: value
+          type: string
+
+  # CONCAT operator: joins array of strings with separator
+  - id: concat-op
+    type: function
+    position: { x: 450, y: 200 }
+    data:
+      nodeType: function
+      label: CONCAT
+      code: "return { result: inputs.values.join(inputs.separator || '') }"
+      inputs:
+        - name: values[0]
+          type: string
+          arrayParent: values
+          arrayIndex: 0
+        - name: values[1]
+          type: string
+          arrayParent: values
+          arrayIndex: 1
+        - name: values[2]
+          type: string
+          arrayParent: values
+          arrayIndex: 2
+        - name: separator
+          type: string
+      outputs:
+        - name: result
+          type: string
+
+  # Verify result
+  - id: verify
+    type: shell
+    position: { x: 650, y: 200 }
+    data:
+      nodeType: shell
+      label: Verify Result
+      script: |
+        echo "Result: {{ inputs.value }}"
+
+        if [ "{{ inputs.value }}" = "Hello World !" ]; then
+          echo "SUCCESS: CONCAT operator works correctly!"
+        else
+          echo "FAILURE: Expected 'Hello World!' but got '{{ inputs.value }}'"
+          exit 1
+        fi
+      inputs:
+        - name: input
+          type: any
+        - name: value
+          type: string
+      outputs:
+        - name: output
+          type: string
+        - name: stdout
+          type: string
+        - name: stderr
+          type: string
+        - name: exitCode
+          type: number
+
+edges:
+  # Trigger starts the constants
+  - id: e0
+    source: trigger
+    target: str-hello
+  - id: e1
+    source: trigger
+    target: str-world
+  - id: e2
+    source: trigger
+    target: str-exclaim
+  - id: e3
+    source: trigger
+    target: separator
+
+  # Wire strings to CONCAT array inputs
+  - id: e4
+    source: str-hello
+    target: concat-op
+    sourceHandle: "output:value"
+    targetHandle: "input:values[0]"
+  - id: e5
+    source: str-world
+    target: concat-op
+    sourceHandle: "output:value"
+    targetHandle: "input:values[1]"
+  - id: e6
+    source: str-exclaim
+    target: concat-op
+    sourceHandle: "output:value"
+    targetHandle: "input:values[2]"
+
+  # Wire separator
+  - id: e7
+    source: separator
+    target: concat-op
+    sourceHandle: "output:value"
+    targetHandle: "input:separator"
+
+  # Wire CONCAT result to verify
+  - id: e8
+    source: concat-op
+    target: verify
+    sourceHandle: "output:result"
+    targetHandle: "input:value"

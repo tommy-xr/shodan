@@ -270,6 +270,32 @@ function resolveInputs(
     resolvedEdges.push(edge);
   }
 
+  // Collect array slot values into arrays grouped by arrayParent
+  // e.g., values[0], values[1], values[2] -> values: [v0, v1, v2]
+  const arrayParents = new Map<string, { slots: Array<{ index: number; value: unknown }> }>();
+
+  for (const inputDef of inputs) {
+    if (inputDef.arrayParent !== undefined && inputDef.arrayIndex !== undefined) {
+      const parent = inputDef.arrayParent;
+      if (!arrayParents.has(parent)) {
+        arrayParents.set(parent, { slots: [] });
+      }
+      const value = inputValues[inputDef.name];
+      if (value !== undefined) {
+        arrayParents.get(parent)!.slots.push({ index: inputDef.arrayIndex, value });
+      }
+      // Remove the individual slot from inputValues (will be replaced by array)
+      delete inputValues[inputDef.name];
+    }
+  }
+
+  // Build array values from collected slots
+  for (const [parentName, data] of arrayParents) {
+    // Sort by index and extract values
+    data.slots.sort((a, b) => a.index - b.index);
+    inputValues[parentName] = data.slots.map(s => s.value);
+  }
+
   return { success: true, inputValues, resolvedEdges };
 }
 
