@@ -18,7 +18,7 @@ import { nodeTypes } from './nodes';
 import type { BaseNodeData, NodeType } from './nodes';
 import { edgeTypes } from './edges';
 import type { AnimatedEdgeData } from './edges';
-import { Sidebar } from './components/Sidebar';
+import { Sidebar, operatorPresets } from './components/Sidebar';
 import { ConfigPanel } from './components/ConfigPanel';
 import { Header } from './components/Header';
 import { loadFromLocalStorage, saveToLocalStorage, clearLocalStorage } from './lib/storage';
@@ -329,6 +329,8 @@ function Flow() {
 
       // Check if this is a component being dropped
       const componentDataStr = event.dataTransfer.getData('application/component');
+      // Check if this is a preset (e.g., NOT, AND, OR operators)
+      const presetName = event.dataTransfer.getData('application/preset');
 
       // Check if drop is inside a loop container (not for loops themselves)
       const targetLoop = type !== 'loop' ? findContainingLoop(position) : null;
@@ -428,6 +430,23 @@ function Flow() {
             valueType: 'string',
             value: '',
             outputs: [{ name: 'value', type: 'string' }],
+          },
+        }];
+      } else if (type === 'function' && presetName && operatorPresets[presetName]) {
+        // Pre-configured function node (logic operators)
+        const preset = operatorPresets[presetName];
+        newNodes = [{
+          id: getNodeId(),
+          type: 'function',
+          position: finalPosition,
+          parentId,
+          extent,
+          data: {
+            label: preset.label,
+            nodeType: 'function',
+            code: preset.code,
+            inputs: preset.inputs,
+            outputs: preset.outputs,
           },
         }];
       } else {

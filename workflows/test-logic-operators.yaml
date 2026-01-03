@@ -1,0 +1,193 @@
+version: 2
+metadata:
+  name: Logic Operators Test
+  description: Tests NOT, AND, OR operator function nodes
+
+nodes:
+  - id: trigger
+    type: trigger
+    position: { x: 50, y: 200 }
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: text
+          type: string
+        - name: params
+          type: json
+
+  # Boolean constants for testing
+  - id: const-true
+    type: constant
+    position: { x: 200, y: 100 }
+    data:
+      nodeType: constant
+      label: "True"
+      valueType: boolean
+      value: true
+      outputs:
+        - name: value
+          type: boolean
+
+  - id: const-false
+    type: constant
+    position: { x: 200, y: 300 }
+    data:
+      nodeType: constant
+      label: "False"
+      valueType: boolean
+      value: false
+      outputs:
+        - name: value
+          type: boolean
+
+  # NOT operator: !true = false
+  - id: not-op
+    type: function
+    position: { x: 400, y: 100 }
+    data:
+      nodeType: function
+      label: NOT
+      code: "return { result: !inputs.value }"
+      inputs:
+        - name: value
+          type: boolean
+      outputs:
+        - name: result
+          type: boolean
+
+  # AND operator: true && false = false
+  - id: and-op
+    type: function
+    position: { x: 400, y: 200 }
+    data:
+      nodeType: function
+      label: AND
+      code: "return { result: inputs.a && inputs.b }"
+      inputs:
+        - name: a
+          type: boolean
+        - name: b
+          type: boolean
+      outputs:
+        - name: result
+          type: boolean
+
+  # OR operator: true || false = true
+  - id: or-op
+    type: function
+    position: { x: 400, y: 300 }
+    data:
+      nodeType: function
+      label: OR
+      code: "return { result: inputs.a || inputs.b }"
+      inputs:
+        - name: a
+          type: boolean
+        - name: b
+          type: boolean
+      outputs:
+        - name: result
+          type: boolean
+
+  # Verify all results
+  - id: verify
+    type: shell
+    position: { x: 600, y: 200 }
+    data:
+      nodeType: shell
+      label: Verify Results
+      script: |
+        echo "NOT(true) = {{ inputs.not_result }}"
+        echo "true AND false = {{ inputs.and_result }}"
+        echo "true OR false = {{ inputs.or_result }}"
+
+        # Verify expected values
+        if [ "{{ inputs.not_result }}" = "false" ] && \
+           [ "{{ inputs.and_result }}" = "false" ] && \
+           [ "{{ inputs.or_result }}" = "true" ]; then
+          echo "SUCCESS: All logic operators work correctly!"
+        else
+          echo "FAILURE: Logic operator results are incorrect"
+          exit 1
+        fi
+      inputs:
+        - name: input
+          type: any
+        - name: not_result
+          type: boolean
+        - name: and_result
+          type: boolean
+        - name: or_result
+          type: boolean
+      outputs:
+        - name: output
+          type: string
+        - name: stdout
+          type: string
+        - name: stderr
+          type: string
+        - name: exitCode
+          type: number
+
+edges:
+  # Trigger starts the constants
+  - id: e0
+    source: trigger
+    target: const-true
+  - id: e1
+    source: trigger
+    target: const-false
+
+  # Wire constants to NOT
+  - id: e2
+    source: const-true
+    target: not-op
+    sourceHandle: "output:value"
+    targetHandle: "input:value"
+
+  # Wire constants to AND
+  - id: e3
+    source: const-true
+    target: and-op
+    sourceHandle: "output:value"
+    targetHandle: "input:a"
+  - id: e4
+    source: const-false
+    target: and-op
+    sourceHandle: "output:value"
+    targetHandle: "input:b"
+
+  # Wire constants to OR
+  - id: e5
+    source: const-true
+    target: or-op
+    sourceHandle: "output:value"
+    targetHandle: "input:a"
+  - id: e6
+    source: const-false
+    target: or-op
+    sourceHandle: "output:value"
+    targetHandle: "input:b"
+
+  # Wire operator results to verify
+  - id: e7
+    source: not-op
+    target: verify
+    sourceHandle: "output:result"
+    targetHandle: "input:not_result"
+  - id: e8
+    source: and-op
+    target: verify
+    sourceHandle: "output:result"
+    targetHandle: "input:and_result"
+  - id: e9
+    source: or-op
+    target: verify
+    sourceHandle: "output:result"
+    targetHandle: "input:or_result"
