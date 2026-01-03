@@ -38,6 +38,9 @@ export interface PortDefinition {
   description?: string;   // Help text
   schema?: object;        // JSON Schema for 'json' type validation
   extract?: OutputExtraction;  // For outputs: how to extract value from execution result
+  array?: boolean;        // For inputs: accepts multiple connections, values collected as array
+  arrayIndex?: number;    // For array inputs: the index of this slot (auto-generated)
+  arrayParent?: string;   // For array inputs: the base port name this slot belongs to
 }
 
 /**

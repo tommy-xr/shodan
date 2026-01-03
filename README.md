@@ -39,6 +39,9 @@ pnpm run robomesh -- validate workflows/*.yaml
 
 # Run workflow tests
 pnpm run test:workflows
+
+# Run e2e tests (Playwright)
+pnpm run test:e2e
 ```
 
 ### Global CLI (for development)

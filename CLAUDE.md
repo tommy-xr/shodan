@@ -47,6 +47,9 @@ pnpm run -F designer build  # Vite build
 # Run workflow tests
 pnpm run test:workflows
 
+# Run e2e tests (Playwright - tests designer UI)
+pnpm run test:e2e
+
 # Use CLI directly (from root)
 pnpm run robomesh -- run workflows/hello-world.yaml
 pnpm run robomesh -- validate workflows/*.yaml
@@ -134,6 +137,36 @@ The designer (`packages/designer/src/`) is a React Flow-based visual editor:
 - **lib/**: API client and localStorage persistence
 
 State is persisted to localStorage, including nodes, edges, viewport, workflow name, and root directory. The designer communicates with the server via REST APIs (`/api/files`, `/api/execute`, `/api/config`, `/api/components`).
+
+### Operator Presets
+
+The Sidebar includes pre-configured function node presets (`packages/designer/src/components/Sidebar.tsx`):
+
+- **NOT** (¬): Boolean negation - `!inputs.value`
+- **AND** (∧): Boolean AND - `inputs.a && inputs.b`
+- **OR** (∨): Boolean OR - `inputs.a || inputs.b`
+- **CONCAT** (+): String concatenation with separator - `inputs.values.join(inputs.separator)`
+
+Presets are defined in `operatorPresets` and automatically configure inputs, outputs, and code.
+
+### Array Input Ports
+
+Array inputs allow a single port to accept multiple connections (`packages/core/src/io-types.ts`):
+
+- **PortDefinition extensions**:
+  - `array: boolean` - Marks the port as accepting multiple values
+  - `arrayIndex: number` - The slot index (0, 1, 2, ...)
+  - `arrayParent: string` - The base port name (e.g., "values" for "values[0]")
+
+- **Designer behavior** (`App.tsx`):
+  - Array ports start with `[0]` slot (e.g., `values[0]`)
+  - Connecting to the last slot auto-adds a new slot (e.g., `values[1]`)
+  - Deleting edges auto-removes empty trailing slots
+  - Array handles have square styling (`.handle-array` class)
+
+- **Executor behavior** (`executor.ts`):
+  - Collects all array slot values into an array grouped by `arrayParent`
+  - Passes the array to the function code (e.g., `inputs.values = ["a", "b", "c"]`)
 
 ### Loop Architecture
 

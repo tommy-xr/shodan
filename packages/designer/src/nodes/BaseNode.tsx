@@ -381,13 +381,14 @@ export function BaseNode({ data, selected }: NodeProps) {
       {/* Input handles */}
       {inputs.map((input, index) => {
         const topOffset = portsStartOffset + (index * portHeight);
+        const isArraySlot = input.arrayParent !== undefined;
         return (
           <Handle
             key={`input-${input.name}`}
             type="target"
             position={Position.Left}
             id={`input:${input.name}`}
-            className="handle"
+            className={`handle${isArraySlot ? ' handle-array' : ''}`}
             style={{
               top: `${topOffset}px`,
               backgroundColor: typeColors[input.type],

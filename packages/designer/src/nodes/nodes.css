@@ -270,6 +270,13 @@
   opacity: 1;
 }
 
+/* Array input handles - square shape to distinguish from regular handles */
+.handle-array {
+  border-radius: 2px !important;
+  width: 8px !important;
+  height: 8px !important;
+}
+
 /* Execution status styles */
 .exec-status-icon {
   margin-left: auto;

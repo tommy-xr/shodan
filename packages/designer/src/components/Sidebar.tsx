@@ -28,6 +28,8 @@ const logicItems: PaletteItem[] = [
   { type: 'function', label: 'NOT', icon: '¬', preset: 'not' },
   { type: 'function', label: 'AND', icon: '∧', preset: 'and' },
   { type: 'function', label: 'OR', icon: '∨', preset: 'or' },
+  // String operators
+  { type: 'function', label: 'CONCAT', icon: '+', preset: 'concat' },
 ];
 
 /**
@@ -36,7 +38,7 @@ const logicItems: PaletteItem[] = [
 export interface OperatorPreset {
   label: string;
   code: string;
-  inputs: Array<{ name: string; type: ValueType }>;
+  inputs: Array<{ name: string; type: ValueType; array?: boolean }>;
   outputs: Array<{ name: string; type: ValueType }>;
 }
 
@@ -58,6 +60,15 @@ export const operatorPresets: Record<string, OperatorPreset> = {
     code: 'return { result: inputs.a || inputs.b }',
     inputs: [{ name: 'a', type: 'boolean' }, { name: 'b', type: 'boolean' }],
     outputs: [{ name: 'result', type: 'boolean' }],
+  },
+  concat: {
+    label: 'CONCAT',
+    code: 'return { result: inputs.values.join(inputs.separator || "") }',
+    inputs: [
+      { name: 'values', type: 'string', array: true },
+      { name: 'separator', type: 'string' },
+    ],
+    outputs: [{ name: 'result', type: 'string' }],
   },
 };
 
