@@ -38,10 +38,6 @@ Schema migration (`upgradeWorkflow`) is disabled during early development. When 
 ### Retry Gate Primitive (see [retry-gate.md](./retry-gate.md))
 - [ ] Gate node for multi-stage validation with upstream retry
 
-### Workspace Polish (minor remaining items from workspace.md)
-- [x] IdleTrigger auto-selection - Pick random idle workflow when nothing else running
-- [ ] Designer trigger config UI - Remove unsupported trigger types from dropdown
-
 ### Other
 - Multi-agent CLI output isn't ideal - especially when there is only one item running. We should maybe constrain to a single sentence / line (ideally a summary) - we may be able to pick specific events to pull out like CLaude Code. The test plan.yaml one is a good example of this.
 - Workspaces view: show run live progress in the 'status' sidebar pane - need a concept of 'selected' workflow
@@ -51,7 +47,6 @@ Schema migration (`upgradeWorkflow`) is disabled during early development. When 
 - Upgrade AND/OR to N-ary operators (requires array inputs)
 - For the plan.yml workflow - why can I not create an edge from trigger.text -> agent?
 - The node ids are implicit - can we make those editable?
-- Show source (ui/cli/automatic) in the dashboard and history
 - For constant node, for string, it could be useful to be able to point to a file as well. 
 - Autocomplete: would be helpful to have autocomplete for {{ inputs.| }} input, as well as for the typescript function input
 - Implement 'wire node' - just a small, pass-through node that can be used for routing wires

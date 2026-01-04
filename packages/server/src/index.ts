@@ -69,8 +69,10 @@ export function createServer(config: ServerConfig): Express {
   // Wire up trigger firing to execute workflows
   triggerManager.onFire(async (trigger) => {
     console.log(`[Trigger] Firing trigger: ${trigger.id} (${trigger.label})`);
+    const source = trigger.config.type === 'cron' ? 'cron' : trigger.config.type === 'idle' ? 'idle' : 'ui';
     const result = await startWorkflow(trigger.workspace, trigger.workflowPath, {
-      triggeredBy: `cron:${trigger.config.cron}`,
+      triggeredBy: `${trigger.config.type}:${trigger.config.cron || trigger.config.idleMinutes || 'auto'}`,
+      source,
     });
     if (!result.success) {
       console.error(`[Trigger] Failed to start workflow: ${result.error}`);

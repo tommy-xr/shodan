@@ -1,0 +1,55 @@
+version: 1
+metadata:
+  name: cron
+  description: ''
+  rootDirectory: /Users/bryphe/shodan
+nodes:
+  - id: trigger_1
+    type: trigger
+    position:
+      x: 181.86517944644632
+      'y': 110.06537121813864
+    data:
+      label: Start
+      triggerType: cron
+      nodeType: trigger
+      executionStatus: completed
+      executionOutput: Trigger activated
+      cron: '*/5 * * * *'
+  - id: node_0
+    type: shell
+    position:
+      x: 514.8061760499698
+      'y': 116.67150693136026
+    data:
+      label: New Shell
+      nodeType: shell
+      inputs:
+        - name: input
+          type: any
+          required: false
+          description: Generic input for template interpolation
+      outputs:
+        - name: output
+          type: string
+          description: Combined stdout output
+        - name: stdout
+          type: string
+          description: Standard output
+        - name: stderr
+          type: string
+          description: Standard error
+        - name: exitCode
+          type: number
+          description: Exit code (0 = success)
+      script: echo "ran at {{ inputs.input }}"
+      executionStatus: completed
+      executionOutput: |-
+        $ echo "ran at 2026-01-04T00:31:59.531Z"
+        ran at 2026-01-04T00:31:59.531Z
+edges:
+  - id: xy-edge__trigger_1output:timestamp-node_0input:input
+    source: trigger_1
+    target: node_0
+    sourceHandle: output:timestamp
+    targetHandle: input:input

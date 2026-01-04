@@ -1,0 +1,17 @@
+version: 1
+metadata:
+  name: idle
+  description: ''
+  rootDirectory: /Users/bryphe/shodan
+nodes:
+  - id: trigger_1
+    type: trigger
+    position:
+      x: 250
+      'y': 100
+    data:
+      label: Start
+      triggerType: idle
+      nodeType: trigger
+      idleMinutes: 60
+edges: []

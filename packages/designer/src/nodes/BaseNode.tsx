@@ -101,10 +101,8 @@ const runnerLabels: Record<string, string> = {
 
 const triggerLabels: Record<string, string> = {
   'manual': 'Manual',
-  'periodic': 'Cron',
-  'file-watch': 'File Watch',
-  'pr': 'Pull Request',
-  'webhook': 'Webhook',
+  'cron': 'Cron',
+  'idle': 'Idle',
 };
 
 const statusIcons: Record<ExecutionStatus, string> = {

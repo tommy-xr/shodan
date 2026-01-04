@@ -37,6 +37,7 @@ function registerTriggersFromWorkflows(
         const config: TriggerConfig = {
           type: trigger.type as 'cron' | 'idle',
           cron: trigger.cron,
+          idleMinutes: trigger.idleMinutes,
         };
 
         manager.register(
