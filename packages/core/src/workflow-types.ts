@@ -56,6 +56,7 @@ export interface WorkflowNodeData {
   // Trigger node fields
   triggerType?: string;
   cron?: string;
+  idleMinutes?: number;
 
   // Working directory node fields
   path?: string;

@@ -15,6 +15,7 @@ export interface TriggerInfo {
   label: string;
   type: string; // 'manual' | 'cron' | 'idle'
   cron?: string; // For cron triggers
+  idleMinutes?: number; // For idle triggers
 }
 
 export interface WorkflowInfo {
@@ -58,6 +59,7 @@ export function getWorkflowTriggers(nodes: WorkflowNode[]): TriggerInfo[] {
         label: (node.data.label as string) || 'Trigger',
         type: (node.data.triggerType as string) || 'manual',
         cron: node.data.cron as string | undefined,
+        idleMinutes: node.data.idleMinutes as number | undefined,
       });
     }
   }

@@ -353,25 +353,34 @@ function TriggerConfig({ node, onUpdate }: NodeConfigProps) {
       <div className="config-field">
         <label>Trigger Type</label>
         <select
-          value={(node.data.triggerType as string) || ''}
+          value={(node.data.triggerType as string) || 'manual'}
           onChange={(e) => onUpdate(node.id, { triggerType: e.target.value })}
         >
-          <option value="">Select trigger...</option>
           <option value="manual">Manual</option>
-          <option value="periodic">Periodic (Cron)</option>
-          <option value="file-watch">File Watch</option>
-          <option value="pr">Pull Request</option>
-          <option value="webhook">Webhook</option>
+          <option value="cron">Cron (Scheduled)</option>
+          <option value="idle">Idle (When Nothing Running)</option>
         </select>
       </div>
-      {node.data.triggerType === 'periodic' && (
+      {node.data.triggerType === 'cron' && (
         <div className="config-field">
           <label>Cron Expression</label>
           <input
             type="text"
             value={(node.data.cron as string) || ''}
             onChange={(e) => onUpdate(node.id, { cron: e.target.value })}
-            placeholder="e.g., 0 * * * *"
+            placeholder="e.g., 0 0 9 * * * (9am daily)"
+          />
+        </div>
+      )}
+      {node.data.triggerType === 'idle' && (
+        <div className="config-field">
+          <label>Idle Minutes</label>
+          <input
+            type="number"
+            min="1"
+            value={(node.data.idleMinutes as number) || 5}
+            onChange={(e) => onUpdate(node.id, { idleMinutes: parseInt(e.target.value, 10) || 5 })}
+            placeholder="Minutes idle before triggering"
           />
         </div>
       )}

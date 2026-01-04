@@ -52,6 +52,8 @@ interface NodeResult {
   error?: string;
 }
 
+type ExecutionSource = 'cli' | 'ui' | 'cron' | 'idle';
+
 interface ExecutionHistoryEntry {
   id: string;
   workspace: string;
@@ -61,6 +63,7 @@ interface ExecutionHistoryEntry {
   status: 'completed' | 'failed' | 'cancelled';
   duration: number;
   nodeCount: number;
+  source?: ExecutionSource;
   error?: string;
   results?: NodeResult[];
 }
@@ -84,6 +87,13 @@ const TRIGGER_ICONS: Record<string, string> = {
   manual: '\u{1F590}', // Hand
   cron: '\u{23F0}',    // Alarm clock
   idle: '\u{1F4A4}',   // Zzz
+};
+
+const SOURCE_LABELS: Record<ExecutionSource, { icon: string; label: string }> = {
+  ui: { icon: '\u{1F5B1}', label: 'UI' },      // Mouse
+  cli: { icon: '\u{2328}', label: 'CLI' },     // Keyboard
+  cron: { icon: '\u{23F0}', label: 'Cron' },   // Alarm clock
+  idle: { icon: '\u{1F4A4}', label: 'Idle' },  // Zzz
 };
 
 export function Dashboard() {
@@ -348,7 +358,7 @@ export function Dashboard() {
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
 
-    if (diffMins < 0) return 'due';
+    if (diffMins <= 0) return 'due';
     if (diffMins < 60) return `in ${diffMins}m`;
     if (diffHours < 24) return `in ${diffHours}h`;
     return date.toLocaleDateString();
@@ -480,9 +490,14 @@ export function Dashboard() {
                                     <span
                                       className={`last-run ${lastRun.status}`}
                                       onClick={() => handleViewRun(lastRun)}
-                                      title={`Click to view run details\nDuration: ${formatDuration(lastRun.duration)}`}
+                                      title={`Click to view run details\nSource: ${lastRun.source || 'ui'}\nDuration: ${formatDuration(lastRun.duration)}`}
                                     >
                                       {lastRun.status === 'completed' ? '\u2714' : lastRun.status === 'failed' ? '\u2718' : '\u23F9'}
+                                      {lastRun.source && SOURCE_LABELS[lastRun.source] && (
+                                        <span className="run-source" title={SOURCE_LABELS[lastRun.source].label}>
+                                          {SOURCE_LABELS[lastRun.source].icon}
+                                        </span>
+                                      )}
                                       {' '}{formatRelativeTime(lastRun.completedAt)}
                                     </span>
                                   )}
@@ -569,6 +584,18 @@ export function Dashboard() {
                 <span className="label">Status:</span>
                 <span className={`value status-${selectedHistory.status}`}>
                   {selectedHistory.status}
+                </span>
+              </div>
+              <div className="run-meta-item">
+                <span className="label">Source:</span>
+                <span className="value">
+                  {selectedHistory.source && SOURCE_LABELS[selectedHistory.source] ? (
+                    <>
+                      {SOURCE_LABELS[selectedHistory.source].icon} {SOURCE_LABELS[selectedHistory.source].label}
+                    </>
+                  ) : (
+                    <>🖱 UI</>
+                  )}
                 </span>
               </div>
               <div className="run-meta-item">
