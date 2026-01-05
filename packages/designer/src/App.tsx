@@ -260,6 +260,7 @@ function Flow() {
   const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(null);
   const [currentWorkflowPath, setCurrentWorkflowPath] = useState<string | null>(null);
   const [lastSaveTime, setLastSaveTime] = useState<number>(0);
+  const [yoloMode, setYoloMode] = useState(false);
   const { screenToFlowPosition, fitView, getViewport, setViewport } = useReactFlow();
 
   // Get URL params for workspace/workflow routing
@@ -373,20 +374,21 @@ function Flow() {
     }
   }, [setViewport]);
 
-  // Fetch project root from server and set as default if not already set or if relative
+  // Fetch server config (project root and yolo mode)
   useEffect(() => {
-    const needsProjectRoot = !rootDirectory || rootDirectory === '.' || !rootDirectory.startsWith('/');
-    if (needsProjectRoot) {
-      getConfig()
-        .then((config) => {
-          if (config.projectRoot) {
-            setRootDirectory(config.projectRoot);
-          }
-        })
-        .catch((err) => {
-          console.warn('Failed to fetch project config:', err);
-        });
-    }
+    getConfig()
+      .then((config) => {
+        // Set yolo mode from server config
+        setYoloMode(config.dangerouslySkipPermissions || false);
+        // Set project root if not already set or if relative
+        const needsProjectRoot = !rootDirectory || rootDirectory === '.' || !rootDirectory.startsWith('/');
+        if (needsProjectRoot && config.projectRoot) {
+          setRootDirectory(config.projectRoot);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to fetch project config:', err);
+      });
   }, []);
 
   // Auto-save to localStorage on changes (debounced)
@@ -1471,6 +1473,7 @@ function Flow() {
         isExecuting={isExecuting}
         onExecute={onExecute}
         onResetExecution={onResetExecution}
+        yoloMode={yoloMode}
         onImport={onImport}
       />
       <div className="app-body">

@@ -36,6 +36,7 @@ interface HeaderProps {
   isExecuting: boolean;
   onExecute: () => void;
   onResetExecution: () => void;
+  yoloMode?: boolean; // True when server started with --yolo
   // Import/Export props
   onImport: (nodes: Node<BaseNodeData>[], edges: Edge[], name: string, rootDir?: string) => void;
 }
@@ -59,6 +60,7 @@ export function Header({
   isExecuting,
   onExecute,
   onResetExecution,
+  yoloMode,
   onImport,
 }: HeaderProps) {
   const [error, setError] = useState<string | null>(null);
@@ -418,11 +420,17 @@ export function Header({
       </div>
 
       <div className="header-right">
+        {yoloMode && (
+          <div className="header-yolo-badge" title="Server started with --yolo. Agents run with full permissions.">
+            ⚠️ YOLO
+          </div>
+        )}
         <div className="header-execution">
           <button
-            className={`header-btn run ${isExecuting ? 'running' : ''}`}
+            className={`header-btn run ${isExecuting ? 'running' : ''} ${yoloMode ? 'yolo' : ''}`}
             onClick={onExecute}
             disabled={isExecuting || nodes.length === 0}
+            title={yoloMode ? 'Run with full permissions (YOLO mode)' : 'Run workflow'}
           >
             {isExecuting ? '⏳ Running...' : '▶ Run'}
           </button>

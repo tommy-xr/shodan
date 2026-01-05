@@ -1,0 +1,54 @@
+version: 1
+metadata:
+  name: test-permissions
+  description: ''
+  rootDirectory: /Users/bryphe/shodan
+nodes:
+  - id: trigger_1
+    type: trigger
+    position:
+      x: 250
+      'y': 100
+    data:
+      label: Start
+      triggerType: manual
+      nodeType: trigger
+  - id: node_0
+    type: agent
+    position:
+      x: 558.9141256811631
+      'y': 152.01281315931553
+    data:
+      label: New Agent
+      nodeType: agent
+      inputs:
+        - name: prompt
+          type: string
+          required: false
+          description: Override prompt (optional)
+        - name: sessionId
+          type: string
+          required: false
+          description: Session ID to resume (optional)
+        - name: input_3
+          type: string
+          required: false
+      outputs:
+        - name: output
+          type: string
+          description: Agent response text
+        - name: sessionId
+          type: string
+          description: Session ID for continuation
+        - name: exitCode
+          type: number
+          description: Exit code (0 = success)
+      runner: claude-code
+      model: opus
+      prompt: Write a file derp.txt that says derp
+edges:
+  - id: xy-edge__trigger_1output:timestamp-node_0input:input_3
+    source: trigger_1
+    target: node_0
+    sourceHandle: output:timestamp
+    targetHandle: input:input_3

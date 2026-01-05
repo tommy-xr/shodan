@@ -47,6 +47,7 @@ Add blog notes:
 
 Workstream 1:
 - When running `robomesh serve --yolo`, the runners _are not_ run in --yolo
+- 'idle' jobs aren't being triggered
 - Run history: Instead of showing _only_ the state of the _last_ run, we should allow seeing all the recent runs (30d, or perhaps configurable) when clicking on a workflow in the dashboard. Then, each individual run can be opened with our modal.
 
 Workstream 2:

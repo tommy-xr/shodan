@@ -12,6 +12,7 @@ const API_BASE = import.meta.env.VITE_API_URL || '/api';
 export interface ConfigResponse {
   projectRoot: string;
   rootMarker: string | null;
+  dangerouslySkipPermissions: boolean;
 }
 
 export async function getConfig(): Promise<ConfigResponse> {

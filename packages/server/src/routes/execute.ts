@@ -104,9 +104,13 @@ export function createExecuteRouter(defaultProjectRoot: string): Router {
       // Use provided rootDirectory, or fall back to discovered project root
       const effectiveRoot = rootDirectory || defaultProjectRoot;
 
+      // Get dangerouslySkipPermissions from server config (set via --yolo flag)
+      const dangerouslySkipPermissions = req.app.locals.dangerouslySkipPermissions || false;
+
       const result: ExecuteResult = await executeWorkflow(nodes, edges, {
         rootDirectory: effectiveRoot,
         startNodeId,
+        dangerouslySkipPermissions,
       });
 
       res.json(result);
@@ -150,10 +154,14 @@ export function createExecuteRouter(defaultProjectRoot: string): Router {
     const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const collectedResults: NodeResult[] = [];
 
+    // Get dangerouslySkipPermissions from server config (set via --yolo flag)
+    const dangerouslySkipPermissions = req.app.locals.dangerouslySkipPermissions || false;
+
     try {
       const result = await executeWorkflow(nodes, edges, {
         rootDirectory: effectiveRoot,
         startNodeId,
+        dangerouslySkipPermissions,
         onNodeStart: (nodeId, _node) => {
           sendEvent({ type: 'node-start', nodeId, timestamp: Date.now() });
         },

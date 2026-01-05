@@ -2328,3 +2328,29 @@
   cursor: not-allowed;
 }
 
+/* YOLO mode indicator */
+.header-yolo-badge {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #1a1a1a;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 8px;
+  cursor: help;
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
+}
+
+.header-btn.run.yolo {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  border-color: #fbbf24;
+  color: #1a1a1a;
+}
+
+.header-btn.run.yolo:hover:not(:disabled) {
+  background: linear-gradient(135deg, #fcd34d, #fbbf24);
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.5);
+}
+
