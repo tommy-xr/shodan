@@ -2,7 +2,7 @@ import { Router } from 'express';
 import path from 'path';
 import fs from 'fs/promises';
 import os from 'os';
-import type { WorkflowNode, WorkflowEdge, ExecutionEvent, NodeResult } from '@robomesh/core';
+import type { WorkflowNode, WorkflowEdge, ExecutionEvent, NodeResult, InlineComponent } from '@robomesh/core';
 import { executeWorkflow, type ExecuteResult } from '../engine/executor.js';
 
 export interface ExecuteRequest {
@@ -13,6 +13,8 @@ export interface ExecuteRequest {
   // Optional: for recording run history
   workspace?: string;
   workflowPath?: string;
+  // Optional: inline component definitions
+  components?: Record<string, InlineComponent>;
 }
 
 // Get robomesh home directory
@@ -91,7 +93,7 @@ export function createExecuteRouter(defaultProjectRoot: string): Router {
   // Standard synchronous execution endpoint
   router.post('/', async (req, res) => {
     try {
-      const { nodes, edges, rootDirectory, startNodeId } = req.body as ExecuteRequest;
+      const { nodes, edges, rootDirectory, startNodeId, components } = req.body as ExecuteRequest;
 
       if (!nodes || !Array.isArray(nodes)) {
         return res.status(400).json({ error: 'nodes array is required' });
@@ -111,6 +113,7 @@ export function createExecuteRouter(defaultProjectRoot: string): Router {
         rootDirectory: effectiveRoot,
         startNodeId,
         dangerouslySkipPermissions,
+        inlineComponents: components,
       });
 
       res.json(result);
@@ -124,7 +127,7 @@ export function createExecuteRouter(defaultProjectRoot: string): Router {
 
   // Streaming execution endpoint with SSE events
   router.post('/stream', async (req, res) => {
-    const { nodes, edges, rootDirectory, startNodeId, workspace, workflowPath } = req.body as ExecuteRequest;
+    const { nodes, edges, rootDirectory, startNodeId, workspace, workflowPath, components } = req.body as ExecuteRequest;
 
     // Validate request
     if (!nodes || !Array.isArray(nodes)) {
@@ -162,6 +165,7 @@ export function createExecuteRouter(defaultProjectRoot: string): Router {
         rootDirectory: effectiveRoot,
         startNodeId,
         dangerouslySkipPermissions,
+        inlineComponents: components,
         onNodeStart: (nodeId, _node) => {
           sendEvent({ type: 'node-start', nodeId, timestamp: Date.now() });
         },

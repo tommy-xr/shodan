@@ -11,7 +11,8 @@ import {
 
 interface BreadcrumbItem {
   name: string;
-  path?: string;
+  path?: string;  // File-based component path
+  componentRef?: string;  // Inline component reference
 }
 
 interface HeaderProps {
@@ -177,21 +178,38 @@ export function Header({
 
       // Path segments (e.g., .robomesh/workflows/test.yaml becomes: .robomesh > workflows > test.yaml)
       const pathParts = workflowPath.split('/');
+      const isEditingNested = breadcrumbItems.length > 1;
       pathParts.forEach((part, index) => {
         parts.push(
           <span key={`sep-path-${index}`} className="header-breadcrumb-separator">›</span>
         );
 
         const isFile = index === pathParts.length - 1;
-        parts.push(
-          <span
-            key={`path-${index}`}
-            className={`header-breadcrumb-item ${isFile ? 'current file' : 'folder'}`}
-          >
-            {isFile && <span className="header-breadcrumb-icon">📄</span>}
-            {part}
-          </span>
-        );
+
+        // Make the file clickable when editing nested components (to navigate back to root)
+        if (isFile && isEditingNested) {
+          parts.push(
+            <button
+              key={`path-${index}`}
+              className="header-breadcrumb-link file"
+              onClick={() => onNavigateBreadcrumb(0)}
+              title="Click to navigate back to workflow"
+            >
+              <span className="header-breadcrumb-icon">📄</span>
+              {part}
+            </button>
+          );
+        } else {
+          parts.push(
+            <span
+              key={`path-${index}`}
+              className={`header-breadcrumb-item ${isFile ? 'current file' : 'folder'}`}
+            >
+              {isFile && <span className="header-breadcrumb-icon">📄</span>}
+              {part}
+            </span>
+          );
+        }
       });
 
       // If editing nested components, add those
@@ -201,7 +219,7 @@ export function Header({
             <span key={`sep-comp-${index}`} className="header-breadcrumb-separator">›</span>
           );
           const isLast = index === breadcrumbItems.length - 2;
-          const isComponent = item.path !== undefined;
+          const isComponent = item.path !== undefined || item.componentRef !== undefined;
 
           if (isLast) {
             parts.push(
@@ -256,7 +274,7 @@ export function Header({
         }
 
         const isLast = index === breadcrumbItems.length - 1;
-        const isComponent = item.path !== undefined;
+        const isComponent = item.path !== undefined || item.componentRef !== undefined;
         const isRoot = index === 0;
 
         if (isLast) {

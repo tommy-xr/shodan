@@ -284,6 +284,34 @@ describe('Function Node', () => {
   });
 });
 
+describe('Nested Workflows', () => {
+  test('test-nested-workflow.yaml - use workflow as nested component', async () => {
+    const result = await runWorkflow('test-nested-workflow.yaml', { rootDirectory: PROJECT_ROOT });
+    assert.strictEqual(result.success, true, 'Workflow should succeed');
+
+    // Verify the nested component executed
+    const nested = getNode(result, 'nested-1');
+    assertNodeCompleted(nested);
+
+    // Verify the final check passed
+    const verify = getNode(result, 'verify');
+    assertNodeCompleted(verify);
+    assertOutputContains(verify, 'Greetings, Robomesh!', 'stdout');
+    assertOutputContains(verify, 'SUCCESS: Nested workflow executed correctly!', 'stdout');
+  });
+
+  test('nestable-greeting.yaml - can run standalone', async () => {
+    const result = await runWorkflow('nestable-greeting.yaml', {
+      triggerInputs: { name: 'TestUser', greeting: 'Hello' }
+    });
+    assert.strictEqual(result.success, true, 'Workflow should succeed');
+
+    const shell = getNode(result, 'shell-1');
+    assertNodeCompleted(shell);
+    assertOutputContains(shell, 'Hello, TestUser!', 'stdout');
+  });
+});
+
 describe('Parallel Execution', () => {
   test('test-parallel/test-parallel-shell.yaml - executes independent nodes concurrently', async () => {
     const startTime = Date.now();

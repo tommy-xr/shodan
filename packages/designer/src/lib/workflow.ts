@@ -1,9 +1,10 @@
 import type { Node, Edge } from '@xyflow/react';
 import yaml from 'js-yaml';
 import type { BaseNodeData } from '../nodes';
+import type { InlineComponent } from '@robomesh/core';
 
 // Schema version - increment when making breaking changes
-export const WORKFLOW_SCHEMA_VERSION = 2;
+export const WORKFLOW_SCHEMA_VERSION = 3;
 
 export interface WorkflowMetadata {
   name: string;
@@ -16,6 +17,7 @@ export interface WorkflowMetadata {
 export interface WorkflowSchema {
   version: number;
   metadata: WorkflowMetadata;
+  components?: Record<string, InlineComponent>;  // Inline component definitions
   nodes: SerializedNode[];
   edges: SerializedEdge[];
 }
@@ -57,11 +59,12 @@ function upgradeWorkflow(workflow: WorkflowSchema): WorkflowSchema {
 export function serializeWorkflow(
   nodes: Node<BaseNodeData>[],
   edges: Edge[],
-  metadata: Partial<WorkflowMetadata> = {}
+  metadata: Partial<WorkflowMetadata> = {},
+  components?: Record<string, InlineComponent>
 ): WorkflowSchema {
   const now = new Date().toISOString();
 
-  return {
+  const schema: WorkflowSchema = {
     version: WORKFLOW_SCHEMA_VERSION,
     metadata: {
       name: metadata.name || 'Untitled Workflow',
@@ -99,6 +102,13 @@ export function serializeWorkflow(
       targetHandle: edge.targetHandle,
     })),
   };
+
+  // Only include components if there are any
+  if (components && Object.keys(components).length > 0) {
+    schema.components = components;
+  }
+
+  return schema;
 }
 
 /**
@@ -108,6 +118,7 @@ export function deserializeWorkflow(workflow: WorkflowSchema): {
   nodes: Node<BaseNodeData>[];
   edges: Edge[];
   metadata: WorkflowMetadata;
+  components?: Record<string, InlineComponent>;
 } {
   const upgraded = upgradeWorkflow(workflow);
 
@@ -139,6 +150,7 @@ export function deserializeWorkflow(workflow: WorkflowSchema): {
       targetHandle: edge.targetHandle,
     })),
     metadata: upgraded.metadata,
+    components: upgraded.components,
   };
 }
 
@@ -148,9 +160,10 @@ export function deserializeWorkflow(workflow: WorkflowSchema): {
 export function exportToJSON(
   nodes: Node<BaseNodeData>[],
   edges: Edge[],
-  metadata?: Partial<WorkflowMetadata>
+  metadata?: Partial<WorkflowMetadata>,
+  components?: Record<string, InlineComponent>
 ): string {
-  const workflow = serializeWorkflow(nodes, edges, metadata);
+  const workflow = serializeWorkflow(nodes, edges, metadata, components);
   return JSON.stringify(workflow, null, 2);
 }
 
@@ -160,9 +173,10 @@ export function exportToJSON(
 export function exportToYAML(
   nodes: Node<BaseNodeData>[],
   edges: Edge[],
-  metadata?: Partial<WorkflowMetadata>
+  metadata?: Partial<WorkflowMetadata>,
+  components?: Record<string, InlineComponent>
 ): string {
-  const workflow = serializeWorkflow(nodes, edges, metadata);
+  const workflow = serializeWorkflow(nodes, edges, metadata, components);
   return yaml.dump(workflow, {
     indent: 2,
     lineWidth: 120,
@@ -177,6 +191,7 @@ export function importFromJSON(json: string): {
   nodes: Node<BaseNodeData>[];
   edges: Edge[];
   metadata: WorkflowMetadata;
+  components?: Record<string, InlineComponent>;
 } {
   const parsed = JSON.parse(json) as WorkflowSchema;
 
@@ -194,6 +209,7 @@ export function importFromYAML(yamlStr: string): {
   nodes: Node<BaseNodeData>[];
   edges: Edge[];
   metadata: WorkflowMetadata;
+  components?: Record<string, InlineComponent>;
 } {
   const parsed = yaml.load(yamlStr) as WorkflowSchema;
 
@@ -211,6 +227,7 @@ export function importWorkflow(content: string): {
   nodes: Node<BaseNodeData>[];
   edges: Edge[];
   metadata: WorkflowMetadata;
+  components?: Record<string, InlineComponent>;
 } {
   const trimmed = content.trim();
 

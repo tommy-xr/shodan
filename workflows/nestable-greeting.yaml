@@ -1,0 +1,63 @@
+version: 2
+metadata:
+  name: Nestable Greeting
+  description: A simple workflow that can be nested as a component. Uses trigger outputs as inputs.
+nodes:
+  - id: trigger-1
+    type: trigger
+    position:
+      x: 100
+      "y": 100
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: name
+          type: string
+          description: Name to greet
+        - name: greeting
+          type: string
+          description: Greeting prefix (e.g., Hello, Hi)
+  - id: shell-1
+    type: shell
+    position:
+      x: 300
+      "y": 100
+    data:
+      nodeType: shell
+      label: Create Greeting
+      script: |
+        echo "{{ inputs.greeting }}, {{ inputs.name }}!"
+      inputs:
+        - name: greeting
+          type: string
+        - name: name
+          type: string
+        - name: input
+          type: any
+          required: false
+          description: Generic input for template interpolation
+      outputs:
+        - name: output
+          type: string
+        - name: stdout
+          type: string
+          description: Standard output
+        - name: stderr
+          type: string
+          description: Standard error
+        - name: exitCode
+          type: number
+          description: Exit code (0 = success)
+edges:
+  - id: e1
+    source: trigger-1
+    target: shell-1
+    sourceHandle: output:greeting
+    targetHandle: input:greeting
+  - id: e2
+    source: trigger-1
+    target: shell-1
+    sourceHandle: output:name
+    targetHandle: input:name

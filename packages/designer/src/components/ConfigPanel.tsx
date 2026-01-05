@@ -316,20 +316,75 @@ function WorkdirConfig({ node, onUpdate }: NodeConfigProps) {
 
 function ComponentConfig({ node }: Omit<NodeConfigProps, 'rootDirectory' | 'onUpdate'>) {
   const workflowPath = (node.data.workflowPath as string) || '';
+  const componentRef = (node.data.componentRef as string) || '';
   const inputs = (node.data.inputs as PortDefinition[]) || [];
   const outputs = (node.data.outputs as PortDefinition[]) || [];
+
+  // Determine source type
+  const isInline = !!componentRef;
+  const isFileBased = !!workflowPath;
 
   return (
     <>
       <div className="config-field">
-        <label>Workflow Path</label>
-        <input
-          type="text"
-          value={workflowPath}
-          readOnly
-          className="monospace"
-          style={{ opacity: 0.7 }}
-        />
+        <label>Source</label>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '8px 12px',
+          backgroundColor: 'var(--bg-secondary)',
+          borderRadius: '4px',
+          fontSize: '0.85rem',
+        }}>
+          {isInline && (
+            <>
+              <span style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: '#60a5fa',
+              }} />
+              <span>Inline</span>
+              <code style={{
+                marginLeft: 'auto',
+                opacity: 0.7,
+                fontSize: '0.8rem',
+              }}>{componentRef}</code>
+            </>
+          )}
+          {isFileBased && (
+            <>
+              <span style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: '#34d399',
+              }} />
+              <span>File</span>
+              <code style={{
+                marginLeft: 'auto',
+                opacity: 0.7,
+                fontSize: '0.8rem',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '200px',
+              }}>{workflowPath}</code>
+            </>
+          )}
+          {!isInline && !isFileBased && (
+            <span style={{ fontStyle: 'italic', opacity: 0.7 }}>Unknown source</span>
+          )}
+        </div>
+        <div style={{
+          fontSize: '0.75rem',
+          color: 'var(--text-secondary)',
+          marginTop: '4px',
+        }}>
+          {isInline && 'Defined within this workflow'}
+          {isFileBased && 'Loaded from external file'}
+        </div>
       </div>
       <div className="config-field">
         <label>Interface (read-only)</label>
@@ -359,6 +414,11 @@ function ComponentConfig({ node }: Omit<NodeConfigProps, 'rootDirectory' | 'onUp
               ))}
             </ul>
           </div>
+        </div>
+      </div>
+      <div className="config-field">
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+          Tip: Double-click the node to edit the component's internal workflow
         </div>
       </div>
     </>

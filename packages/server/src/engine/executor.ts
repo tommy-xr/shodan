@@ -35,6 +35,7 @@ export interface ExecuteOptions {
   triggerInputs?: Record<string, unknown>;  // Inputs to pass to trigger nodes (e.g., from CLI --input)
   workflowInputs?: Record<string, unknown>;  // Inputs when workflow is run as component
   dockContext?: DockContext;                 // Dock context for loop inner workflow execution
+  inlineComponents?: Record<string, import('@robomesh/core').InlineComponent>;  // Inline component definitions
   // Parallel execution options
   maxConcurrent?: number;           // Maximum nodes to execute concurrently (default: 3)
   continueOnFailDefault?: boolean;  // Default behavior when a node fails (default: true)
@@ -1200,35 +1201,84 @@ async function executeNode(
 
   // Component node: executes another workflow as a sub-workflow
   if (nodeType === 'component') {
+    const componentRef = node.data.componentRef as string | undefined;
     const workflowPath = node.data.workflowPath as string | undefined;
 
-    if (!workflowPath) {
-      return {
-        nodeId: node.id,
-        status: 'failed',
-        output: '',
-        error: 'Component node requires workflowPath to be specified',
-        startTime,
-        endTime: new Date().toISOString(),
-      };
-    }
-
     try {
-      // Load the component workflow
-      const componentWorkflow = await loadWorkflow(workflowPath, rootDirectory);
-      const componentDir = getWorkflowDirectory(workflowPath, rootDirectory);
+      let componentNodes: WorkflowNode[];
+      let componentEdges: WorkflowEdge[];
+      let componentDir: string;
+      let componentInlineComponents: Record<string, import('@robomesh/core').InlineComponent> | undefined;
 
-      // Execute the sub-workflow with our input values as its workflow inputs
-      const subResult = await executeWorkflow(
-        componentWorkflow.nodes.map(n => ({
+      if (componentRef) {
+        // Inline component: look up in workflow's components section
+        const inlineComponent = options.inlineComponents?.[componentRef];
+        if (!inlineComponent) {
+          return {
+            nodeId: node.id,
+            status: 'failed',
+            output: '',
+            error: `Inline component '${componentRef}' not found in workflow components`,
+            startTime,
+            endTime: new Date().toISOString(),
+          };
+        }
+        componentNodes = inlineComponent.nodes.map(n => ({
           id: n.id,
           type: n.type,
           data: n.data as WorkflowNode['data'],
-        })),
-        componentWorkflow.edges,
+        }));
+        componentEdges = inlineComponent.edges;
+        // Inline components inherit parent's working directory
+        componentDir = rootDirectory;
+        // Pass along inline components for nested inline component support
+        componentInlineComponents = options.inlineComponents;
+      } else if (workflowPath) {
+        // File-based component: load from filesystem
+        // This supports both dedicated component files and nested workflows
+        const componentWorkflow = await loadWorkflow(workflowPath, rootDirectory);
+        componentNodes = componentWorkflow.nodes.map(n => ({
+          id: n.id,
+          type: n.type,
+          data: n.data as WorkflowNode['data'],
+        }));
+        componentEdges = componentWorkflow.edges;
+        // File-based components inherit parent's working directory (per design decision)
+        componentDir = rootDirectory;
+        // File-based components may have their own inline components
+        componentInlineComponents = componentWorkflow.components;
+      } else {
+        return {
+          nodeId: node.id,
+          status: 'failed',
+          output: '',
+          error: 'Component node requires either componentRef or workflowPath to be specified',
+          startTime,
+          endTime: new Date().toISOString(),
+        };
+      }
+
+      // Execute the sub-workflow with our input values as its workflow inputs
+      // For nested workflows, also pass inputs as triggerInputs so trigger nodes
+      // output the component's inputs (triggers define the workflow's interface)
+      // Forward streaming output from inner nodes to the component node
+      const subResult = await executeWorkflow(
+        componentNodes,
+        componentEdges,
         {
           rootDirectory: componentDir,
-          workflowInputs: inputValues,  // Pass our inputs as the sub-workflow's inputs
+          workflowInputs: inputValues,  // For interface-input nodes
+          triggerInputs: inputValues,   // For trigger nodes (nested workflows)
+          inlineComponents: componentInlineComponents,
+          // Forward streaming output to parent component node
+          onNodeOutput: options.onNodeOutput
+            ? (innerNodeId, chunk) => {
+                // Prefix with inner node info and forward to component node
+                const innerNode = componentNodes.find(n => n.id === innerNodeId);
+                const innerLabel = (innerNode?.data.label as string) || innerNodeId;
+                options.onNodeOutput!(node.id, `[${innerLabel}] ${chunk}`);
+              }
+            : undefined,
         }
       );
 
@@ -1243,17 +1293,72 @@ async function executeNode(
         };
       }
 
-      // Extract outputs from the component's interface-output node
-      const interfaceOutputResult = subResult.results.find(
-        r => componentWorkflow.nodes.find(n => n.id === r.nodeId)?.data.nodeType === 'interface-output'
+      // Extract outputs from the component/nested workflow
+      // Priority: 1) interface-output nodes, 2) leaf nodes (nodes with no outgoing edges)
+      const interfaceOutputNodes = componentNodes.filter(
+        n => n.data.nodeType === 'interface-output'
       );
+
+      let componentOutputs: Record<string, unknown> = {};
+
+      if (interfaceOutputNodes.length > 0) {
+        // Use interface-output nodes
+        for (const outNode of interfaceOutputNodes) {
+          const result = subResult.results.find(r => r.nodeId === outNode.id);
+          if (result?.rawOutput) {
+            try {
+              const parsed = JSON.parse(result.rawOutput);
+              Object.assign(componentOutputs, parsed);
+            } catch {
+              // Ignore parse errors
+            }
+          }
+        }
+      } else {
+        // Use leaf nodes (nodes with no outgoing edges, excluding triggers)
+        const sourceNodes = new Set(componentEdges.map(e => e.source));
+        const leafNodes = componentNodes.filter(
+          n => !sourceNodes.has(n.id) && n.data.nodeType !== 'trigger'
+        );
+
+        // Collect outputs from leaf nodes
+        for (const leafNode of leafNodes) {
+          const leafOutputs = subResult.outputs.get(leafNode.id);
+          if (leafOutputs) {
+            // Prefix with node label if multiple leaf nodes
+            const label = (leafNode.data.label as string) || leafNode.id;
+            if (leafNodes.length > 1) {
+              for (const [key, value] of Object.entries(leafOutputs)) {
+                componentOutputs[`${label}_${key}`] = value;
+              }
+            } else {
+              Object.assign(componentOutputs, leafOutputs);
+            }
+          }
+        }
+      }
+
+      // Build informative output showing inputs and outputs
+      const inputSummary = Object.entries(inputValues)
+        .map(([k, v]) => `${k}: ${typeof v === 'string' ? v.slice(0, 50) + (v.length > 50 ? '...' : '') : JSON.stringify(v)}`)
+        .join(', ');
+      const outputSummary = Object.entries(componentOutputs)
+        .map(([k, v]) => {
+          const str = typeof v === 'string' ? v : JSON.stringify(v);
+          return `${k}: ${str.slice(0, 100)}${str.length > 100 ? '...' : ''}`;
+        })
+        .join('\n');
+
+      const output = inputSummary
+        ? `⎿ ${inputSummary}\n${outputSummary || '(no outputs)'}`
+        : outputSummary || 'Component executed successfully';
 
       return {
         nodeId: node.id,
         status: 'completed',
-        output: 'Component executed successfully',
-        rawOutput: interfaceOutputResult?.rawOutput || '{}',
-        structuredOutput: interfaceOutputResult?.rawOutput ? JSON.parse(interfaceOutputResult.rawOutput) : undefined,
+        output,
+        rawOutput: JSON.stringify(componentOutputs),
+        structuredOutput: componentOutputs,
         startTime,
         endTime: new Date().toISOString(),
       };
@@ -1655,5 +1760,6 @@ export async function executeWorkflowSchema(
   return executeWorkflow(nodes, edges, {
     ...options,
     rootDirectory: schema.metadata.rootDirectory,
+    inlineComponents: schema.components,
   });
 }

@@ -5,7 +5,7 @@
  * Used by the CLI to catch schema issues at runtime.
  */
 
-import type { WorkflowSchema, WorkflowNode, WorkflowEdge } from './workflow-types.js';
+import type { WorkflowSchema, WorkflowNode, WorkflowEdge, InlineComponent } from './workflow-types.js';
 import type { PortDefinition } from './io-types.js';
 import { getNodePortDefaults, getWellKnownOutputs, getWellKnownInputs } from './node-defaults.js';
 
@@ -81,6 +81,14 @@ export function validateWorkflow(workflow: WorkflowSchema): ValidationResult {
   // Check for orphan nodes (nodes with no edges)
   const orphanIssues = validateOrphanNodes(workflow.nodes, workflow.edges);
   issues.push(...orphanIssues);
+
+  // Validate inline components
+  if (workflow.components) {
+    for (const [name, component] of Object.entries(workflow.components)) {
+      const componentIssues = validateInlineComponent(name, component, workflow.components);
+      issues.push(...componentIssues);
+    }
+  }
 
   return {
     valid: issues.filter(i => i.severity === 'error').length === 0,
@@ -394,6 +402,72 @@ function validateEdge(
             suggestion: `Available inputs: ${ports.inputs.join(', ') || 'none defined'}`,
           });
         }
+      }
+    }
+  }
+
+  return issues;
+}
+
+/**
+ * Validate an inline component definition
+ */
+function validateInlineComponent(
+  name: string,
+  component: InlineComponent,
+  allComponents: Record<string, InlineComponent>
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+
+  // Check interface is defined
+  if (!component.interface) {
+    issues.push({
+      severity: 'error',
+      message: `Inline component '${name}' is missing interface definition`,
+    });
+  }
+
+  // Build node map for edge validation
+  const nodeMap = new Map<string, WorkflowNode>();
+  const nodeLabelMap = new Map<string, WorkflowNode>();
+
+  for (const node of component.nodes) {
+    nodeMap.set(node.id, node);
+    if (node.data.label) {
+      const normalizedLabel = node.data.label.toLowerCase().replace(/\s+/g, '_');
+      nodeLabelMap.set(normalizedLabel, node);
+    }
+  }
+
+  // Validate nodes
+  for (const node of component.nodes) {
+    const nodeIssues = validateNode(node);
+    // Prefix with component name for context
+    for (const issue of nodeIssues) {
+      issue.message = `[component '${name}'] ${issue.message}`;
+      issues.push(issue);
+    }
+  }
+
+  // Validate edges
+  for (const edge of component.edges) {
+    const edgeIssues = validateEdge(edge, nodeMap, nodeLabelMap);
+    for (const issue of edgeIssues) {
+      issue.message = `[component '${name}'] ${issue.message}`;
+      issues.push(issue);
+    }
+  }
+
+  // Check for componentRef references to other inline components
+  for (const node of component.nodes) {
+    if (node.data.nodeType === 'component' && node.data.componentRef) {
+      const ref = node.data.componentRef as string;
+      if (!allComponents[ref]) {
+        issues.push({
+          severity: 'error',
+          nodeId: node.id,
+          message: `[component '${name}'] Component node references undefined inline component '${ref}'`,
+        });
       }
     }
   }

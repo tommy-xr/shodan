@@ -1,0 +1,142 @@
+version: 3
+metadata:
+  name: Test Inline Component
+  description: Tests basic inline component functionality
+
+# Inline component definitions
+components:
+  uppercase:
+    interface:
+      inputs:
+        - name: text
+          type: string
+      outputs:
+        - name: result
+          type: string
+    nodes:
+      - id: input-proxy
+        type: interface-input
+        position: { x: 100, y: 100 }
+        data:
+          nodeType: interface-input
+          label: Input
+          outputs:
+            - name: text
+              type: string
+      - id: transform
+        type: shell
+        position: { x: 300, y: 100 }
+        data:
+          nodeType: shell
+          label: Uppercase
+          script: echo "{{ inputs.text }}" | tr '[:lower:]' '[:upper:]'
+          inputs:
+            - name: input
+              type: any
+            - name: text
+              type: string
+          outputs:
+            - name: output
+              type: string
+            - name: stdout
+              type: string
+            - name: stderr
+              type: string
+            - name: exitCode
+              type: number
+      - id: output-proxy
+        type: interface-output
+        position: { x: 500, y: 100 }
+        data:
+          nodeType: interface-output
+          label: Output
+          inputs:
+            - name: result
+              type: string
+    edges:
+      - id: c-e1
+        source: input-proxy
+        target: transform
+        sourceHandle: output:text
+        targetHandle: input:text
+      - id: c-e2
+        source: transform
+        target: output-proxy
+        sourceHandle: output:stdout
+        targetHandle: input:result
+
+# Main workflow nodes
+nodes:
+  - id: trigger
+    type: trigger
+    position: { x: 100, y: 100 }
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: text
+          type: string
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: params
+          type: json
+
+  - id: component-1
+    type: component
+    position: { x: 300, y: 100 }
+    data:
+      nodeType: component
+      label: Uppercase
+      componentRef: uppercase  # References inline component
+      inputs:
+        - name: text
+          type: string
+      outputs:
+        - name: result
+          type: string
+
+  - id: print
+    type: shell
+    position: { x: 500, y: 100 }
+    data:
+      nodeType: shell
+      label: Print Result
+      script: |
+        echo "Original: {{ inputs.original }}"
+        echo "Transformed: {{ inputs.transformed }}"
+      inputs:
+        - name: input
+          type: any
+        - name: original
+          type: string
+        - name: transformed
+          type: string
+      outputs:
+        - name: output
+          type: string
+        - name: stdout
+          type: string
+        - name: stderr
+          type: string
+        - name: exitCode
+          type: number
+
+edges:
+  - id: e1
+    source: trigger
+    target: component-1
+    sourceHandle: output:text
+    targetHandle: input:text
+  - id: e2
+    source: trigger
+    target: print
+    sourceHandle: output:text
+    targetHandle: input:original
+  - id: e3
+    source: component-1
+    target: print
+    sourceHandle: output:result
+    targetHandle: input:transformed

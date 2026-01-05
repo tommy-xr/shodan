@@ -316,3 +316,42 @@ export async function saveWorkflow(request: SaveWorkflowRequest): Promise<{ mess
 
   return response.json();
 }
+
+// Nestable workflows - workflows that can be used as components
+export interface NestableWorkflow {
+  workspace: string;
+  workspacePath: string;
+  path: string;
+  name: string;
+  description?: string;
+  interface: {
+    inputs: Array<{
+      name: string;
+      type: string;
+      required?: boolean;
+      description?: string;
+    }>;
+    outputs: Array<{
+      name: string;
+      type: string;
+      description?: string;
+    }>;
+    isNestable: boolean;
+  };
+}
+
+export interface ListNestableWorkflowsResponse {
+  workflows: NestableWorkflow[];
+  total: number;
+}
+
+export async function listNestableWorkflows(): Promise<ListNestableWorkflowsResponse> {
+  const response = await fetch(`${API_BASE}/workflows/nestable`);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to list nestable workflows');
+  }
+
+  return response.json();
+}

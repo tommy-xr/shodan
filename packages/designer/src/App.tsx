@@ -13,7 +13,7 @@ import {
 } from '@xyflow/react';
 import type { Connection, Node, Edge, EdgeChange } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { getNodePortDefaults, type PortDefinition } from '@robomesh/core';
+import { getNodePortDefaults, type PortDefinition, type InlineComponent } from '@robomesh/core';
 
 import { nodeTypes } from './nodes';
 import type { BaseNodeData, NodeType } from './nodes';
@@ -39,7 +39,8 @@ const stripExecutionState = (data: Record<string, unknown>): Record<string, unkn
 // Navigation stack item for component drill-down
 interface NavigationItem {
   name: string;
-  path?: string;  // undefined for root workflow
+  path?: string;  // File-based component path (undefined for root workflow)
+  componentRef?: string;  // Inline component reference key
   nodes: Node<BaseNodeData>[];
   edges: Edge[];
   viewport?: { x: number; y: number; zoom: number };
@@ -261,6 +262,7 @@ function Flow() {
   const [currentWorkflowPath, setCurrentWorkflowPath] = useState<string | null>(null);
   const [lastSaveTime, setLastSaveTime] = useState<number>(0);
   const [yoloMode, setYoloMode] = useState(false);
+  const [inlineComponents, setInlineComponents] = useState<Record<string, InlineComponent>>({});
   const { screenToFlowPosition, fitView, getViewport, setViewport } = useReactFlow();
 
   // Get URL params for workspace/workflow routing
@@ -318,6 +320,13 @@ function Flow() {
         setEdgeExecutionData(new Map());
         setUrlWorkflowLoaded(true);
 
+        // Load inline components if present
+        if (schema.components) {
+          setInlineComponents(schema.components);
+        } else {
+          setInlineComponents({});
+        }
+
         // Track file-based workflow for autosave
         setCurrentWorkspace(workspace);
         setCurrentWorkflowPath(workflowPath);
@@ -360,9 +369,8 @@ function Flow() {
 
   // Check if currently editing a component (not at root level)
   const isEditingComponent = navigationStack.length > 1;
-  const currentComponentPath = isEditingComponent
-    ? navigationStack[navigationStack.length - 1].path
-    : undefined;
+  const currentNavItem = isEditingComponent ? navigationStack[navigationStack.length - 1] : null;
+  const currentComponentPath = currentNavItem?.path;
 
   // Initialize node ID counter and restore viewport from loaded state
   useEffect(() => {
@@ -409,7 +417,7 @@ function Flow() {
     if (isExecuting) return;
 
     setHasUnsavedChanges(true);
-  }, [nodes, edges, workflowName, rootDirectory, currentWorkspace, currentWorkflowPath, lastSaveTime, isExecuting]);
+  }, [nodes, edges, workflowName, rootDirectory, currentWorkspace, currentWorkflowPath, lastSaveTime, isExecuting, inlineComponents]);
 
   // Auto-save to file for file-based workflows (debounced, less frequent)
   useEffect(() => {
@@ -424,8 +432,28 @@ function Flow() {
     const timeoutId = setTimeout(async () => {
       setIsSaving(true);
       try {
-        const schema = {
-          version: 1,
+        const schema: {
+          version: number;
+          metadata: { name: string; description: string; rootDirectory?: string };
+          components?: Record<string, InlineComponent>;
+          nodes: Array<{
+            id: string;
+            type: string;
+            position: { x: number; y: number };
+            data: Record<string, unknown>;
+            parentId?: string;
+            extent?: 'parent';
+            style?: { width?: number; height?: number };
+          }>;
+          edges: Array<{
+            id: string;
+            source: string;
+            target: string;
+            sourceHandle?: string;
+            targetHandle?: string;
+          }>;
+        } = {
+          version: 3,
           metadata: {
             name: workflowName,
             description: '',
@@ -449,6 +477,11 @@ function Flow() {
           })),
         };
 
+        // Include inline components if any
+        if (Object.keys(inlineComponents).length > 0) {
+          schema.components = inlineComponents;
+        }
+
         await saveWorkflow({
           workspace: currentWorkspace,
           path: currentWorkflowPath,
@@ -464,7 +497,7 @@ function Flow() {
     }, 2000);
 
     return () => clearTimeout(timeoutId);
-  }, [nodes, edges, workflowName, rootDirectory, currentWorkspace, currentWorkflowPath, hasUnsavedChanges, isExecuting]);
+  }, [nodes, edges, workflowName, rootDirectory, currentWorkspace, currentWorkflowPath, hasUnsavedChanges, isExecuting, inlineComponents]);
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -630,6 +663,10 @@ function Flow() {
 
       // Check if this is a component being dropped
       const componentDataStr = event.dataTransfer.getData('application/component');
+      // Check if this is an inline component being dropped
+      const inlineComponentDataStr = event.dataTransfer.getData('application/inline-component');
+      // Check if this is a nestable workflow being dropped
+      const nestableWorkflowDataStr = event.dataTransfer.getData('application/nestable-workflow');
       // Check if this is a preset (e.g., NOT, AND, OR operators)
       const presetName = event.dataTransfer.getData('application/preset');
 
@@ -658,8 +695,62 @@ function Flow() {
 
       let newNodes: Node<BaseNodeData>[] = [];
 
-      if (type === 'component' && componentDataStr) {
-        // Parse component data and create a component node with its interface
+      if (type === 'component' && inlineComponentDataStr) {
+        // Parse inline component data and create a component node
+        const { key, component } = JSON.parse(inlineComponentDataStr);
+        newNodes = [{
+          id: getNodeId(),
+          type,
+          position: finalPosition,
+          parentId,
+          extent,
+          data: {
+            label: key.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+            nodeType: type,
+            componentRef: key,
+            // Map component interface to node I/O
+            inputs: component.interface?.inputs?.map((input: { name: string; type: string; required?: boolean; description?: string }) => ({
+              name: input.name,
+              type: input.type || 'any',
+              required: input.required,
+              description: input.description,
+            })) || [],
+            outputs: component.interface?.outputs?.map((output: { name: string; type: string; description?: string }) => ({
+              name: output.name,
+              type: output.type || 'any',
+              description: output.description,
+            })) || [],
+          },
+        }];
+      } else if (type === 'component' && nestableWorkflowDataStr) {
+        // Parse nestable workflow data and create a component node
+        const workflowData = JSON.parse(nestableWorkflowDataStr);
+        newNodes = [{
+          id: getNodeId(),
+          type,
+          position: finalPosition,
+          parentId,
+          extent,
+          data: {
+            label: workflowData.name,
+            nodeType: type,
+            workflowPath: workflowData.path,
+            // Map workflow's derived interface to node I/O
+            inputs: workflowData.interface?.inputs?.map((input: { name: string; type: string; required?: boolean; description?: string }) => ({
+              name: input.name,
+              type: input.type || 'any',
+              required: input.required,
+              description: input.description,
+            })) || [],
+            outputs: workflowData.interface?.outputs?.map((output: { name: string; type: string; description?: string }) => ({
+              name: output.name,
+              type: output.type || 'any',
+              description: output.description,
+            })) || [],
+          },
+        }];
+      } else if (type === 'component' && componentDataStr) {
+        // Parse file-based component data and create a component node with its interface
         const componentData = JSON.parse(componentDataStr);
         newNodes = [{
           id: getNodeId(),
@@ -896,33 +987,74 @@ function Flow() {
   const onNodeDoubleClick = useCallback(
     async (_: React.MouseEvent, node: Node<BaseNodeData>) => {
       // Only drill into component nodes
-      if (node.data.nodeType !== 'component' || !node.data.workflowPath) {
+      if (node.data.nodeType !== 'component') {
+        return;
+      }
+
+      // Check for inline component first, then file-based
+      const componentRef = node.data.componentRef as string | undefined;
+      const workflowPath = node.data.workflowPath as string | undefined;
+
+      if (!componentRef && !workflowPath) {
         return;
       }
 
       try {
-        // Load component workflow
-        const workflow = await getComponentWorkflow(node.data.workflowPath);
+        let componentNodes: Node<BaseNodeData>[];
+        let componentEdges: Edge[];
+        let componentName: string;
+        let componentInterface: ComponentWorkflow['interface'] | undefined;
 
-        // Convert workflow nodes to ReactFlow nodes
-        const componentNodes: Node<BaseNodeData>[] = workflow.nodes.map((n) => ({
-          id: n.id,
-          type: n.type,
-          position: n.position,
-          data: {
-            ...n.data,
-            nodeType: n.type as NodeType,
-          } as BaseNodeData,
-        }));
-
-        // Convert edges
-        const componentEdges: Edge[] = workflow.edges.map((e) => ({
-          id: e.id,
-          source: e.source,
-          target: e.target,
-          sourceHandle: e.sourceHandle,
-          targetHandle: e.targetHandle,
-        }));
+        if (componentRef && inlineComponents[componentRef]) {
+          // Load inline component from state
+          const inlineComponent = inlineComponents[componentRef];
+          componentNodes = inlineComponent.nodes.map((n) => ({
+            id: n.id,
+            type: n.type,
+            position: n.position || { x: 0, y: 0 },
+            data: {
+              ...n.data,
+              nodeType: n.type as NodeType,
+            } as BaseNodeData,
+          }));
+          componentEdges = inlineComponent.edges.map((e) => ({
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            sourceHandle: e.sourceHandle,
+            targetHandle: e.targetHandle,
+          }));
+          componentName = node.data.label || componentRef;
+          // Convert WorkflowInterface to ComponentWorkflow['interface'] format
+          componentInterface = inlineComponent.interface ? {
+            inputs: inlineComponent.interface.inputs || [],
+            outputs: inlineComponent.interface.outputs || [],
+          } : undefined;
+        } else if (workflowPath) {
+          // Load file-based component
+          const workflow = await getComponentWorkflow(workflowPath);
+          componentNodes = workflow.nodes.map((n) => ({
+            id: n.id,
+            type: n.type,
+            position: n.position,
+            data: {
+              ...n.data,
+              nodeType: n.type as NodeType,
+            } as BaseNodeData,
+          }));
+          componentEdges = workflow.edges.map((e) => ({
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            sourceHandle: e.sourceHandle,
+            targetHandle: e.targetHandle,
+          }));
+          componentName = workflow.name;
+          componentInterface = workflow.interface;
+        } else {
+          console.error('Component not found:', componentRef || workflowPath);
+          return;
+        }
 
         // Build new navigation stack
         let newStack: NavigationItem[];
@@ -937,11 +1069,12 @@ function Flow() {
               viewport: getViewport(),
             },
             {
-              name: workflow.name,
-              path: node.data.workflowPath,
+              name: componentName,
+              path: workflowPath,
+              componentRef: componentRef,
               nodes: componentNodes,
               edges: componentEdges,
-              interface: workflow.interface,
+              interface: componentInterface,
             },
           ];
         } else {
@@ -954,11 +1087,12 @@ function Flow() {
           newStack = [
             ...updatedStack,
             {
-              name: workflow.name,
-              path: node.data.workflowPath,
+              name: componentName,
+              path: workflowPath,
+              componentRef: componentRef,
               nodes: componentNodes,
               edges: componentEdges,
-              interface: workflow.interface,
+              interface: componentInterface,
             },
           ];
         }
@@ -969,7 +1103,7 @@ function Flow() {
         updateNodeIdCounter(componentNodes);
         setNodes(componentNodes);
         setEdges(componentEdges);
-        setWorkflowName(workflow.name);
+        setWorkflowName(componentName);
         setSelectedNode(null);
 
         // Fit view after loading
@@ -978,7 +1112,7 @@ function Flow() {
         console.error('Failed to load component:', err);
       }
     },
-    [nodes, edges, workflowName, navigationStack, getViewport, setNodes, setEdges, fitView]
+    [nodes, edges, workflowName, navigationStack, getViewport, setNodes, setEdges, fitView, inlineComponents]
   );
 
   // Navigate back to a specific level in the stack
@@ -986,9 +1120,49 @@ function Flow() {
     async (index: number) => {
       if (index >= navigationStack.length - 1) return;
 
+      // Save current inline component changes before navigating away
+      const currentNavStackItem = navigationStack[navigationStack.length - 1];
+      if (currentNavStackItem.componentRef) {
+        // Reconstruct interface from interface-input/output nodes
+        const interfaceInputNode = nodes.find((n) => n.data.nodeType === 'interface-input');
+        const interfaceOutputNode = nodes.find((n) => n.data.nodeType === 'interface-output');
+
+        const updatedInterface: import('@robomesh/core').WorkflowInterface = {
+          inputs: (interfaceInputNode?.data.outputs as import('@robomesh/core').PortDefinition[]) || [],
+          outputs: (interfaceOutputNode?.data.inputs as import('@robomesh/core').PortDefinition[]) || [],
+        };
+
+        // Build updated nodes for saving (strip execution state)
+        const updatedNodes: import('@robomesh/core').WorkflowNode[] = nodes.map((n) => ({
+          id: n.id,
+          type: n.type || 'agent',
+          position: n.position,
+          data: stripExecutionState(n.data as Record<string, unknown>) as import('@robomesh/core').WorkflowNodeData,
+        }));
+
+        // Build updated edges for saving
+        const updatedEdges: import('@robomesh/core').WorkflowEdge[] = edges.map((e) => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          sourceHandle: e.sourceHandle ?? undefined,
+          targetHandle: e.targetHandle ?? undefined,
+        }));
+
+        // Save inline component back to state
+        setInlineComponents((prev) => ({
+          ...prev,
+          [currentNavStackItem.componentRef!]: {
+            interface: updatedInterface,
+            nodes: updatedNodes,
+            edges: updatedEdges,
+          },
+        }));
+      }
+
       const targetItem = navigationStack[index];
 
-      // If navigating to a component (has path), reload from YAML for fresh handles
+      // If navigating to a file-based component (has path), reload from YAML for fresh handles
       if (targetItem.path) {
         try {
           const workflow = await getComponentWorkflow(targetItem.path);
@@ -1021,6 +1195,38 @@ function Flow() {
           setEdges(targetItem.edges);
           setWorkflowName(targetItem.name);
         }
+      } else if (targetItem.componentRef) {
+        // Inline component - use the updated state (may have been modified)
+        const inlineComponent = inlineComponents[targetItem.componentRef];
+        if (inlineComponent) {
+          const componentNodes: Node<BaseNodeData>[] = inlineComponent.nodes.map((n) => ({
+            id: n.id,
+            type: n.type,
+            position: n.position || { x: 0, y: 0 },
+            data: {
+              ...n.data,
+              nodeType: n.type as NodeType,
+            } as BaseNodeData,
+          }));
+          const componentEdges: Edge[] = inlineComponent.edges.map((e) => ({
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            sourceHandle: e.sourceHandle,
+            targetHandle: e.targetHandle,
+          }));
+
+          updateNodeIdCounter(componentNodes);
+          setNodes(componentNodes);
+          setEdges(componentEdges);
+          setWorkflowName(targetItem.name);
+        } else {
+          // Fall back to cached state
+          updateNodeIdCounter(targetItem.nodes);
+          setNodes(targetItem.nodes);
+          setEdges(targetItem.edges);
+          setWorkflowName(targetItem.name);
+        }
       } else {
         // Root workflow - use cached state
         updateNodeIdCounter(targetItem.nodes);
@@ -1041,12 +1247,12 @@ function Flow() {
       // Trim navigation stack
       setNavigationStack(navigationStack.slice(0, index + 1));
     },
-    [navigationStack, setNodes, setEdges, setViewport, fitView]
+    [navigationStack, nodes, edges, setNodes, setEdges, setViewport, fitView, inlineComponents, setInlineComponents]
   );
 
   // Get breadcrumb items from navigation stack
   const breadcrumbItems = navigationStack.length > 0
-    ? navigationStack.map((item) => ({ name: item.name, path: item.path }))
+    ? navigationStack.map((item) => ({ name: item.name, path: item.path, componentRef: item.componentRef }))
     : [{ name: workflowName }];
 
   // Track changes when editing a component
@@ -1061,12 +1267,13 @@ function Flow() {
     setHasUnsavedChanges(false);
   }, [navigationStack.length]);
 
-  // Save component workflow
+  // Save component workflow (for file-based components only; inline components auto-save on navigate)
   const onSaveComponent = useCallback(async () => {
+    // Only applies to file-based components - inline components auto-save on navigate
     if (!isEditingComponent || !currentComponentPath || isSaving) return;
 
-    const currentItem = navigationStack[navigationStack.length - 1];
-    if (!currentItem.path) return;
+    const currentNavItem = navigationStack[navigationStack.length - 1];
+    if (!currentNavItem.path) return;
 
     setIsSaving(true);
     try {
@@ -1097,7 +1304,7 @@ function Flow() {
       };
 
       await saveComponentWorkflow({
-        path: currentItem.path,
+        path: currentNavItem.path,
         nodes: workflowNodes,
         edges: workflowEdges,
         metadata: {
@@ -1113,12 +1320,12 @@ function Flow() {
           if (index === stack.length - 1) {
             // Current item - update interface
             return { ...item, interface: componentInterface };
-          } else if (currentItem.path) {
+          } else if (currentNavItem.path) {
             // Parent workflows - update component nodes that reference this component
             const updatedNodes = item.nodes.map((node) => {
               if (
                 node.data.nodeType === 'component' &&
-                node.data.workflowPath === currentItem.path
+                node.data.workflowPath === currentNavItem.path
               ) {
                 // Update this component node's interface
                 return {
@@ -1229,6 +1436,34 @@ function Flow() {
     [setNodes]
   );
 
+  // Handle creation of inline components from Sidebar
+  const handleCreateInlineComponent = useCallback(
+    (name: string, component: InlineComponent) => {
+      // Add to inline components
+      setInlineComponents((prev) => ({
+        ...prev,
+        [name]: component,
+      }));
+
+      // Create a component node on the canvas
+      const newNode: Node<BaseNodeData> = {
+        id: getNodeId(),
+        type: 'component',
+        position: { x: 200, y: 200 },
+        data: {
+          nodeType: 'component',
+          label: name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' '),
+          componentRef: name,  // Reference to inline component
+          inputs: component.interface.inputs || [],
+          outputs: component.interface.outputs || [],
+        },
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setHasUnsavedChanges(true);
+    },
+    [setNodes]
+  );
+
   const onExecute = useCallback(async () => {
     if (isExecuting || nodes.length === 0) return;
 
@@ -1271,6 +1506,8 @@ function Flow() {
       // Include workspace/path for run history
       workspace: currentWorkspace || undefined,
       workflowPath: currentWorkflowPath || undefined,
+      // Include inline components for execution
+      components: Object.keys(inlineComponents).length > 0 ? inlineComponents : undefined,
     };
 
     // Use streaming execution for real-time updates
@@ -1402,7 +1639,7 @@ function Flow() {
         }
       },
     });
-  }, [isExecuting, nodes, edges, rootDirectory, setNodes, updateNodeStatus]);
+  }, [isExecuting, nodes, edges, rootDirectory, currentWorkspace, currentWorkflowPath, inlineComponents, setNodes, updateNodeStatus]);
 
   const onResetExecution = useCallback(() => {
     setNodes((nds) =>
@@ -1460,7 +1697,7 @@ function Flow() {
         breadcrumbItems={breadcrumbItems}
         onNavigateBreadcrumb={onNavigateBreadcrumb}
         isEditingComponent={isEditingComponent}
-        onSaveComponent={isEditingComponent ? onSaveComponent : undefined}
+        onSaveComponent={isEditingComponent && currentComponentPath ? onSaveComponent : undefined}
         isSaving={isSaving}
         hasUnsavedChanges={hasUnsavedChanges}
         isFileBased={!!currentWorkspace && !!currentWorkflowPath}
@@ -1477,7 +1714,10 @@ function Flow() {
         onImport={onImport}
       />
       <div className="app-body">
-        <Sidebar />
+        <Sidebar
+          onCreateInlineComponent={handleCreateInlineComponent}
+          inlineComponents={inlineComponents}
+        />
         <div className="canvas-container" ref={reactFlowWrapper}>
           <ReactFlow
           nodes={nodesWithDropState}

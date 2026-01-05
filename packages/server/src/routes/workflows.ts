@@ -19,6 +19,7 @@ import {
 } from '../workspace/scanner.js';
 import { getTriggerManager, type TriggerConfig } from '../triggers/index.js';
 import type { WorkflowSchema } from '@robomesh/core';
+import { deriveWorkflowInterface, isNestableWorkflow } from '@robomesh/core';
 
 /**
  * Register triggers from scanned workflows with the TriggerManager
@@ -178,6 +179,57 @@ export function createWorkflowsRouter(workspaces: string[]): Router {
     } catch (err) {
       console.error('Error getting workflow:', err);
       res.status(500).json({ error: 'Failed to get workflow' });
+    }
+  });
+
+  /**
+   * GET /api/workflows/nestable
+   * List workflows that can be used as nested components
+   * Only workflows with manual triggers (no cron/idle) are nestable
+   */
+  router.get('/nestable', async (_req, res) => {
+    try {
+      const results = await scanAllWorkspaces(workspaces);
+      const nestableWorkflows: Array<{
+        workspace: string;
+        workspacePath: string;
+        path: string;
+        name: string;
+        description?: string;
+        interface: ReturnType<typeof deriveWorkflowInterface>;
+      }> = [];
+
+      for (const result of results) {
+        for (const workflow of result.workflows) {
+          // Load the full workflow schema to check nestability
+          try {
+            const content = await fs.readFile(workflow.absolutePath, 'utf-8');
+            const schema = yaml.load(content) as WorkflowSchema;
+
+            if (isNestableWorkflow(schema)) {
+              const workflowInterface = deriveWorkflowInterface(schema);
+              nestableWorkflows.push({
+                workspace: result.workspaceName,
+                workspacePath: result.workspacePath,
+                path: workflow.path,
+                name: workflow.name,
+                description: workflow.description,
+                interface: workflowInterface,
+              });
+            }
+          } catch (err) {
+            console.warn(`Failed to check nestability for ${workflow.path}:`, err);
+          }
+        }
+      }
+
+      res.json({
+        workflows: nestableWorkflows,
+        total: nestableWorkflows.length,
+      });
+    } catch (err) {
+      console.error('Error scanning nestable workflows:', err);
+      res.status(500).json({ error: 'Failed to scan nestable workflows' });
     }
   });
 

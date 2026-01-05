@@ -1,0 +1,230 @@
+version: 3
+metadata:
+  name: test-component
+  description: ''
+  rootDirectory: /Users/bryphe/shodan-2
+nodes:
+  - id: trigger_1
+    type: trigger
+    position:
+      x: -289.5740431576127
+      'y': 62
+    data:
+      label: Start
+      triggerType: manual
+      nodeType: trigger
+  - id: node_0
+    type: component
+    position:
+      x: 158
+      'y': 184
+    data:
+      nodeType: component
+      label: Test 1
+      componentRef: test-1
+      inputs:
+        - name: input
+          type: string
+          required: true
+          description: ''
+      outputs:
+        - name: output
+          type: string
+          description: ''
+  - id: node_1
+    type: shell
+    position:
+      x: 581.8769223476004
+      'y': 146.09158922172918
+    data:
+      label: New Shell
+      nodeType: shell
+      inputs:
+        - name: input
+          type: any
+          required: false
+          description: Generic input for template interpolation
+      outputs:
+        - name: output
+          type: string
+          description: Combined stdout output
+        - name: stdout
+          type: string
+          description: Standard output
+        - name: stderr
+          type: string
+          description: Standard error
+        - name: exitCode
+          type: number
+          description: Exit code (0 = success)
+      script: echo "hello {{ inputs.input }}"
+  - id: node_4
+    type: component
+    position:
+      x: 154.16246187822875
+      'y': -122.54930639452633
+    data:
+      label: plan
+      nodeType: component
+      workflowPath: .robomesh/workflows/plan.yaml
+      inputs:
+        - name: text
+          type: string
+          description: Text input for the workflow
+        - name: params
+          type: json
+          description: Additional parameters
+      outputs:
+        - name: output
+          type: string
+          description: Agent response text
+        - name: sessionId
+          type: string
+          description: Session ID for continuation
+        - name: exitCode
+          type: number
+          description: Exit code (0 = success)
+  - id: node_5
+    type: shell
+    position:
+      x: 625.1383382786843
+      'y': -149.29241609549857
+    data:
+      label: New Shell
+      nodeType: shell
+      inputs:
+        - name: input
+          type: any
+          required: false
+          description: Generic input for template interpolation
+      outputs:
+        - name: output
+          type: string
+          description: Combined stdout output
+        - name: stdout
+          type: string
+          description: Standard output
+        - name: stderr
+          type: string
+          description: Standard error
+        - name: exitCode
+          type: number
+          description: Exit code (0 = success)
+edges:
+  - id: xy-edge__node_0output:output-node_1input:input
+    source: node_0
+    target: node_1
+    sourceHandle: output:output
+    targetHandle: input:input
+  - id: xy-edge__trigger_1output:timestamp-node_0input:input
+    source: trigger_1
+    target: node_0
+    sourceHandle: output:timestamp
+    targetHandle: input:input
+  - id: xy-edge__trigger_1output:text-node_4input:text
+    source: trigger_1
+    target: node_4
+    sourceHandle: output:text
+    targetHandle: input:text
+  - id: xy-edge__node_4output:output-node_5input:input
+    source: node_4
+    target: node_5
+    sourceHandle: output:output
+    targetHandle: input:input
+components:
+  test-1:
+    interface:
+      inputs:
+        - name: input
+          type: string
+          required: true
+          description: ''
+      outputs:
+        - name: output
+          type: string
+          description: ''
+    nodes:
+      - id: input-proxy
+        type: interface-input
+        position:
+          x: -26
+          'y': 54
+        data:
+          nodeType: interface-input
+          label: Input
+          outputs:
+            - name: input
+              type: string
+              required: true
+              description: ''
+      - id: output-proxy
+        type: interface-output
+        position:
+          x: 532.9016788595804
+          'y': 52.70503657874127
+        data:
+          nodeType: interface-output
+          label: Output
+          inputs:
+            - name: output
+              type: string
+              description: ''
+      - id: node_0
+        type: function
+        position:
+          x: 288.1922255686288
+          'y': -29.509504081165076
+        data:
+          label: CONCAT
+          nodeType: function
+          code: 'return { result: inputs.values.join(inputs.separator || "") }'
+          inputs:
+            - name: values[0]
+              type: string
+              label: values[0]
+              arrayParent: values
+              arrayIndex: 0
+            - name: values[1]
+              label: values[1]
+              type: string
+              arrayParent: values
+              arrayIndex: 1
+            - name: values[2]
+              label: values[2]
+              type: string
+              arrayParent: values
+              arrayIndex: 2
+            - name: separator
+              type: string
+          outputs:
+            - name: result
+              type: string
+      - id: node_1
+        type: constant
+        position:
+          x: 128.03295738183473
+          'y': 259.30229100977516
+        data:
+          label: Constant
+          nodeType: constant
+          valueType: string
+          value: boo boo
+          outputs:
+            - name: value
+              type: string
+    edges:
+      - id: xy-edge__input-proxyoutput:input-node_0input:values[0]
+        source: input-proxy
+        target: node_0
+        sourceHandle: output:input
+        targetHandle: input:values[0]
+      - id: xy-edge__node_1output:value-node_0input:values[1]
+        source: node_1
+        target: node_0
+        sourceHandle: output:value
+        targetHandle: input:values[1]
+      - id: xy-edge__node_0output:result-output-proxyinput:output
+        source: node_0
+        target: output-proxy
+        sourceHandle: output:result
+        targetHandle: input:output

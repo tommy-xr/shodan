@@ -9,7 +9,6 @@ interface CreateComponentDialogProps {
 export interface NewComponentData {
   name: string;
   description: string;
-  filename: string;
   inputs: PortDefinition[];
   outputs: PortDefinition[];
 }
@@ -19,28 +18,12 @@ const VALUE_TYPES: ValueType[] = ['string', 'number', 'boolean', 'json', 'file',
 export function CreateComponentDialog({ onClose, onCreate }: CreateComponentDialogProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [filename, setFilename] = useState('');
   const [inputs, setInputs] = useState<PortDefinition[]>([
     { name: 'input', type: 'string', required: true, description: '' }
   ]);
   const [outputs, setOutputs] = useState<PortDefinition[]>([
     { name: 'output', type: 'string', description: '' }
   ]);
-
-  // Auto-generate filename from name
-  const handleNameChange = (newName: string) => {
-    setName(newName);
-    if (!filename || filename === toFilename(name)) {
-      setFilename(toFilename(newName));
-    }
-  };
-
-  const toFilename = (str: string) => {
-    return str
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-  };
 
   const addInput = () => {
     setInputs([...inputs, { name: `input_${inputs.length + 1}`, type: 'string', required: false, description: '' }]);
@@ -67,18 +50,17 @@ export function CreateComponentDialog({ onClose, onCreate }: CreateComponentDial
   };
 
   const handleCreate = () => {
-    if (!name.trim() || !filename.trim()) return;
+    if (!name.trim()) return;
 
     onCreate({
       name: name.trim(),
       description: description.trim(),
-      filename: filename.trim(),
       inputs: inputs.filter(i => i.name.trim()),
       outputs: outputs.filter(o => o.name.trim()),
     });
   };
 
-  const isValid = name.trim() && filename.trim() && inputs.some(i => i.name.trim());
+  const isValid = name.trim() && inputs.some(i => i.name.trim());
 
   return (
     <div className="dialog-overlay" onClick={onClose}>
@@ -94,7 +76,7 @@ export function CreateComponentDialog({ onClose, onCreate }: CreateComponentDial
             <input
               type="text"
               value={name}
-              onChange={e => handleNameChange(e.target.value)}
+              onChange={e => setName(e.target.value)}
               placeholder="e.g., Text Processor"
               autoFocus
             />
@@ -194,19 +176,6 @@ export function CreateComponentDialog({ onClose, onCreate }: CreateComponentDial
             </div>
           </div>
 
-          <div className="dialog-field">
-            <label>Save to</label>
-            <div className="filename-input">
-              <span className="filename-prefix">workflows/components/</span>
-              <input
-                type="text"
-                value={filename}
-                onChange={e => setFilename(e.target.value)}
-                placeholder="my-component"
-              />
-              <span className="filename-suffix">.yaml</span>
-            </div>
-          </div>
         </div>
 
         <div className="dialog-footer">
@@ -216,7 +185,7 @@ export function CreateComponentDialog({ onClose, onCreate }: CreateComponentDial
             onClick={handleCreate}
             disabled={!isValid}
           >
-            Create Component
+            Create
           </button>
         </div>
       </div>

@@ -50,8 +50,9 @@ Workstream 1:
 
 Workstream 2:
 - Improved nested components:
-	- Allow for 'inline' nested components that don't need a separate file. From a UX perspective, this is essentially the same flow - create a component, specify inputs and outputs, double-click to enter it. However, it does not need to require a separate file - we can keep the definition for it in-line with the workflow. When a component is inline, it is only reusable in the current workflow. This should actually be the default.
+	- ✅ Allow for 'inline' nested components that don't need a separate file. From a UX perspective, this is essentially the same flow - create a component, specify inputs and outputs, double-click to enter it. However, it does not need to require a separate file - we can keep the definition for it in-line with the workflow. When a component is inline, it is only reusable in the current workflow. This should actually be the default. (Implemented in Phase 1-2, see plan/improved-components.md)
 	- Allow existing workflows to be 'nested' in a workflow. These would pick all the inputs from trigger components, and map all the outputs from leaf nodes (or _just_ the output components, if present). These would function essentially like a nested component - just a convenient way to call into other workflows from the xisting workflow. Behavior, they should behave a lot like our 'file system' components - except they are actual workflows that could be run independently. In fact, this could replace our existing file system components.
+	- **Extract inline component to file**: Right-click on inline component node → Refactor → Extract to file. This would save the inline component to `workflows/components/` and update the node to reference the file via `workflowPath` instead of `componentRef`.
 
 
 Workstream 3:

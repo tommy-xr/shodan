@@ -42,6 +42,21 @@ export async function loadWorkflow(
     throw new Error(`Invalid workflow ${filePath}: edges must be an array`);
   }
 
+  // Validate inline components if present
+  if (schema.components) {
+    for (const [name, component] of Object.entries(schema.components)) {
+      if (!component.interface) {
+        throw new Error(`Invalid inline component '${name}': missing interface`);
+      }
+      if (!Array.isArray(component.nodes)) {
+        throw new Error(`Invalid inline component '${name}': nodes must be an array`);
+      }
+      if (!Array.isArray(component.edges)) {
+        throw new Error(`Invalid inline component '${name}': edges must be an array`);
+      }
+    }
+  }
+
   return schema;
 }
 

@@ -1,0 +1,119 @@
+version: 2
+metadata:
+  name: Test Nested Workflow
+  description: Tests using a regular workflow as a nested component
+nodes:
+  - id: trigger-1
+    type: trigger
+    position:
+      x: 100
+      "y": 100
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      inputs: []
+      outputs: []
+
+  - id: const-name
+    type: constant
+    position:
+      x: 100
+      "y": 200
+    data:
+      nodeType: constant
+      label: Name
+      valueType: string
+      value: "Robomesh"
+      outputs:
+        - name: value
+          type: string
+
+  - id: const-greeting
+    type: constant
+    position:
+      x: 100
+      "y": 300
+    data:
+      nodeType: constant
+      label: Greeting
+      valueType: string
+      value: "Greetings"
+      outputs:
+        - name: value
+          type: string
+
+  # This component references a regular workflow (not a dedicated component file)
+  - id: nested-1
+    type: component
+    position:
+      x: 300
+      "y": 200
+    data:
+      nodeType: component
+      label: Nested Greeting
+      workflowPath: workflows/nestable-greeting.yaml
+      inputs:
+        - name: name
+          type: string
+        - name: greeting
+          type: string
+      outputs:
+        - name: stdout
+          type: string
+
+  - id: verify
+    type: shell
+    position:
+      x: 500
+      "y": 200
+    data:
+      nodeType: shell
+      label: Verify Output
+      script: |
+        echo "Received: {{ inputs.result }}"
+        if echo "{{ inputs.result }}" | grep -q "Greetings, Robomesh!"; then
+          echo "SUCCESS: Nested workflow executed correctly!"
+        else
+          echo "FAIL: Expected 'Greetings, Robomesh!' in output"
+          exit 1
+        fi
+      inputs:
+        - name: result
+          type: string
+        - name: input
+          type: any
+          required: false
+          description: Generic input for template interpolation
+      outputs:
+        - name: output
+          type: string
+        - name: stdout
+          type: string
+          description: Standard output
+        - name: stderr
+          type: string
+          description: Standard error
+        - name: exitCode
+          type: number
+          description: Exit code (0 = success)
+
+edges:
+  - id: e0
+    source: trigger-1
+    target: const-name
+  - id: e1
+    source: const-name
+    target: nested-1
+    sourceHandle: output:value
+    targetHandle: input:name
+  - id: e2
+    source: const-greeting
+    target: nested-1
+    sourceHandle: output:value
+    targetHandle: input:greeting
+  - id: e3
+    source: nested-1
+    target: verify
+    sourceHandle: output:stdout
+    targetHandle: input:result

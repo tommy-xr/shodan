@@ -58,7 +58,8 @@ export interface WorkflowNodeData {
   path?: string;
 
   // Component node fields
-  workflowPath?: string;
+  workflowPath?: string;       // File-based component reference
+  componentRef?: string;       // Inline component reference (key in workflow.components)
   componentInputs?: Record<string, unknown>;
 
   // Loop node fields
@@ -89,6 +90,15 @@ export interface WorkflowInterface {
 }
 
 /**
+ * Inline component definition - a component defined within a workflow
+ */
+export interface InlineComponent {
+  interface: WorkflowInterface;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+}
+
+/**
  * Complete workflow schema - the full workflow definition
  */
 export interface WorkflowSchema {
@@ -99,6 +109,7 @@ export interface WorkflowSchema {
     rootDirectory?: string;
   };
   interface?: WorkflowInterface;
+  components?: Record<string, InlineComponent>;  // Inline component definitions
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
 }
@@ -106,4 +117,4 @@ export interface WorkflowSchema {
 /**
  * Current workflow schema version
  */
-export const WORKFLOW_SCHEMA_VERSION = 2;
+export const WORKFLOW_SCHEMA_VERSION = 3;
