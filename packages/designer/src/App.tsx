@@ -663,6 +663,8 @@ function Flow() {
 
       // Check if this is a component being dropped
       const componentDataStr = event.dataTransfer.getData('application/component');
+      // Check if this is an inline component being dropped
+      const inlineComponentDataStr = event.dataTransfer.getData('application/inline-component');
       // Check if this is a preset (e.g., NOT, AND, OR operators)
       const presetName = event.dataTransfer.getData('application/preset');
 
@@ -691,8 +693,35 @@ function Flow() {
 
       let newNodes: Node<BaseNodeData>[] = [];
 
-      if (type === 'component' && componentDataStr) {
-        // Parse component data and create a component node with its interface
+      if (type === 'component' && inlineComponentDataStr) {
+        // Parse inline component data and create a component node
+        const { key, component } = JSON.parse(inlineComponentDataStr);
+        newNodes = [{
+          id: getNodeId(),
+          type,
+          position: finalPosition,
+          parentId,
+          extent,
+          data: {
+            label: key.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+            nodeType: type,
+            componentRef: key,
+            // Map component interface to node I/O
+            inputs: component.interface?.inputs?.map((input: { name: string; type: string; required?: boolean; description?: string }) => ({
+              name: input.name,
+              type: input.type || 'any',
+              required: input.required,
+              description: input.description,
+            })) || [],
+            outputs: component.interface?.outputs?.map((output: { name: string; type: string; description?: string }) => ({
+              name: output.name,
+              type: output.type || 'any',
+              description: output.description,
+            })) || [],
+          },
+        }];
+      } else if (type === 'component' && componentDataStr) {
+        // Parse file-based component data and create a component node with its interface
         const componentData = JSON.parse(componentDataStr);
         newNodes = [{
           id: getNodeId(),
@@ -1639,7 +1668,7 @@ function Flow() {
         breadcrumbItems={breadcrumbItems}
         onNavigateBreadcrumb={onNavigateBreadcrumb}
         isEditingComponent={isEditingComponent}
-        onSaveComponent={isEditingComponent ? onSaveComponent : undefined}
+        onSaveComponent={isEditingComponent && currentComponentPath ? onSaveComponent : undefined}
         isSaving={isSaving}
         hasUnsavedChanges={hasUnsavedChanges}
         isFileBased={!!currentWorkspace && !!currentWorkflowPath}
@@ -1656,7 +1685,10 @@ function Flow() {
         onImport={onImport}
       />
       <div className="app-body">
-        <Sidebar onCreateInlineComponent={handleCreateInlineComponent} />
+        <Sidebar
+          onCreateInlineComponent={handleCreateInlineComponent}
+          inlineComponents={inlineComponents}
+        />
         <div className="canvas-container" ref={reactFlowWrapper}>
           <ReactFlow
           nodes={nodesWithDropState}

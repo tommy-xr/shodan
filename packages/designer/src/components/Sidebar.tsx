@@ -7,6 +7,7 @@ import { CreateComponentDialog, type NewComponentData } from './CreateComponentD
 
 export interface SidebarProps {
   onCreateInlineComponent?: (name: string, component: InlineComponent) => void;
+  inlineComponents?: Record<string, InlineComponent>;
 }
 
 interface PaletteItem {
@@ -153,7 +154,7 @@ function toComponentKey(name: string): string {
     .replace(/^-|-$/g, '');
 }
 
-export function Sidebar({ onCreateInlineComponent }: SidebarProps) {
+export function Sidebar({ onCreateInlineComponent, inlineComponents = {} }: SidebarProps) {
   const [components, setComponents] = useState<ComponentInfo[]>([]);
   const [componentsError, setComponentsError] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -218,6 +219,25 @@ export function Sidebar({ onCreateInlineComponent }: SidebarProps) {
     event.dataTransfer.setData('application/component', JSON.stringify(component));
     event.dataTransfer.effectAllowed = 'move';
   };
+
+  const onInlineComponentDragStart = (event: DragEvent, componentKey: string, component: InlineComponent) => {
+    // Pass inline component data for the drop handler
+    event.dataTransfer.setData('application/reactflow', 'component');
+    event.dataTransfer.setData('application/inline-component', JSON.stringify({
+      key: componentKey,
+      component,
+    }));
+    event.dataTransfer.effectAllowed = 'move';
+  };
+
+  // Convert inline components to a list for display
+  const inlineComponentList = Object.entries(inlineComponents).map(([key, component]) => ({
+    key,
+    name: key.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), // Convert key to title case
+    interface: component.interface,
+  }));
+
+  const totalComponentCount = components.length + inlineComponentList.length;
 
   return (
     <aside className="sidebar">
@@ -288,7 +308,7 @@ export function Sidebar({ onCreateInlineComponent }: SidebarProps) {
         title="Components"
         isOpen={openSections.components}
         onToggle={() => toggleSection('components')}
-        count={components.length}
+        count={totalComponentCount}
         action={
           <button
             className="accordion-add-btn"
@@ -303,9 +323,23 @@ export function Sidebar({ onCreateInlineComponent }: SidebarProps) {
           {componentsError && (
             <div className="palette-error">{componentsError}</div>
           )}
-          {components.length === 0 && !componentsError && (
+          {totalComponentCount === 0 && !componentsError && (
             <div className="palette-empty">No components found</div>
           )}
+          {/* Inline components (from current workflow) */}
+          {inlineComponentList.map((item) => (
+            <div
+              key={`inline-${item.key}`}
+              className="palette-item component inline"
+              draggable
+              onDragStart={(e) => onInlineComponentDragStart(e, item.key, inlineComponents[item.key])}
+              title={`Inline: ${item.key}`}
+            >
+              <div className="palette-icon component">📦</div>
+              <span className="palette-label">{item.name}</span>
+            </div>
+          ))}
+          {/* File-based components */}
           {components.map((component) => (
             <div
               key={component.path}

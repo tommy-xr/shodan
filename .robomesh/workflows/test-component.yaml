@@ -107,9 +107,62 @@ components:
             - name: output
               type: string
               description: ''
+      - id: node_0
+        type: function
+        position:
+          x: 288.1922255686288
+          'y': -29.509504081165076
+        data:
+          label: CONCAT
+          nodeType: function
+          code: 'return { result: inputs.values.join(inputs.separator || "") }'
+          inputs:
+            - name: values[0]
+              type: string
+              label: values[0]
+              arrayParent: values
+              arrayIndex: 0
+            - name: values[1]
+              label: values[1]
+              type: string
+              arrayParent: values
+              arrayIndex: 1
+            - name: values[2]
+              label: values[2]
+              type: string
+              arrayParent: values
+              arrayIndex: 2
+            - name: separator
+              type: string
+          outputs:
+            - name: result
+              type: string
+      - id: node_1
+        type: constant
+        position:
+          x: 128.03295738183473
+          'y': 259.30229100977516
+        data:
+          label: Constant
+          nodeType: constant
+          valueType: string
+          value: boo boo
+          outputs:
+            - name: value
+              type: string
     edges:
-      - id: xy-edge__input-proxyoutput:input-output-proxyinput:output
+      - id: xy-edge__input-proxyoutput:input-node_0input:values[0]
         source: input-proxy
-        target: output-proxy
+        target: node_0
         sourceHandle: output:input
+        targetHandle: input:values[0]
+      - id: xy-edge__node_1output:value-node_0input:values[1]
+        source: node_1
+        target: node_0
+        sourceHandle: output:value
+        targetHandle: input:values[1]
+      - id: xy-edge__node_0output:result-output-proxyinput:output
+        source: node_0
+        target: output-proxy
+        sourceHandle: output:result
         targetHandle: input:output
