@@ -50,14 +50,14 @@ export const operatorPresets: Record<string, OperatorPreset> = {
   },
   and: {
     label: 'AND',
-    code: 'return { result: inputs.a && inputs.b }',
-    inputs: [{ name: 'a', type: 'boolean' }, { name: 'b', type: 'boolean' }],
+    code: 'return { result: inputs.values.every(Boolean) }',
+    inputs: [{ name: 'values', type: 'boolean', array: true }],
     outputs: [{ name: 'result', type: 'boolean' }],
   },
   or: {
     label: 'OR',
-    code: 'return { result: inputs.a || inputs.b }',
-    inputs: [{ name: 'a', type: 'boolean' }, { name: 'b', type: 'boolean' }],
+    code: 'return { result: inputs.values.some(Boolean) }',
+    inputs: [{ name: 'values', type: 'boolean', array: true }],
     outputs: [{ name: 'result', type: 'boolean' }],
   },
   concat: {

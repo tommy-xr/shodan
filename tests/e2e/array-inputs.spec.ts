@@ -110,11 +110,12 @@ test.describe('Array Input Ports', () => {
       targetPosition: { x: 200, y: 300 },
     });
 
-    // Verify AND node appears with correct ports
+    // Verify AND node appears with correct ports (n-ary array input)
     const andNode = page.locator('.custom-node.function').filter({ hasText: 'AND' });
     await expect(andNode).toBeVisible();
-    await expect(andNode.locator('.port-label').filter({ hasText: /^a$/ })).toBeVisible();
-    await expect(andNode.locator('.port-label').filter({ hasText: /^b$/ })).toBeVisible();
+    await expect(andNode.locator('.port-label').filter({ hasText: 'values[0]' })).toBeVisible();
+    // Verify the values[0] handle has the array styling (square shape via handle-array class)
+    await expect(andNode.locator('.handle-array')).toBeVisible();
   });
 
   test('deleting middle array slot renumbers remaining slots', async ({ page }) => {

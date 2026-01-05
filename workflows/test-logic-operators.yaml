@@ -68,12 +68,16 @@ nodes:
     data:
       nodeType: function
       label: AND
-      code: "return { result: inputs.a && inputs.b }"
+      code: "return { result: inputs.values.every(Boolean) }"
       inputs:
-        - name: a
+        - name: values[0]
           type: boolean
-        - name: b
+          arrayParent: values
+          arrayIndex: 0
+        - name: values[1]
           type: boolean
+          arrayParent: values
+          arrayIndex: 1
       outputs:
         - name: result
           type: boolean
@@ -85,12 +89,16 @@ nodes:
     data:
       nodeType: function
       label: OR
-      code: "return { result: inputs.a || inputs.b }"
+      code: "return { result: inputs.values.some(Boolean) }"
       inputs:
-        - name: a
+        - name: values[0]
           type: boolean
-        - name: b
+          arrayParent: values
+          arrayIndex: 0
+        - name: values[1]
           type: boolean
+          arrayParent: values
+          arrayIndex: 1
       outputs:
         - name: result
           type: boolean
@@ -156,24 +164,24 @@ edges:
     source: const-true
     target: and-op
     sourceHandle: "output:value"
-    targetHandle: "input:a"
+    targetHandle: "input:values[0]"
   - id: e4
     source: const-false
     target: and-op
     sourceHandle: "output:value"
-    targetHandle: "input:b"
+    targetHandle: "input:values[1]"
 
   # Wire constants to OR
   - id: e5
     source: const-true
     target: or-op
     sourceHandle: "output:value"
-    targetHandle: "input:a"
+    targetHandle: "input:values[0]"
   - id: e6
     source: const-false
     target: or-op
     sourceHandle: "output:value"
-    targetHandle: "input:b"
+    targetHandle: "input:values[1]"
 
   # Wire operator results to verify
   - id: e7

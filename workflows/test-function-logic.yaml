@@ -51,12 +51,16 @@ nodes:
     data:
       nodeType: function
       label: AND
-      code: "return { result: inputs.a && inputs.b }"
+      code: "return { result: inputs.values.every(Boolean) }"
       inputs:
-        - name: a
+        - name: values[0]
           type: boolean
-        - name: b
+          arrayParent: values
+          arrayIndex: 0
+        - name: values[1]
           type: boolean
+          arrayParent: values
+          arrayIndex: 1
       outputs:
         - name: result
           type: boolean
@@ -91,12 +95,12 @@ edges:
     source: flag-a
     target: and-op
     sourceHandle: "output:value"
-    targetHandle: "input:a"
+    targetHandle: "input:values[0]"
   - id: e2
     source: flag-b
     target: and-op
     sourceHandle: "output:value"
-    targetHandle: "input:b"
+    targetHandle: "input:values[1]"
   - id: e3
     source: and-op
     target: log
