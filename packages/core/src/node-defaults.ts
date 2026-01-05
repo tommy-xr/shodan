@@ -25,7 +25,6 @@ export type StandardNodeType =
   | 'trigger'
   | 'agent'
   | 'shell'
-  | 'script'
   | 'constant'
   | 'function'
   | 'workdir';
@@ -65,18 +64,6 @@ export const NODE_PORT_DEFAULTS: Record<StandardNodeType, NodePortDefaults> = {
     ],
     outputs: [
       { name: 'output', type: 'string', description: 'Combined stdout output' },
-      { name: 'stdout', type: 'string', description: 'Standard output' },
-      { name: 'stderr', type: 'string', description: 'Standard error' },
-      { name: 'exitCode', type: 'number', description: 'Exit code (0 = success)' },
-    ],
-  },
-
-  script: {
-    inputs: [
-      { name: 'input', type: 'any', required: false, description: 'Generic input for template interpolation' },
-    ],
-    outputs: [
-      { name: 'output', type: 'string', description: 'Script output' },
       { name: 'stdout', type: 'string', description: 'Standard output' },
       { name: 'stderr', type: 'string', description: 'Standard error' },
       { name: 'exitCode', type: 'number', description: 'Exit code (0 = success)' },

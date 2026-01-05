@@ -15,7 +15,6 @@ interface PaletteItem {
 const paletteItems: PaletteItem[] = [
   { type: 'agent', label: 'Agent', icon: '🤖' },
   { type: 'shell', label: 'Shell', icon: '⌘' },
-  { type: 'script', label: 'Script', icon: '📜' },
   { type: 'trigger', label: 'Trigger', icon: '⚡' },
   { type: 'workdir', label: 'Working Dir', icon: '📁' },
   { type: 'loop', label: 'Loop', icon: '🔁' },

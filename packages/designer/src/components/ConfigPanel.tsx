@@ -1,9 +1,7 @@
-import { useState } from 'react';
 import type { Node } from '@xyflow/react';
 import type { BaseNodeData, NodeType } from '../nodes';
 import type { PortDefinition, ValueType } from '@robomesh/core';
 import { ListEditor } from './ListEditor';
-import { FilePicker } from './FilePicker';
 import { PortEditor } from './PortEditor';
 
 interface ConfigPanelProps {
@@ -17,7 +15,6 @@ function formatNodeType(type: NodeType): string {
   const labels: Record<string, string> = {
     'agent': 'Agent',
     'shell': 'Shell',
-    'script': 'Script',
     'trigger': 'Trigger',
     'workdir': 'Working Dir',
     'component': 'Component',
@@ -64,7 +61,6 @@ export function ConfigPanel({ node, rootDirectory, onClose, onUpdate }: ConfigPa
 
         {nodeType === 'agent' && <AgentConfig node={node} rootDirectory={rootDirectory} onUpdate={onUpdate} />}
         {nodeType === 'shell' && <ShellConfig node={node} onUpdate={onUpdate} />}
-        {nodeType === 'script' && <ScriptConfig node={node} rootDirectory={rootDirectory} onUpdate={onUpdate} />}
         {nodeType === 'trigger' && <TriggerConfig node={node} onUpdate={onUpdate} />}
         {nodeType === 'workdir' && <WorkdirConfig node={node} onUpdate={onUpdate} />}
         {nodeType === 'component' && <ComponentConfig node={node} />}
@@ -259,90 +255,6 @@ function ShellConfig({ node, onUpdate }: Omit<NodeConfigProps, 'rootDirectory'>)
         direction="output"
         onChange={(newOutputs) => onUpdate(node.id, { outputs: newOutputs })}
       />
-    </>
-  );
-}
-
-function ScriptConfig({ node, rootDirectory, onUpdate }: NodeConfigProps) {
-  const [showFilePicker, setShowFilePicker] = useState(false);
-  const scriptFile = (node.data.scriptFile as string) || '';
-
-  const getFileType = (path: string): string => {
-    if (path.endsWith('.ts')) return 'TypeScript';
-    if (path.endsWith('.js')) return 'JavaScript';
-    if (path.endsWith('.sh')) return 'Bash';
-    return 'Unknown';
-  };
-
-  const handleFileSelect = (path: string) => {
-    onUpdate(node.id, { scriptFile: path });
-    setShowFilePicker(false);
-  };
-
-  const inputs = (node.data.inputs as PortDefinition[]) || [];
-  const outputs = (node.data.outputs as PortDefinition[]) || [];
-
-  return (
-    <>
-      <div className="config-field">
-        <label>Script File</label>
-        <div className="file-input-group">
-          <input
-            type="text"
-            value={scriptFile}
-            onChange={(e) => onUpdate(node.id, { scriptFile: e.target.value })}
-            placeholder="e.g., scripts/build.ts"
-            className="monospace"
-          />
-          <button
-            className="browse-btn"
-            onClick={() => setShowFilePicker(true)}
-            disabled={!rootDirectory}
-          >
-            Browse
-          </button>
-        </div>
-        {scriptFile && (
-          <div className="file-type-hint">
-            Type: {getFileType(scriptFile)}
-          </div>
-        )}
-      </div>
-      <div className="config-field">
-        <label>Arguments</label>
-        <input
-          type="text"
-          value={(node.data.scriptArgs as string) || ''}
-          onChange={(e) => onUpdate(node.id, { scriptArgs: e.target.value })}
-          placeholder="e.g., --verbose --output=dist"
-        />
-      </div>
-      <div className="config-field script-info">
-        <label>Supported File Types</label>
-        <ul className="file-type-list">
-          <li><code>.ts</code> - TypeScript (via tsx)</li>
-          <li><code>.js</code> - JavaScript (via node)</li>
-          <li><code>.sh</code> - Bash script</li>
-        </ul>
-      </div>
-      <PortEditor
-        ports={inputs}
-        direction="input"
-        onChange={(newInputs) => onUpdate(node.id, { inputs: newInputs })}
-      />
-      <PortEditor
-        ports={outputs}
-        direction="output"
-        onChange={(newOutputs) => onUpdate(node.id, { outputs: newOutputs })}
-      />
-      {showFilePicker && rootDirectory && (
-        <FilePicker
-          rootDirectory={rootDirectory}
-          onSelect={handleFileSelect}
-          onClose={() => setShowFilePicker(false)}
-          filter="*.ts,*.js,*.sh"
-        />
-      )}
     </>
   );
 }

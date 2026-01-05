@@ -293,7 +293,7 @@ function getNodePorts(node: WorkflowNode): { inputs: string[]; outputs: string[]
   }
 
   // Special handling for nodes that can output via generic 'output' handle
-  if (['shell', 'script', 'agent', 'function'].includes(nodeType)) {
+  if (['shell', 'agent', 'function'].includes(nodeType)) {
     outputs.add('output');
   }
 

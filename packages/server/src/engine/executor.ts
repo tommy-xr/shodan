@@ -442,14 +442,6 @@ function processNodeTemplates(
     processedData.path = replaceTemplates(processedData.path, context, inputValues);
   }
 
-  if (processedData.scriptFile && typeof processedData.scriptFile === 'string') {
-    processedData.scriptFile = replaceTemplates(processedData.scriptFile, context, inputValues);
-  }
-
-  if (processedData.scriptArgs && typeof processedData.scriptArgs === 'string') {
-    processedData.scriptArgs = replaceTemplates(processedData.scriptArgs, context, inputValues);
-  }
-
   return { ...node, data: processedData };
 }
 
@@ -573,15 +565,15 @@ function ensureNodeIO(node: WorkflowNode): WorkflowNode {
       { name: 'text', type: 'string', description: 'Optional text input from user' },
       { name: 'params', type: 'json', description: 'Optional parameters passed via CLI/UI' }
     );
-  } else if (nodeType === 'shell' || nodeType === 'script') {
-    // Shell/script nodes have generic input and stdout/stderr/exitCode outputs
+  } else if (nodeType === 'shell') {
+    // Shell nodes have generic input and stdout/stderr/exitCode outputs
     inputs.push(
       { name: 'input', type: 'any', required: false, description: 'Generic input value' }
     );
     outputs.push(
-      { name: 'stdout', type: 'string', description: 'Standard output from script' },
-      { name: 'stderr', type: 'string', description: 'Standard error from script' },
-      { name: 'exitCode', type: 'number', description: 'Exit code from script' }
+      { name: 'stdout', type: 'string', description: 'Standard output from shell' },
+      { name: 'stderr', type: 'string', description: 'Standard error from shell' },
+      { name: 'exitCode', type: 'number', description: 'Exit code from shell' }
     );
   } else if (nodeType === 'function') {
     // Function nodes use explicit inputs/outputs from data
@@ -659,8 +651,8 @@ function buildOutputValues(
     // Determine source data for extraction
     let sourceData: string = '';
 
-    if (nodeType === 'shell' || nodeType === 'script') {
-      // Shell/script nodes have stdout, stderr, exitCode
+    if (nodeType === 'shell') {
+      // Shell nodes have stdout, stderr, exitCode
       if (outputDef.name === 'stdout') {
         outputs.stdout = result.stdout || '';
       } else if (outputDef.name === 'stderr') {
@@ -1048,65 +1040,6 @@ async function executeNode(
       nodeId: node.id,
       status: 'completed',
       output: `Working directory: ${node.data.path || '(not set)'}`,
-      startTime,
-      endTime: new Date().toISOString(),
-    };
-  }
-
-  if (nodeType === 'script') {
-    const scriptFile = node.data.scriptFile as string | undefined;
-    const scriptArgs = node.data.scriptArgs as string | undefined;
-
-    if (!scriptFile?.trim()) {
-      return {
-        nodeId: node.id,
-        status: 'failed',
-        output: '',
-        error: 'Script node requires a script file to be specified',
-        startTime,
-        endTime: new Date().toISOString(),
-      };
-    }
-
-    // Determine the runner based on file extension
-    let command: string;
-    const args = scriptArgs?.trim() || '';
-
-    if (scriptFile.endsWith('.ts')) {
-      // TypeScript - use tsx
-      command = `npx tsx "${scriptFile}" ${args}`.trim();
-    } else if (scriptFile.endsWith('.js')) {
-      // JavaScript - use node
-      command = `node "${scriptFile}" ${args}`.trim();
-    } else if (scriptFile.endsWith('.sh')) {
-      // Bash script
-      command = `bash "${scriptFile}" ${args}`.trim();
-    } else {
-      return {
-        nodeId: node.id,
-        status: 'failed',
-        output: '',
-        error: `Unsupported script type: ${scriptFile}. Supported extensions: .ts, .js, .sh`,
-        startTime,
-        endTime: new Date().toISOString(),
-      };
-    }
-
-    const result = await executeShellCommand(
-      command,
-      cwd,
-      options.onNodeOutput ? (chunk) => options.onNodeOutput!(node.id, chunk) : undefined
-    );
-
-    return {
-      nodeId: node.id,
-      status: result.exitCode === 0 ? 'completed' : 'failed',
-      output: `$ ${command}\n${result.output}`,
-      rawOutput: result.output,
-      stdout: result.stdout,
-      stderr: result.stderr,
-      exitCode: result.exitCode,
-      error: result.exitCode !== 0 ? `Script exited with code ${result.exitCode}` : undefined,
       startTime,
       endTime: new Date().toISOString(),
     };
