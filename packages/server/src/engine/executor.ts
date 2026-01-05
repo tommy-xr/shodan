@@ -550,7 +550,15 @@ function ensureNodeIO(node: WorkflowNode): WorkflowNode {
   const inputs: PortDefinition[] = [];
   const outputs: PortDefinition[] = [];
 
-  if (nodeType === 'constant') {
+  if (nodeType === 'wire') {
+    // Wire nodes are simple pass-through - one input, one output
+    inputs.push(
+      { name: 'value', type: 'any', required: false, description: 'Input value to pass through' }
+    );
+    outputs.push(
+      { name: 'value', type: 'any', description: 'Pass-through value' }
+    );
+  } else if (nodeType === 'constant') {
     // Constant nodes have no inputs, one output whose type matches valueType
     const constantData = node.data as unknown as ConstantNodeData;
     const valueType = constantData.valueType || 'any';
@@ -731,6 +739,12 @@ function buildOutputValues(
         const fnOutputs = result.structuredOutput as Record<string, unknown>;
         outputs[outputDef.name] = fnOutputs[outputDef.name];
       }
+    } else if (nodeType === 'wire') {
+      // Wire node: pass through from structuredOutput
+      if (result.structuredOutput && typeof result.structuredOutput === 'object') {
+        const wireOutputs = result.structuredOutput as Record<string, unknown>;
+        outputs[outputDef.name] = wireOutputs[outputDef.name];
+      }
     } else {
       // Other node types - use rawOutput
       sourceData = result.rawOutput || '';
@@ -846,6 +860,27 @@ async function executeNode(
       status: 'completed',
       output: 'Trigger activated',
       rawOutput: '', // Triggers don't have rawOutput from execution
+      startTime,
+      endTime: new Date().toISOString(),
+    };
+  }
+
+  if (nodeType === 'wire') {
+    // Wire node: simple pass-through
+    const value = inputValues.value;
+    const label = node.data.label as string | undefined;
+
+    // If the wire has a label, log the value passing through
+    const output = label && label.trim()
+      ? `[${label}] ${JSON.stringify(value)}`
+      : `Wire: ${JSON.stringify(value)}`;
+
+    return {
+      nodeId: node.id,
+      status: 'completed',
+      output,
+      rawOutput: typeof value === 'string' ? value : JSON.stringify(value),
+      structuredOutput: { value },  // Pass through the value
       startTime,
       endTime: new Date().toISOString(),
     };

@@ -684,3 +684,82 @@
   border-color: #f87171 !important;
   box-shadow: 0 0 15px rgba(248, 113, 113, 0.4);
 }
+
+/* ================================
+   Wire Node Styles
+   ================================ */
+
+.wire-node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Label above the square */
+.wire-label {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 4px;
+  font-size: 0.65rem;
+  font-family: ui-monospace, monospace;
+  color: var(--text-secondary, #9ca3af);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+}
+
+/* The hollow square */
+.wire-square {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #6b7280;
+  background: transparent;
+  transition: all 0.2s ease;
+}
+
+.wire-node.selected .wire-square {
+  border-color: #9ca3af;
+  box-shadow: 0 0 0 2px rgba(156, 163, 175, 0.4);
+}
+
+/* Small point handles */
+.wire-handle-point {
+  width: 6px !important;
+  height: 6px !important;
+  background: #6b7280 !important;
+  border: none !important;
+  border-radius: 50% !important;
+  min-width: 6px !important;
+  min-height: 6px !important;
+}
+
+.wire-handle-point:hover {
+  transform: scale(1.5);
+  background: #9ca3af !important;
+}
+
+/* Wire node execution states */
+.wire-node.exec-pending .wire-square {
+  border-color: #fbbf24;
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
+}
+
+.wire-node.exec-running .wire-square {
+  border-color: #60a5fa;
+  box-shadow: 0 0 10px rgba(96, 165, 250, 0.5);
+}
+
+.wire-node.exec-completed .wire-square {
+  border-color: #34d399;
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.4);
+}
+
+.wire-node.exec-failed .wire-square {
+  border-color: #f87171;
+  box-shadow: 0 0 8px rgba(248, 113, 113, 0.4);
+}

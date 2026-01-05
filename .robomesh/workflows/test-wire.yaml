@@ -1,0 +1,60 @@
+version: 1
+metadata:
+  name: test-wire
+  description: ''
+  rootDirectory: /Users/bryphe/shodan-3
+nodes:
+  - id: trigger_1
+    type: trigger
+    position:
+      x: -133.28605733617115
+      'y': -62.87928557008078
+    data:
+      label: Start
+      triggerType: manual
+      nodeType: trigger
+  - id: node_0
+    type: wire
+    position:
+      x: 147.2190190781498
+      'y': -338.6968198294551
+    data:
+      label: abc
+      nodeType: wire
+      inputs:
+        - name: value
+          type: any
+          required: false
+          description: Input value to pass through
+      outputs:
+        - name: value
+          type: any
+          description: Pass-through value
+  - id: node_1
+    type: wire
+    position:
+      x: 535.2350082524838
+      'y': -338.3460675521833
+    data:
+      label: def
+      nodeType: wire
+      inputs:
+        - name: value
+          type: any
+          required: false
+          description: Input value to pass through
+      outputs:
+        - name: value
+          type: any
+          description: Pass-through value
+edges:
+  - id: xy-edge__node_0output:value-node_1input:value
+    source: node_0
+    target: node_1
+    sourceHandle: output:value
+    targetHandle: input:value
+  - id: xy-edge__trigger_1output:type-node_0input:value
+    source: trigger_1
+    target: node_0
+    sourceHandle: output:type
+    targetHandle: input:value

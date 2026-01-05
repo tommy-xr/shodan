@@ -27,7 +27,8 @@ export type StandardNodeType =
   | 'shell'
   | 'constant'
   | 'function'
-  | 'workdir';
+  | 'workdir'
+  | 'wire';
 
 /**
  * Standard ports for each node type
@@ -90,6 +91,15 @@ export const NODE_PORT_DEFAULTS: Record<StandardNodeType, NodePortDefaults> = {
     inputs: [],
     outputs: [
       { name: 'path', type: 'string', description: 'The working directory path' },
+    ],
+  },
+
+  wire: {
+    inputs: [
+      { name: 'value', type: 'any', required: false, description: 'Input value to pass through' },
+    ],
+    outputs: [
+      { name: 'value', type: 'any', description: 'Pass-through value' },
     ],
   },
 };

@@ -3,7 +3,7 @@ import type { NodeProps } from '@xyflow/react';
 import type { PortDefinition, ValueType, DockSlot } from '@robomesh/core';
 import './nodes.css';
 
-export type NodeType = 'agent' | 'shell' | 'trigger' | 'workdir' | 'component' | 'interface-input' | 'interface-output' | 'loop' | 'interface-continue' | 'constant' | 'function';
+export type NodeType = 'agent' | 'shell' | 'trigger' | 'workdir' | 'component' | 'interface-input' | 'interface-output' | 'loop' | 'interface-continue' | 'constant' | 'function' | 'wire';
 export type ExecutionStatus = 'idle' | 'pending' | 'running' | 'completed' | 'failed';
 
 // Color mapping for port types
@@ -71,6 +71,7 @@ const nodeIcons: Record<NodeType, string> = {
   'interface-continue': '⊕',
   constant: '◆',
   function: 'ƒ',
+  wire: '□',
 };
 
 const nodeLabels: Record<NodeType, string> = {
@@ -85,6 +86,7 @@ const nodeLabels: Record<NodeType, string> = {
   'interface-continue': 'Continue',
   constant: 'Constant',
   function: 'Function',
+  wire: 'Wire',
 };
 
 const runnerLabels: Record<string, string> = {

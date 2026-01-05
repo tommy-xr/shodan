@@ -31,6 +31,10 @@ const logicItems: PaletteItem[] = [
   { type: 'function', label: 'CONCAT', icon: '+', preset: 'concat' },
 ];
 
+const layoutItems: PaletteItem[] = [
+  { type: 'wire', label: 'Wire', icon: '□' },
+];
+
 /**
  * Operator presets - pre-configured function nodes for common logic operations
  */
@@ -109,6 +113,7 @@ export function Sidebar() {
   const [openSections, setOpenSections] = useState({
     nodes: true,
     logic: true,
+    layout: true,
     components: true,
   });
 
@@ -206,6 +211,27 @@ export function Sidebar() {
               className="palette-item"
               draggable
               onDragStart={(e) => onDragStart(e, item.type, item.preset)}
+            >
+              <div className={`palette-icon ${item.type}`}>{item.icon}</div>
+              <span className="palette-label">{item.label}</span>
+            </div>
+          ))}
+        </div>
+      </AccordionSection>
+
+      <AccordionSection
+        title="Layout"
+        isOpen={openSections.layout}
+        onToggle={() => toggleSection('layout')}
+        count={layoutItems.length}
+      >
+        <div className="palette-items">
+          {layoutItems.map((item) => (
+            <div
+              key={item.type}
+              className="palette-item"
+              draggable
+              onDragStart={(e) => onDragStart(e, item.type)}
             >
               <div className={`palette-icon ${item.type}`}>{item.icon}</div>
               <span className="palette-label">{item.label}</span>
