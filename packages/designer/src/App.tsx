@@ -29,6 +29,13 @@ import type { ComponentWorkflow } from './lib/api';
 import type { ExecutionStatus } from './nodes';
 import './App.css';
 
+// Strip execution state from node data before saving to file
+// Execution state is runtime-only and should not be persisted in workflow YAML
+const stripExecutionState = (data: Record<string, unknown>): Record<string, unknown> => {
+  const { executionStatus, executionOutput, executionError, ...cleanData } = data;
+  return cleanData;
+};
+
 // Navigation stack item for component drill-down
 interface NavigationItem {
   name: string;
@@ -396,9 +403,11 @@ function Flow() {
     // Skip if not a file-based workflow or just loaded
     if (!currentWorkspace || !currentWorkflowPath) return;
     if (Date.now() - lastSaveTime < 500) return; // Just loaded or just saved
+    // Skip during execution - execution state changes shouldn't mark as unsaved
+    if (isExecuting) return;
 
     setHasUnsavedChanges(true);
-  }, [nodes, edges, workflowName, rootDirectory, currentWorkspace, currentWorkflowPath, lastSaveTime]);
+  }, [nodes, edges, workflowName, rootDirectory, currentWorkspace, currentWorkflowPath, lastSaveTime, isExecuting]);
 
   // Auto-save to file for file-based workflows (debounced, less frequent)
   useEffect(() => {
@@ -406,6 +415,8 @@ function Flow() {
     if (!currentWorkspace || !currentWorkflowPath || nodes.length === 0) return;
     // Skip if no unsaved changes
     if (!hasUnsavedChanges) return;
+    // Skip during execution - don't save while running
+    if (isExecuting) return;
 
     // Debounce file saves (2 seconds)
     const timeoutId = setTimeout(async () => {
@@ -422,7 +433,7 @@ function Flow() {
             id: n.id,
             type: n.type || 'agent',
             position: n.position,
-            data: n.data as Record<string, unknown>,
+            data: stripExecutionState(n.data as Record<string, unknown>),
             parentId: n.parentId,
             extent: n.extent === 'parent' ? ('parent' as const) : undefined,
             style: n.style as { width?: number; height?: number },
@@ -451,7 +462,7 @@ function Flow() {
     }, 2000);
 
     return () => clearTimeout(timeoutId);
-  }, [nodes, edges, workflowName, rootDirectory, currentWorkspace, currentWorkflowPath, hasUnsavedChanges]);
+  }, [nodes, edges, workflowName, rootDirectory, currentWorkspace, currentWorkflowPath, hasUnsavedChanges, isExecuting]);
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -1062,7 +1073,7 @@ function Flow() {
         id: n.id,
         type: n.type || 'agent',
         position: n.position,
-        data: n.data,
+        data: stripExecutionState(n.data as Record<string, unknown>),
       }));
 
       // Build edges for saving (convert null to undefined for type compatibility)

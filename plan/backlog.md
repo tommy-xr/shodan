@@ -46,7 +46,6 @@ Add blog notes:
 	- Data model as CLI
 
 Workstream 1:
-- robomesh run - use common path resolution as robomesh chat, and support yolo
 - When running `robomesh serve --yolo`, the runners _are not_ run in --yolo
 - Run history: Instead of showing _only_ the state of the _last_ run, we should allow seeing all the recent runs (30d, or perhaps configurable) when clicking on a workflow in the dashboard. Then, each individual run can be opened with our modal.
 
@@ -99,4 +98,3 @@ Workstream 3:
 Optional step:
 # 3. Prototype - take a plan, and try writing code
 4. Test - write testsPlea:w
-

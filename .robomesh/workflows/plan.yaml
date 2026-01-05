@@ -13,8 +13,6 @@ nodes:
       label: Start
       triggerType: manual
       nodeType: trigger
-      executionStatus: completed
-      executionOutput: Trigger activated
   - id: node_0
     type: agent
     position:
@@ -52,9 +50,6 @@ nodes:
         {{ inputs.input_3 }} 
 
         Please go ahead and implement this item.
-      executionStatus: failed
-      executionOutput: ''
-      executionError: Agent node requires a runner to be specified
       runner: claude-code
       model: opus
   - id: node_1
@@ -70,8 +65,6 @@ nodes:
       outputs:
         - name: value
           type: string
-      executionStatus: completed
-      executionOutput: 'Constant: "Hi, please pick a good next item to work on from the plan/backlog.md file"'
 edges:
   - id: xy-edge__node_1output:value-node_0input:prompt
     source: node_1
