@@ -1,0 +1,207 @@
+version: 3
+metadata:
+  name: Test Inline Component Reuse
+  description: Tests using the same inline component multiple times
+
+# Inline component definitions
+components:
+  add-prefix:
+    interface:
+      inputs:
+        - name: text
+          type: string
+        - name: prefix
+          type: string
+      outputs:
+        - name: result
+          type: string
+    nodes:
+      - id: input-proxy
+        type: interface-input
+        position: { x: 100, y: 100 }
+        data:
+          nodeType: interface-input
+          label: Input
+          outputs:
+            - name: text
+              type: string
+            - name: prefix
+              type: string
+      - id: concat
+        type: shell
+        position: { x: 300, y: 100 }
+        data:
+          nodeType: shell
+          label: Concat
+          script: echo "{{ inputs.prefix }}{{ inputs.text }}"
+          inputs:
+            - name: text
+              type: string
+            - name: prefix
+              type: string
+          outputs:
+            - name: stdout
+              type: string
+            - name: stderr
+              type: string
+            - name: exitCode
+              type: number
+      - id: output-proxy
+        type: interface-output
+        position: { x: 500, y: 100 }
+        data:
+          nodeType: interface-output
+          label: Output
+          inputs:
+            - name: result
+              type: string
+    edges:
+      - id: c-e1
+        source: input-proxy
+        target: concat
+        sourceHandle: output:text
+        targetHandle: input:text
+      - id: c-e2
+        source: input-proxy
+        target: concat
+        sourceHandle: output:prefix
+        targetHandle: input:prefix
+      - id: c-e3
+        source: concat
+        target: output-proxy
+        sourceHandle: output:stdout
+        targetHandle: input:result
+
+# Main workflow nodes
+nodes:
+  - id: trigger
+    type: trigger
+    position: { x: 100, y: 200 }
+    data:
+      nodeType: trigger
+      label: Start
+      triggerType: manual
+      outputs:
+        - name: text
+          type: string
+        - name: timestamp
+          type: string
+        - name: type
+          type: string
+        - name: params
+          type: json
+
+  - id: const-hello
+    type: constant
+    position: { x: 100, y: 100 }
+    data:
+      nodeType: constant
+      label: Hello Prefix
+      value: "Hello, "
+      valueType: string
+      outputs:
+        - name: value
+          type: string
+
+  - id: const-goodbye
+    type: constant
+    position: { x: 100, y: 300 }
+    data:
+      nodeType: constant
+      label: Goodbye Prefix
+      value: "Goodbye, "
+      valueType: string
+      outputs:
+        - name: value
+          type: string
+
+  # First use of add-prefix component
+  - id: component-hello
+    type: component
+    position: { x: 300, y: 150 }
+    data:
+      nodeType: component
+      label: Add Hello
+      componentRef: add-prefix
+      inputs:
+        - name: text
+          type: string
+        - name: prefix
+          type: string
+      outputs:
+        - name: result
+          type: string
+
+  # Second use of add-prefix component
+  - id: component-goodbye
+    type: component
+    position: { x: 300, y: 300 }
+    data:
+      nodeType: component
+      label: Add Goodbye
+      componentRef: add-prefix
+      inputs:
+        - name: text
+          type: string
+        - name: prefix
+          type: string
+      outputs:
+        - name: result
+          type: string
+
+  - id: print
+    type: shell
+    position: { x: 500, y: 200 }
+    data:
+      nodeType: shell
+      label: Print Results
+      script: |
+        echo "Result 1: {{ inputs.result1 }}"
+        echo "Result 2: {{ inputs.result2 }}"
+      inputs:
+        - name: result1
+          type: string
+        - name: result2
+          type: string
+      outputs:
+        - name: stdout
+          type: string
+        - name: stderr
+          type: string
+        - name: exitCode
+          type: number
+
+edges:
+  # Connect trigger text to both components
+  - id: e1
+    source: trigger
+    target: component-hello
+    sourceHandle: output:text
+    targetHandle: input:text
+  - id: e2
+    source: trigger
+    target: component-goodbye
+    sourceHandle: output:text
+    targetHandle: input:text
+  # Connect prefixes
+  - id: e3
+    source: const-hello
+    target: component-hello
+    sourceHandle: output:value
+    targetHandle: input:prefix
+  - id: e4
+    source: const-goodbye
+    target: component-goodbye
+    sourceHandle: output:value
+    targetHandle: input:prefix
+  # Connect results to print
+  - id: e5
+    source: component-hello
+    target: print
+    sourceHandle: output:result
+    targetHandle: input:result1
+  - id: e6
+    source: component-goodbye
+    target: print
+    sourceHandle: output:result
+    targetHandle: input:result2

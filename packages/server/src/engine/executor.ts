@@ -35,6 +35,7 @@ export interface ExecuteOptions {
   triggerInputs?: Record<string, unknown>;  // Inputs to pass to trigger nodes (e.g., from CLI --input)
   workflowInputs?: Record<string, unknown>;  // Inputs when workflow is run as component
   dockContext?: DockContext;                 // Dock context for loop inner workflow execution
+  inlineComponents?: Record<string, import('@robomesh/core').InlineComponent>;  // Inline component definitions
   // Parallel execution options
   maxConcurrent?: number;           // Maximum nodes to execute concurrently (default: 3)
   continueOnFailDefault?: boolean;  // Default behavior when a node fails (default: true)
@@ -1200,35 +1201,70 @@ async function executeNode(
 
   // Component node: executes another workflow as a sub-workflow
   if (nodeType === 'component') {
+    const componentRef = node.data.componentRef as string | undefined;
     const workflowPath = node.data.workflowPath as string | undefined;
 
-    if (!workflowPath) {
-      return {
-        nodeId: node.id,
-        status: 'failed',
-        output: '',
-        error: 'Component node requires workflowPath to be specified',
-        startTime,
-        endTime: new Date().toISOString(),
-      };
-    }
-
     try {
-      // Load the component workflow
-      const componentWorkflow = await loadWorkflow(workflowPath, rootDirectory);
-      const componentDir = getWorkflowDirectory(workflowPath, rootDirectory);
+      let componentNodes: WorkflowNode[];
+      let componentEdges: WorkflowEdge[];
+      let componentDir: string;
+      let componentInlineComponents: Record<string, import('@robomesh/core').InlineComponent> | undefined;
 
-      // Execute the sub-workflow with our input values as its workflow inputs
-      const subResult = await executeWorkflow(
-        componentWorkflow.nodes.map(n => ({
+      if (componentRef) {
+        // Inline component: look up in workflow's components section
+        const inlineComponent = options.inlineComponents?.[componentRef];
+        if (!inlineComponent) {
+          return {
+            nodeId: node.id,
+            status: 'failed',
+            output: '',
+            error: `Inline component '${componentRef}' not found in workflow components`,
+            startTime,
+            endTime: new Date().toISOString(),
+          };
+        }
+        componentNodes = inlineComponent.nodes.map(n => ({
           id: n.id,
           type: n.type,
           data: n.data as WorkflowNode['data'],
-        })),
-        componentWorkflow.edges,
+        }));
+        componentEdges = inlineComponent.edges;
+        // Inline components inherit parent's working directory
+        componentDir = rootDirectory;
+        // Pass along inline components for nested inline component support
+        componentInlineComponents = options.inlineComponents;
+      } else if (workflowPath) {
+        // File-based component: load from filesystem
+        const componentWorkflow = await loadWorkflow(workflowPath, rootDirectory);
+        componentNodes = componentWorkflow.nodes.map(n => ({
+          id: n.id,
+          type: n.type,
+          data: n.data as WorkflowNode['data'],
+        }));
+        componentEdges = componentWorkflow.edges;
+        // File-based components inherit parent's working directory (per design decision)
+        componentDir = rootDirectory;
+        // File-based components may have their own inline components
+        componentInlineComponents = componentWorkflow.components;
+      } else {
+        return {
+          nodeId: node.id,
+          status: 'failed',
+          output: '',
+          error: 'Component node requires either componentRef or workflowPath to be specified',
+          startTime,
+          endTime: new Date().toISOString(),
+        };
+      }
+
+      // Execute the sub-workflow with our input values as its workflow inputs
+      const subResult = await executeWorkflow(
+        componentNodes,
+        componentEdges,
         {
           rootDirectory: componentDir,
           workflowInputs: inputValues,  // Pass our inputs as the sub-workflow's inputs
+          inlineComponents: componentInlineComponents,
         }
       );
 
@@ -1245,7 +1281,7 @@ async function executeNode(
 
       // Extract outputs from the component's interface-output node
       const interfaceOutputResult = subResult.results.find(
-        r => componentWorkflow.nodes.find(n => n.id === r.nodeId)?.data.nodeType === 'interface-output'
+        r => componentNodes.find(n => n.id === r.nodeId)?.data.nodeType === 'interface-output'
       );
 
       return {
@@ -1655,5 +1691,6 @@ export async function executeWorkflowSchema(
   return executeWorkflow(nodes, edges, {
     ...options,
     rootDirectory: schema.metadata.rootDirectory,
+    inlineComponents: schema.components,
   });
 }
