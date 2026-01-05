@@ -22,6 +22,7 @@ const originalCwd = process.env.INIT_CWD || process.cwd();
 
 export interface ChatOptions {
   cwd?: string;
+  input?: string;
   skipValidation?: boolean;
   dangerouslySkipPermissions?: boolean;
 }
@@ -198,9 +199,11 @@ export async function runChat(workflowArg: string, options: ChatOptions = {}): P
     console.log('\x1b[33m   Only use this in sandboxed/isolated environments.\x1b[0m\n');
   }
 
-  // Get user input
+  // Get user input - use provided input, prompt interactively, or read from pipe
   let userInput: string;
-  if (isInteractive()) {
+  if (options.input !== undefined) {
+    userInput = options.input;
+  } else if (isInteractive()) {
     userInput = await promptForInput('> ');
   } else {
     userInput = await readPipedInput();

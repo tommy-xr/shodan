@@ -3,7 +3,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import yaml from 'js-yaml';
-import { executeWorkflowSchema, createServer, type WorkflowSchema, type NodeResult } from '@robomesh/server';
+import { createServer, type WorkflowSchema } from '@robomesh/server';
 import { getProjectRoot } from '@robomesh/server';
 import { validateWorkflow as validateWorkflowSchema, formatValidationIssues } from '@robomesh/core';
 import { addWorkspace, removeWorkspace, listWorkspaces, isValidWorkspace, initWorkspace } from './src/config.js';
@@ -42,18 +42,10 @@ ${color('Usage:', COLORS.bright)}
   robomesh list                             Show registered workspaces
   robomesh help                             Show this help
 
-${color('Run Options:', COLORS.bright)}
+${color('Run/Chat Options:', COLORS.bright)}
   --cwd <dir>         Override working directory
-  --input <text>      Pass text input to trigger node
-  --quiet             Only show errors and final result
-  --verbose           Show detailed output for each node
+  --input <text>      Pass text input to trigger node (run only)
   --no-validation     Skip schema validation (not recommended)
-  --yolo              Skip permission prompts for all agents (dangerous!)
-  --dangerously-skip-permissions  Same as --yolo
-
-${color('Chat Options:', COLORS.bright)}
-  --cwd <dir>         Override working directory
-  --no-validation     Skip schema validation
   --yolo              Skip permission prompts for all agents (dangerous!)
   --dangerously-skip-permissions  Same as --yolo
 
@@ -65,9 +57,9 @@ ${color('Serve Options:', COLORS.bright)}
 ${color('Examples:', COLORS.bright)}
   robomesh chat plan                        # Run workflows/plan.yaml interactively
   robomesh chat ./workflows/build.yaml      # Run explicit workflow
-  robomesh run ./workflows/build.yaml
-  robomesh run ./workflows/deploy.yaml --cwd /path/to/project
-  robomesh run ./workflows/process.yaml --input "Hello World"
+  robomesh run plan                         # Run workflows/plan.yaml
+  robomesh run deploy --cwd /path/to/project
+  robomesh run process --input "Hello World"
   robomesh validate ./workflows/*.yaml
   robomesh init .                           # Initialize current directory
   robomesh add .                            # Register current directory
@@ -114,127 +106,6 @@ async function loadWorkflow(filePath: string): Promise<WorkflowSchema> {
   }
 
   return schema;
-}
-
-async function runWorkflow(filePath: string, options: { cwd?: string; input?: string; quiet?: boolean; verbose?: boolean; skipValidation?: boolean; dangerouslySkipPermissions?: boolean }) {
-  console.log(color(`\n▶ Running workflow: ${filePath}`, COLORS.bright));
-
-  // Show warning if running with permission bypass
-  if (options.dangerouslySkipPermissions) {
-    console.log(color(`\n⚠️  WARNING: Running with --yolo / --dangerously-skip-permissions`, COLORS.yellow, COLORS.bright));
-    console.log(color(`   Agents will have full write permissions without prompting.`, COLORS.yellow));
-    console.log(color(`   Only use this in sandboxed/isolated environments.\n`, COLORS.yellow));
-  }
-
-  const schema = await loadWorkflow(filePath);
-
-  // Override rootDirectory if --cwd provided
-  if (options.cwd) {
-    schema.metadata.rootDirectory = path.resolve(originalCwd, options.cwd);
-  }
-
-  // Run schema validation (unless skipped)
-  if (!options.skipValidation) {
-    const validation = validateWorkflowSchema(schema);
-
-    // All issues (errors and warnings) are treated as errors by default
-    if (validation.issues.length > 0) {
-      console.error(color('\n✗ Workflow validation failed:', COLORS.red, COLORS.bright));
-      console.error(formatValidationIssues(validation.issues));
-      console.error('');
-      console.error(color('Use --no-validation to skip (not recommended)', COLORS.dim));
-      return 1;
-    }
-  }
-
-  console.log(color(`  Workflow: ${schema.metadata.name}`, COLORS.dim));
-  if (schema.metadata.rootDirectory) {
-    console.log(color(`  Directory: ${schema.metadata.rootDirectory}`, COLORS.dim));
-  }
-  console.log(color(`  Nodes: ${schema.nodes.length}`, COLORS.dim));
-  if (options.input) {
-    console.log(color(`  Input: ${options.input}`, COLORS.dim));
-  }
-  console.log('');
-
-  const startTime = Date.now();
-
-  // Build trigger inputs if --input provided
-  const triggerInputs = options.input ? { text: options.input } : undefined;
-
-  // Track running nodes for parallel execution display
-  const runningNodes = new Set<string>();
-  const nodeLabels = new Map<string, string>();
-
-  const result = await executeWorkflowSchema(schema, {
-    triggerInputs,
-    dangerouslySkipPermissions: options.dangerouslySkipPermissions,
-    onNodeStart: (nodeId, node) => {
-      const label = (node.data.label as string) || nodeId;
-      nodeLabels.set(nodeId, label);
-      runningNodes.add(nodeId);
-
-      if (!options.quiet) {
-        console.log(color(`  ● ${label}`, COLORS.yellow), color('running...', COLORS.dim));
-      }
-    },
-    onNodeComplete: (nodeId, result) => {
-      runningNodes.delete(nodeId);
-
-      if (!options.quiet) {
-        const icon = result.status === 'completed' ? color('✓', COLORS.green) : color('✗', COLORS.red);
-        const label = nodeLabels.get(nodeId) || nodeId;
-
-        // Move cursor up and rewrite the line
-        process.stdout.write('\x1b[1A\x1b[2K');
-        console.log(`  ${icon} ${label}`);
-
-        if (options.verbose && result.output) {
-          const indented = result.output.split('\n').map(l => `      ${l}`).join('\n');
-          console.log(color(indented, COLORS.dim));
-        }
-
-        if (result.status === 'failed' && result.error) {
-          console.log(color(`      Error: ${result.error}`, COLORS.red));
-        }
-      }
-    },
-    onNodeOutput: (nodeId, chunk) => {
-      if (options.verbose) {
-        const label = nodeLabels.get(nodeId) || nodeId;
-        // Prefix output with node label when multiple nodes are running
-        if (runningNodes.size > 1) {
-          const lines = chunk.split('\n');
-          for (const line of lines) {
-            if (line.trim()) {
-              process.stdout.write(color(`[${label}] ${line}\n`, COLORS.dim));
-            }
-          }
-        } else {
-          process.stdout.write(color(chunk, COLORS.dim));
-        }
-      }
-    },
-  });
-
-  const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-
-  console.log('');
-  if (result.success) {
-    console.log(color(`✓ Workflow completed successfully`, COLORS.green, COLORS.bright), color(`(${elapsed}s)`, COLORS.dim));
-  } else {
-    console.log(color(`✗ Workflow failed`, COLORS.red, COLORS.bright), color(`(${elapsed}s)`, COLORS.dim));
-
-    // Show failed node output
-    const failedResult = result.results.find(r => r.status === 'failed');
-    if (failedResult?.output) {
-      console.log(color('\nOutput:', COLORS.bright));
-      console.log(failedResult.output);
-    }
-  }
-  console.log('');
-
-  return result.success ? 0 : 1;
 }
 
 async function validateWorkflowFile(filePath: string): Promise<boolean> {
@@ -458,23 +329,21 @@ async function main() {
   }
 
   if (command === 'run') {
-    const filePath = args[1];
-    if (!filePath) {
+    const workflowArg = args[1];
+    if (!workflowArg) {
       console.error(color('Error: Please specify a workflow file', COLORS.red));
       process.exit(1);
     }
 
     const options = {
       cwd: args.includes('--cwd') ? args[args.indexOf('--cwd') + 1] : undefined,
-      input: args.includes('--input') ? args[args.indexOf('--input') + 1] : undefined,
-      quiet: args.includes('--quiet') || args.includes('-q'),
-      verbose: args.includes('--verbose') || args.includes('-v'),
+      input: args.includes('--input') ? args[args.indexOf('--input') + 1] : '',
       skipValidation: args.includes('--no-validation'),
       dangerouslySkipPermissions: args.includes('--yolo') || args.includes('--dangerously-skip-permissions'),
     };
 
     try {
-      const exitCode = await runWorkflow(filePath, options);
+      const exitCode = await runChat(workflowArg, options);
       process.exit(exitCode);
     } catch (err) {
       console.error(color(`\nError: ${(err as Error).message}`, COLORS.red));
