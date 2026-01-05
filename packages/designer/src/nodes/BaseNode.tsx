@@ -64,7 +64,7 @@ const nodeIcons: Record<NodeType, string> = {
   shell: '⌘',
   trigger: '⚡',
   workdir: '📁',
-  component: '📦',
+  component: '⬢',
   'interface-input': '⊕',
   'interface-output': '⊕',
   loop: '🔁',

@@ -10,10 +10,20 @@ import type { WorkflowSchema, WorkflowNode, WorkflowEdge } from './workflow-type
 import type { PortDefinition } from './io-types.js';
 
 /**
+ * Default outputs for manual trigger nodes.
+ * Applied when a trigger doesn't have explicit outputs defined.
+ */
+const DEFAULT_MANUAL_TRIGGER_OUTPUTS: PortDefinition[] = [
+  { name: 'text', type: 'string', description: 'Text input for the workflow' },
+  { name: 'params', type: 'json', description: 'Additional parameters' },
+];
+
+/**
  * Derive component inputs from workflow triggers.
  *
  * Collects output ports from all manual trigger nodes and unions them.
  * If multiple triggers have the same output name, first occurrence wins.
+ * If a trigger has no explicit outputs, default outputs are applied.
  */
 export function deriveWorkflowInputs(workflow: WorkflowSchema): PortDefinition[] {
   const inputs: PortDefinition[] = [];
@@ -26,7 +36,12 @@ export function deriveWorkflowInputs(workflow: WorkflowSchema): PortDefinition[]
   );
 
   for (const trigger of triggers) {
-    const outputs = (trigger.data.outputs as PortDefinition[]) || [];
+    // Use explicit outputs if defined, otherwise use defaults
+    const explicitOutputs = trigger.data.outputs as PortDefinition[] | undefined;
+    const outputs = (explicitOutputs && explicitOutputs.length > 0)
+      ? explicitOutputs
+      : DEFAULT_MANUAL_TRIGGER_OUTPUTS;
+
     for (const output of outputs) {
       if (!seen.has(output.name)) {
         inputs.push({

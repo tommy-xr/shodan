@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import type { DragEvent } from 'react';
 import type { ValueType, InlineComponent, PortDefinition } from '@robomesh/core';
 import type { NodeType } from '../nodes';
-import { listComponents, type ComponentInfo } from '../lib/api';
+import { listComponents, listNestableWorkflows, type ComponentInfo, type NestableWorkflow } from '../lib/api';
 import { CreateComponentDialog, type NewComponentData } from './CreateComponentDialog';
 
 export interface SidebarProps {
@@ -157,6 +157,8 @@ function toComponentKey(name: string): string {
 export function Sidebar({ onCreateInlineComponent, inlineComponents = {} }: SidebarProps) {
   const [components, setComponents] = useState<ComponentInfo[]>([]);
   const [componentsError, setComponentsError] = useState<string | null>(null);
+  const [workflows, setWorkflows] = useState<NestableWorkflow[]>([]);
+  const [workflowsError, setWorkflowsError] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   // Accordion state - all open by default
@@ -165,6 +167,7 @@ export function Sidebar({ onCreateInlineComponent, inlineComponents = {} }: Side
     logic: true,
     layout: true,
     components: true,
+    workflows: true,
   });
 
   const toggleSection = (section: keyof typeof openSections) => {
@@ -187,9 +190,23 @@ export function Sidebar({ onCreateInlineComponent, inlineComponents = {} }: Side
       });
   };
 
-  // Load available components on mount
+  // Load nestable workflows
+  const loadWorkflows = () => {
+    listNestableWorkflows()
+      .then((response) => {
+        setWorkflows(response.workflows);
+        setWorkflowsError(null);
+      })
+      .catch((err) => {
+        console.warn('Failed to load nestable workflows:', err);
+        setWorkflowsError(err.message);
+      });
+  };
+
+  // Load available components and workflows on mount
   useEffect(() => {
     loadComponents();
+    loadWorkflows();
   }, []);
 
   const handleCreateComponent = async (data: NewComponentData) => {
@@ -227,6 +244,13 @@ export function Sidebar({ onCreateInlineComponent, inlineComponents = {} }: Side
       key: componentKey,
       component,
     }));
+    event.dataTransfer.effectAllowed = 'move';
+  };
+
+  const onWorkflowDragStart = (event: DragEvent, workflow: NestableWorkflow) => {
+    // Pass workflow data for the drop handler - creates a component node
+    event.dataTransfer.setData('application/reactflow', 'component');
+    event.dataTransfer.setData('application/nestable-workflow', JSON.stringify(workflow));
     event.dataTransfer.effectAllowed = 'move';
   };
 
@@ -350,6 +374,34 @@ export function Sidebar({ onCreateInlineComponent, inlineComponents = {} }: Side
             >
               <div className="palette-icon component">⬢</div>
               <span className="palette-label">{component.name}</span>
+            </div>
+          ))}
+        </div>
+      </AccordionSection>
+
+      <AccordionSection
+        title="Workflows"
+        isOpen={openSections.workflows}
+        onToggle={() => toggleSection('workflows')}
+        count={workflows.length}
+      >
+        <div className="palette-items">
+          {workflowsError && (
+            <div className="palette-error">{workflowsError}</div>
+          )}
+          {workflows.length === 0 && !workflowsError && (
+            <div className="palette-empty">No nestable workflows</div>
+          )}
+          {workflows.map((workflow) => (
+            <div
+              key={`${workflow.workspace}:${workflow.path}`}
+              className="palette-item workflow"
+              draggable
+              onDragStart={(e) => onWorkflowDragStart(e, workflow)}
+              title={`${workflow.description || workflow.name}\n\nInputs: ${workflow.interface.inputs.map(i => i.name).join(', ') || 'none'}\nOutputs: ${workflow.interface.outputs.map(o => o.name).join(', ') || 'none'}`}
+            >
+              <div className="palette-icon workflow">⬢</div>
+              <span className="palette-label">{workflow.name}</span>
             </div>
           ))}
         </div>

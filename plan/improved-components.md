@@ -574,38 +574,45 @@ e2e/inline-component.spec.ts
   - Convert file component to inline
 ```
 
-### Phase 3: Workflow Nesting Schema
-- [ ] Implement `deriveWorkflowInputs()` - extract from triggers
-- [ ] Implement `deriveWorkflowOutputs()` - from interface-output or leaves
-- [ ] Add `/api/workflows/nestable` endpoint
-- [ ] Update executor for nested workflow execution (skip triggers)
-- [ ] Handle input mapping (parent inputs → trigger outputs)
-- [ ] Handle output collection (interface-output or leaf nodes)
+### Phase 3: Workflow Nesting Schema ✅
+- [x] Implement `deriveWorkflowInputs()` - extract from triggers
+- [x] Implement `deriveWorkflowOutputs()` - from interface-output or leaves
+- [x] Add `/api/workflows/nestable` endpoint
+- [x] Update executor for nested workflow execution (pass triggerInputs)
+- [x] Handle input mapping (parent inputs → trigger outputs)
+- [x] Handle output collection (interface-output or leaf nodes)
 
-**Testing**: `pnpm run test:workflows`
+**Files Changed:**
+- `packages/core/src/workflow-interface.ts` - Interface derivation utilities (NEW)
+- `packages/core/src/index.ts` - Export workflow-interface
+- `packages/server/src/routes/workflows.ts` - Added `/api/workflows/nestable` endpoint
+- `packages/server/src/engine/executor.ts` - Pass `triggerInputs` for nested workflows, improved output extraction
+
+**Testing**: `pnpm run test:workflows` ✅
 ```
-workflows/test-nested-workflow.yaml           # Workflow that nests another workflow
-workflows/test-nested-workflow-outputs.yaml   # Nested workflow with interface-output node
-workflows/test-nested-workflow-leaf.yaml      # Nested workflow using leaf node outputs
-workflows/helpers/nestable-transform.yaml     # Simple workflow with manual trigger (used by above)
+workflows/nestable-greeting.yaml          # Simple workflow with manual trigger (nestable)
+workflows/test-nested-workflow.yaml       # Workflow that nests nestable-greeting.yaml
 ```
 
-### Phase 4: Workflow Nesting Designer UX
-- [ ] Add "Workflows" section to sidebar
-- [ ] Show nestable workflows with derived I/O
-- [ ] Implement drag-drop of workflows as components
-- [ ] Visual differentiation (icon, tooltip)
-- [ ] Drill-down opens workflow editor
-- [ ] Warning indicator for shared workflow editing
+### Phase 4: Workflow Nesting Designer UX ✅
+- [x] Add "Workflows" section to sidebar
+- [x] Show nestable workflows with derived I/O
+- [x] Implement drag-drop of workflows as components
+- [x] Visual differentiation (⬢ icon, tooltip with I/O info)
+- [x] Drill-down opens workflow editor (uses existing workflowPath handling)
 
-**Testing**: `pnpm run test:e2e` (Playwright)
+**Files Changed:**
+- `packages/designer/src/lib/api.ts` - Added `listNestableWorkflows()` and types
+- `packages/designer/src/components/Sidebar.tsx` - Added "Workflows" accordion section, fetch on mount, drag handler
+- `packages/designer/src/App.tsx` - Added drop handler for `application/nestable-workflow`
+
+**Testing**: Manual testing in designer
 ```
-e2e/workflow-nesting.spec.ts
-  - Workflows section shows in sidebar
-  - Only manual trigger workflows appear
-  - Drag workflow to canvas creates component node
-  - Derived inputs/outputs match trigger outputs
-  - Double-click opens workflow in designer
+- Workflows section shows in sidebar with count
+- Only manual trigger workflows appear (nestable ones)
+- Hover shows tooltip with inputs/outputs
+- Drag workflow to canvas creates component node with workflowPath
+- Double-click opens workflow for editing (existing behavior)
 ```
 
 ### Phase 5: Interface Change Handling

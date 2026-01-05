@@ -58,6 +58,58 @@ nodes:
           type: number
           description: Exit code (0 = success)
       script: echo "hello {{ inputs.input }}"
+  - id: node_4
+    type: component
+    position:
+      x: 154.16246187822875
+      'y': -122.54930639452633
+    data:
+      label: plan
+      nodeType: component
+      workflowPath: .robomesh/workflows/plan.yaml
+      inputs:
+        - name: text
+          type: string
+          description: Text input for the workflow
+        - name: params
+          type: json
+          description: Additional parameters
+      outputs:
+        - name: output
+          type: string
+          description: Agent response text
+        - name: sessionId
+          type: string
+          description: Session ID for continuation
+        - name: exitCode
+          type: number
+          description: Exit code (0 = success)
+  - id: node_5
+    type: shell
+    position:
+      x: 625.1383382786843
+      'y': -149.29241609549857
+    data:
+      label: New Shell
+      nodeType: shell
+      inputs:
+        - name: input
+          type: any
+          required: false
+          description: Generic input for template interpolation
+      outputs:
+        - name: output
+          type: string
+          description: Combined stdout output
+        - name: stdout
+          type: string
+          description: Standard output
+        - name: stderr
+          type: string
+          description: Standard error
+        - name: exitCode
+          type: number
+          description: Exit code (0 = success)
 edges:
   - id: xy-edge__node_0output:output-node_1input:input
     source: node_0
@@ -68,6 +120,16 @@ edges:
     source: trigger_1
     target: node_0
     sourceHandle: output:timestamp
+    targetHandle: input:input
+  - id: xy-edge__trigger_1output:text-node_4input:text
+    source: trigger_1
+    target: node_4
+    sourceHandle: output:text
+    targetHandle: input:text
+  - id: xy-edge__node_4output:output-node_5input:input
+    source: node_4
+    target: node_5
+    sourceHandle: output:output
     targetHandle: input:input
 components:
   test-1:

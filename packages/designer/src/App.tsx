@@ -665,6 +665,8 @@ function Flow() {
       const componentDataStr = event.dataTransfer.getData('application/component');
       // Check if this is an inline component being dropped
       const inlineComponentDataStr = event.dataTransfer.getData('application/inline-component');
+      // Check if this is a nestable workflow being dropped
+      const nestableWorkflowDataStr = event.dataTransfer.getData('application/nestable-workflow');
       // Check if this is a preset (e.g., NOT, AND, OR operators)
       const presetName = event.dataTransfer.getData('application/preset');
 
@@ -714,6 +716,33 @@ function Flow() {
               description: input.description,
             })) || [],
             outputs: component.interface?.outputs?.map((output: { name: string; type: string; description?: string }) => ({
+              name: output.name,
+              type: output.type || 'any',
+              description: output.description,
+            })) || [],
+          },
+        }];
+      } else if (type === 'component' && nestableWorkflowDataStr) {
+        // Parse nestable workflow data and create a component node
+        const workflowData = JSON.parse(nestableWorkflowDataStr);
+        newNodes = [{
+          id: getNodeId(),
+          type,
+          position: finalPosition,
+          parentId,
+          extent,
+          data: {
+            label: workflowData.name,
+            nodeType: type,
+            workflowPath: workflowData.path,
+            // Map workflow's derived interface to node I/O
+            inputs: workflowData.interface?.inputs?.map((input: { name: string; type: string; required?: boolean; description?: string }) => ({
+              name: input.name,
+              type: input.type || 'any',
+              required: input.required,
+              description: input.description,
+            })) || [],
+            outputs: workflowData.interface?.outputs?.map((output: { name: string; type: string; description?: string }) => ({
               name: output.name,
               type: output.type || 'any',
               description: output.description,

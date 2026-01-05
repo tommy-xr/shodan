@@ -1261,6 +1261,7 @@ async function executeNode(
       // Execute the sub-workflow with our input values as its workflow inputs
       // For nested workflows, also pass inputs as triggerInputs so trigger nodes
       // output the component's inputs (triggers define the workflow's interface)
+      // Forward streaming output from inner nodes to the component node
       const subResult = await executeWorkflow(
         componentNodes,
         componentEdges,
@@ -1269,6 +1270,15 @@ async function executeNode(
           workflowInputs: inputValues,  // For interface-input nodes
           triggerInputs: inputValues,   // For trigger nodes (nested workflows)
           inlineComponents: componentInlineComponents,
+          // Forward streaming output to parent component node
+          onNodeOutput: options.onNodeOutput
+            ? (innerNodeId, chunk) => {
+                // Prefix with inner node info and forward to component node
+                const innerNode = componentNodes.find(n => n.id === innerNodeId);
+                const innerLabel = (innerNode?.data.label as string) || innerNodeId;
+                options.onNodeOutput!(node.id, `[${innerLabel}] ${chunk}`);
+              }
+            : undefined,
         }
       );
 
@@ -1328,10 +1338,25 @@ async function executeNode(
         }
       }
 
+      // Build informative output showing inputs and outputs
+      const inputSummary = Object.entries(inputValues)
+        .map(([k, v]) => `${k}: ${typeof v === 'string' ? v.slice(0, 50) + (v.length > 50 ? '...' : '') : JSON.stringify(v)}`)
+        .join(', ');
+      const outputSummary = Object.entries(componentOutputs)
+        .map(([k, v]) => {
+          const str = typeof v === 'string' ? v : JSON.stringify(v);
+          return `${k}: ${str.slice(0, 100)}${str.length > 100 ? '...' : ''}`;
+        })
+        .join('\n');
+
+      const output = inputSummary
+        ? `⎿ ${inputSummary}\n${outputSummary || '(no outputs)'}`
+        : outputSummary || 'Component executed successfully';
+
       return {
         nodeId: node.id,
         status: 'completed',
-        output: 'Component executed successfully',
+        output,
         rawOutput: JSON.stringify(componentOutputs),
         structuredOutput: componentOutputs,
         startTime,
