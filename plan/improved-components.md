@@ -598,13 +598,19 @@ workflows/test-nested-workflow.yaml       # Workflow that nests nestable-greetin
 - [x] Add "Workflows" section to sidebar
 - [x] Show nestable workflows with derived I/O
 - [x] Implement drag-drop of workflows as components
-- [x] Visual differentiation (⬢ icon, tooltip with I/O info)
+- [x] Visual differentiation (⬢ icon on sidebar AND canvas, tooltip with I/O info)
 - [x] Drill-down opens workflow editor (uses existing workflowPath handling)
+- [x] Default trigger outputs for workflows without explicit outputs (text, params)
+- [x] Streaming output forwarding from nested workflow to component node
+- [x] Informative component output showing inputs received and outputs produced
 
 **Files Changed:**
 - `packages/designer/src/lib/api.ts` - Added `listNestableWorkflows()` and types
 - `packages/designer/src/components/Sidebar.tsx` - Added "Workflows" accordion section, fetch on mount, drag handler
 - `packages/designer/src/App.tsx` - Added drop handler for `application/nestable-workflow`
+- `packages/designer/src/nodes/BaseNode.tsx` - Changed component icon from 📦 to ⬢
+- `packages/core/src/workflow-interface.ts` - Added `DEFAULT_MANUAL_TRIGGER_OUTPUTS` for workflows without explicit outputs
+- `packages/server/src/engine/executor.ts` - Forward `onNodeOutput` to component node with inner node label prefix; improved component output summary
 
 **Testing**: Manual testing in designer
 ```
@@ -612,6 +618,9 @@ workflows/test-nested-workflow.yaml       # Workflow that nests nestable-greetin
 - Only manual trigger workflows appear (nestable ones)
 - Hover shows tooltip with inputs/outputs
 - Drag workflow to canvas creates component node with workflowPath
+- Component nodes show ⬢ icon on canvas (matching sidebar)
+- Streaming output shows during nested workflow execution with [NodeLabel] prefix
+- Final output shows inputs and outputs summary
 - Double-click opens workflow for editing (existing behavior)
 ```
 
