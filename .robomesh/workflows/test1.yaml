@@ -2,7 +2,7 @@ version: 1
 metadata:
   name: test1
   description: ''
-  rootDirectory: /Users/bryphe/shodan
+  rootDirectory: /Users/bryphe/shodan-3
 nodes:
   - id: trigger_1
     type: trigger
@@ -13,8 +13,6 @@ nodes:
       label: Start
       triggerType: manual
       nodeType: trigger
-      executionStatus: completed
-      executionOutput: Trigger activated
   - id: node_0
     type: shell
     position:
@@ -42,41 +40,6 @@ nodes:
           type: number
           description: Exit code (0 = success)
       script: echo "yo {{inputs.input}}"
-      executionStatus: completed
-      executionOutput: |
-        $ echo ""
-  - id: node_1
-    type: function
-    position:
-      x: -80.66839819259326
-      'y': -112.84916247907637
-    data:
-      label: NOT
-      nodeType: function
-      code: 'return { result: !inputs.value }'
-      inputs:
-        - name: value
-          type: boolean
-      outputs:
-        - name: result
-          type: boolean
-  - id: node_2
-    type: function
-    position:
-      x: -288.0785473772155
-      'y': -210.50294646816985
-    data:
-      label: AND
-      nodeType: function
-      code: 'return { result: inputs.a && inputs.b }'
-      inputs:
-        - name: a
-          type: boolean
-        - name: b
-          type: boolean
-      outputs:
-        - name: result
-          type: boolean
   - id: node_3
     type: function
     position:

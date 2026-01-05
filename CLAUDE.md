@@ -140,9 +140,9 @@ State is persisted to localStorage, including nodes, edges, viewport, workflow n
 The Sidebar includes pre-configured function node presets (`packages/designer/src/components/Sidebar.tsx`):
 
 - **NOT** (¬): Boolean negation - `!inputs.value`
-- **AND** (∧): Boolean AND - `inputs.a && inputs.b`
-- **OR** (∨): Boolean OR - `inputs.a || inputs.b`
-- **CONCAT** (+): String concatenation with separator - `inputs.values.join(inputs.separator)`
+- **AND** (∧): N-ary boolean AND - `inputs.values.every(Boolean)` (array input)
+- **OR** (∨): N-ary boolean OR - `inputs.values.some(Boolean)` (array input)
+- **CONCAT** (+): String concatenation with separator - `inputs.values.join(inputs.separator)` (array input)
 
 Presets are defined in `operatorPresets` and automatically configure inputs, outputs, and code.
 
