@@ -42,10 +42,6 @@ export interface WorkflowNodeData {
   commands?: string[];  // Legacy
   scriptFiles?: string[];
 
-  // Script node fields
-  scriptFile?: string;
-  scriptArgs?: string;
-
   // Agent node fields
   prompt?: string;
   promptFiles?: string[];

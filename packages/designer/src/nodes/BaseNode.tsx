@@ -3,7 +3,7 @@ import type { NodeProps } from '@xyflow/react';
 import type { PortDefinition, ValueType, DockSlot } from '@robomesh/core';
 import './nodes.css';
 
-export type NodeType = 'agent' | 'shell' | 'script' | 'trigger' | 'workdir' | 'component' | 'interface-input' | 'interface-output' | 'loop' | 'interface-continue' | 'constant' | 'function';
+export type NodeType = 'agent' | 'shell' | 'trigger' | 'workdir' | 'component' | 'interface-input' | 'interface-output' | 'loop' | 'interface-continue' | 'constant' | 'function';
 export type ExecutionStatus = 'idle' | 'pending' | 'running' | 'completed' | 'failed';
 
 // Color mapping for port types
@@ -39,9 +39,6 @@ export interface BaseNodeData extends Record<string, unknown> {
   // Trigger fields
   triggerType?: string;
   cron?: string;
-  // Script node fields
-  scriptFile?: string; // Path to .js, .ts, or .sh file
-  scriptArgs?: string; // Arguments to pass to the script
   // Working directory fields
   path?: string;
   // Component fields
@@ -65,7 +62,6 @@ export interface BaseNodeData extends Record<string, unknown> {
 const nodeIcons: Record<NodeType, string> = {
   agent: '🤖',
   shell: '⌘',
-  script: '📜',
   trigger: '⚡',
   workdir: '📁',
   component: '📦',
@@ -80,7 +76,6 @@ const nodeIcons: Record<NodeType, string> = {
 const nodeLabels: Record<NodeType, string> = {
   agent: 'Agent',
   shell: 'Shell',
-  script: 'Script',
   trigger: 'Trigger',
   workdir: 'Working Dir',
   component: 'Component',
@@ -127,15 +122,15 @@ function getDefaultIO(nodeType: NodeType): { inputs: PortDefinition[]; outputs: 
         { name: 'params', type: 'json', description: 'Optional parameters passed via CLI/UI' }
       ]
     };
-  } else if (nodeType === 'shell' || nodeType === 'script') {
+  } else if (nodeType === 'shell') {
     return {
       inputs: [
         { name: 'input', type: 'any', required: false, description: 'Generic input value' }
       ],
       outputs: [
-        { name: 'stdout', type: 'string', description: 'Standard output from script' },
-        { name: 'stderr', type: 'string', description: 'Standard error from script' },
-        { name: 'exitCode', type: 'number', description: 'Exit code from script' }
+        { name: 'stdout', type: 'string', description: 'Standard output from shell' },
+        { name: 'stderr', type: 'string', description: 'Standard error from shell' },
+        { name: 'exitCode', type: 'number', description: 'Exit code from shell' }
       ]
     };
   } else if (nodeType === 'interface-input') {
@@ -235,13 +230,6 @@ export function BaseNode({ data, selected }: NodeProps) {
         if (hasScript) parts.push('script');
         if (fileCount > 0) parts.push(`${fileCount} file${fileCount > 1 ? 's' : ''}`);
         return parts.length > 0 ? parts.join(', ') : null;
-      }
-      case 'script': {
-        if (nodeData.scriptFile) {
-          const fileName = nodeData.scriptFile.split('/').pop() || nodeData.scriptFile;
-          return fileName;
-        }
-        return null;
       }
       case 'trigger':
         return nodeData.triggerType ? triggerLabels[nodeData.triggerType] || nodeData.triggerType : null;

@@ -88,9 +88,6 @@ The system supports several node types (defined in `packages/core/src/workflow-t
 - **shell**: Executes shell commands or multi-line scripts
   - Supports both `script` (multi-line string) and legacy `commands` (array of commands)
   - Template variables are interpolated before execution
-- **script**: Executes external script files (.ts, .js, .sh)
-  - Uses `scriptFile` for the path and `scriptArgs` for arguments
-  - TypeScript files run with `npx tsx`, JavaScript with `node`, shell scripts with `sh`
 - **agent**: Invokes AI agents via different runners
   - Supported runners: `openai`, `claude-code`, `codex`, `gemini-cli`
   - Configured with `runner`, `model`, and `prompt` fields
