@@ -10,3 +10,4 @@ export * from './function-types.js';
 export * from './execution-types.js';
 export * from './node-defaults.js';
 export * from './validation.js';
+export * from './workflow-interface.js';

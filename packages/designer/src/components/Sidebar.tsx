@@ -335,7 +335,7 @@ export function Sidebar({ onCreateInlineComponent, inlineComponents = {} }: Side
               onDragStart={(e) => onInlineComponentDragStart(e, item.key, inlineComponents[item.key])}
               title={`Inline: ${item.key}`}
             >
-              <div className="palette-icon component">📦</div>
+              <div className="palette-icon component">⬢</div>
               <span className="palette-label">{item.name}</span>
             </div>
           ))}
@@ -348,7 +348,7 @@ export function Sidebar({ onCreateInlineComponent, inlineComponents = {} }: Side
               onDragStart={(e) => onComponentDragStart(e, component)}
               title={component.description || component.name}
             >
-              <div className="palette-icon component">📦</div>
+              <div className="palette-icon component">⬢</div>
               <span className="palette-label">{component.name}</span>
             </div>
           ))}

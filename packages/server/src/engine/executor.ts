@@ -1235,6 +1235,7 @@ async function executeNode(
         componentInlineComponents = options.inlineComponents;
       } else if (workflowPath) {
         // File-based component: load from filesystem
+        // This supports both dedicated component files and nested workflows
         const componentWorkflow = await loadWorkflow(workflowPath, rootDirectory);
         componentNodes = componentWorkflow.nodes.map(n => ({
           id: n.id,
@@ -1258,12 +1259,15 @@ async function executeNode(
       }
 
       // Execute the sub-workflow with our input values as its workflow inputs
+      // For nested workflows, also pass inputs as triggerInputs so trigger nodes
+      // output the component's inputs (triggers define the workflow's interface)
       const subResult = await executeWorkflow(
         componentNodes,
         componentEdges,
         {
           rootDirectory: componentDir,
-          workflowInputs: inputValues,  // Pass our inputs as the sub-workflow's inputs
+          workflowInputs: inputValues,  // For interface-input nodes
+          triggerInputs: inputValues,   // For trigger nodes (nested workflows)
           inlineComponents: componentInlineComponents,
         }
       );
@@ -1279,17 +1283,57 @@ async function executeNode(
         };
       }
 
-      // Extract outputs from the component's interface-output node
-      const interfaceOutputResult = subResult.results.find(
-        r => componentNodes.find(n => n.id === r.nodeId)?.data.nodeType === 'interface-output'
+      // Extract outputs from the component/nested workflow
+      // Priority: 1) interface-output nodes, 2) leaf nodes (nodes with no outgoing edges)
+      const interfaceOutputNodes = componentNodes.filter(
+        n => n.data.nodeType === 'interface-output'
       );
+
+      let componentOutputs: Record<string, unknown> = {};
+
+      if (interfaceOutputNodes.length > 0) {
+        // Use interface-output nodes
+        for (const outNode of interfaceOutputNodes) {
+          const result = subResult.results.find(r => r.nodeId === outNode.id);
+          if (result?.rawOutput) {
+            try {
+              const parsed = JSON.parse(result.rawOutput);
+              Object.assign(componentOutputs, parsed);
+            } catch {
+              // Ignore parse errors
+            }
+          }
+        }
+      } else {
+        // Use leaf nodes (nodes with no outgoing edges, excluding triggers)
+        const sourceNodes = new Set(componentEdges.map(e => e.source));
+        const leafNodes = componentNodes.filter(
+          n => !sourceNodes.has(n.id) && n.data.nodeType !== 'trigger'
+        );
+
+        // Collect outputs from leaf nodes
+        for (const leafNode of leafNodes) {
+          const leafOutputs = subResult.outputs.get(leafNode.id);
+          if (leafOutputs) {
+            // Prefix with node label if multiple leaf nodes
+            const label = (leafNode.data.label as string) || leafNode.id;
+            if (leafNodes.length > 1) {
+              for (const [key, value] of Object.entries(leafOutputs)) {
+                componentOutputs[`${label}_${key}`] = value;
+              }
+            } else {
+              Object.assign(componentOutputs, leafOutputs);
+            }
+          }
+        }
+      }
 
       return {
         nodeId: node.id,
         status: 'completed',
         output: 'Component executed successfully',
-        rawOutput: interfaceOutputResult?.rawOutput || '{}',
-        structuredOutput: interfaceOutputResult?.rawOutput ? JSON.parse(interfaceOutputResult.rawOutput) : undefined,
+        rawOutput: JSON.stringify(componentOutputs),
+        structuredOutput: componentOutputs,
         startTime,
         endTime: new Date().toISOString(),
       };
